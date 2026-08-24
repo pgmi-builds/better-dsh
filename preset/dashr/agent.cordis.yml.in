@@ -1,0 +1,27 @@
+# The `dashr` agent preset — DASHR distro default (the dashr bundle patch
+# points agent-presets at it): the shipped `standard` preset, with the
+# compaction group re-pointed at the settings-driven engine.
+#
+# TEMPLATE: `install.sh` writes the real file from its own inline copy (the
+# curl|bash flow has no repo checkout); this file serves manual installs.
+# Replace `THE_INCLUDE_PATH` with the ABSOLUTE path of the installed dsh's
+# shipped standard preset, e.g.:
+#   <npm-prefix>/lib/node_modules/@deepseek-ai/dsh/config/agent-presets/standard/agent.cordis.yml
+#
+# What changes from `standard`: the default-config `compaction-basic` row is
+# disabled and `dashr-compaction` is inserted into the SAME group — so the
+# group's isolate realm, `/compact`, and the tool-result pruner all stay as
+# upstream ships them, and the one `compaction` service the realm resolves is
+# the upstream `BasicCompactionEngine` mounted with DASHR's tuned defaults
+# (threshold 0.5, retain 0.05, DeepSeek V4 Flash summarizer), overridable per
+# deployment through the `dashr-compaction` settings section.
+- name: '@deepseek-ai/cordis-plugin-include'
+  config:
+    path: THE_INCLUDE_PATH
+    patches:
+      - id: compaction-basic
+        disabled: true
+      - id: compaction
+        insert:
+          - id: dashr-compaction
+            name: '@pgmi-builds/dashr/compaction'

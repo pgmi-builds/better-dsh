@@ -1,7 +1,7 @@
 {
 "name": "@pgmi-builds/dashr",
-"description": "DASHR: a persistent Python-kernel REPL for DeepSeek Harness (dsh) — the `eval` tool with `tool.*` bindings, sub-agents, harness, and snapshots",
-  "version": "0.1.8",
+"description": "DASHR: a persistent Python-kernel REPL for DeepSeek Harness (dsh) — the `eval` tool with `tool.*` bindings, sub-agents, and snapshots",
+  "version": "0.1.9",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -13,6 +13,10 @@
     "./py-sdk": {
       "types": "./lib/py-sdk.d.ts",
       "default": "./lib/py-sdk.js"
+    },
+    "./compaction": {
+      "types": "./lib/compaction.d.ts",
+      "default": "./lib/compaction.js"
     },
     "./cordis.patch.yml": "./cordis.patch.yml",
     "./package.json": "./package.json"
@@ -43,7 +47,8 @@
     "@deepseek-ai/dsh-compaction-basic": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-llm": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-scope": "^0.1.0-rc.6",
-    "@deepseek-ai/dsh-tools": "^0.1.0-rc.6"
+    "@deepseek-ai/dsh-tools": "^0.1.0-rc.6",
+    "@deepseek-ai/dsh-settings": "^0.1.0-rc.6"
   },
   "peerDependenciesMeta": {
     "@deepseek-ai/cordis": {
@@ -56,6 +61,9 @@
       "optional": true
     },
     "@deepseek-ai/dsh-scope": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-settings": {
       "optional": true
     },
     "@deepseek-ai/dsh-tools": {

@@ -15,3 +15,14 @@
       name: '@pgmi-builds/dashr'
       config:
         python: !!js process.env.DASHR_KERNEL_PYTHON ?? 'python3'
+
+# v0.1.8b compaction rework: point NEW sessions at the `dashr` preset, which
+# includes the shipped `standard` preset and swaps its default-config
+# compaction engine for the settings-driven one (threshold 0.5, retain 0.05,
+# DeepSeek V4 Flash summarizer). Patch applied last in bundle order, so it
+# overrides dsh-web-app's `default: standard` wholesale. The preset itself is
+# written by install.sh (its include path is the installed dsh location);
+# sessions already created stay preset-locked and keep their composition.
+- id: agent-presets
+  config:
+    default: dashr

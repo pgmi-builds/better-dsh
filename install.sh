@@ -128,6 +128,50 @@ else
     "$TMP_ROOT/dashr-"*.tgz
 fi
 
+# --------------------------------------- 4.5 preset localization (v0.1.8b)
+step "4.5/5 writing the dashr agent preset (tuned passive compaction)"
+DSH_DIR="$(dirname "$(readlink -f "$DSH")")"
+while [ "$DSH_DIR" != "/" ] && [ "$(basename "$(dirname "$DSH_DIR")")" != "@deepseek-ai" ]; do
+  DSH_DIR="$(dirname "$DSH_DIR")"
+done
+STANDARD_PRESET="$DSH_DIR/config/agent-presets/standard/agent.cordis.yml"
+[ -f "$STANDARD_PRESET" ] || die "cannot locate the shipped standard preset under $DSH_DIR — re-point the dashr preset's include path by hand"
+PRESET_DIR="$DSH_HOME_DIR/.agent-presets/dashr"
+mkdir -p "$PRESET_DIR"
+cat > "$PRESET_DIR/agent.cordis.yml" <<YAML
+# The `dashr` agent preset — DASHR distro default (the dashr bundle patch
+# points agent-presets at it): the shipped `standard` preset, with the
+# compaction group re-pointed at the settings-driven engine.
+#
+# What changes from `standard`: the default-config `compaction-basic` row is
+# disabled and `dashr-compaction` is inserted into the SAME group — so the
+# group's isolate realm, `/compact`, and the tool-result pruner all stay as
+# upstream ships them, and the one `compaction` service the realm resolves is
+# the upstream `BasicCompactionEngine` mounted with DASHR's tuned defaults
+# (threshold 0.5, retain 0.05, DeepSeek V4 Flash summarizer), overridable per
+# deployment through the `dashr-compaction` settings section.
+#
+# The include path is the LITERAL absolute path of the installed dsh's
+# shipped standard preset; re-running this installer rewrites it, and a dsh
+# reinstall at another location needs the same.
+- name: '@deepseek-ai/cordis-plugin-include'
+  config:
+    path: $STANDARD_PRESET
+    patches:
+      - id: compaction-basic
+        disabled: true
+      - id: compaction
+        insert:
+          - id: dashr-compaction
+            name: '@pgmi-builds/dashr/compaction'
+YAML
+cat > "$PRESET_DIR/preset.yml" <<YAML
+# Display metadata for the dashr preset. The id is the directory name
+# (`dashr`); this file carries display text ONLY.
+name: DASHR (调优压缩)
+description: 'DASHR 默认预设：官方 standard 之上启用调优被动压缩（阈值 0.5 / 保留 0.05 / DeepSeek V4 Flash 摘要），参数在 settings 的 dashr-compaction 节可调（重启生效）。'
+YAML
+info "preset written: $PRESET_DIR (the dashr bundle patch makes it the new-session default)"
 # ------------------------------------------------------------- restart note
 if pgrep -f "[d]sh .* --port\|[d]sh web" >/dev/null 2>&1 || systemctl --user is-active --quiet dsh.service 2>/dev/null; then
   step "a running dsh instance was detected — restart it to load the dashr bundle"
@@ -141,3 +185,4 @@ if [ -n "$KERNEL_PY" ] && [ "$KERNEL_PY" != "$(command -v python3)" ]; then
 elif [ -z "$KERNEL_PY" ]; then
   info "kernel python: managed by the runtime (a venv under the dashr package, provisioned on first use)"
 fi
+

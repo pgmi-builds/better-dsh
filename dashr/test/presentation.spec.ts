@@ -78,8 +78,11 @@ describe('assembly — the DASHR row collapses its scope, and only its scope', (
     expect(text).not.toContain('report tool')
     // The catalog renders the bridge tools as ordinary async-def
     // declarations — one flat surface, no separate bridge-tools block.
+    // v0.1.8b: the removed refine/compact bridges are GONE from the catalog;
+    // send_message is the only remaining bridge tool.
     const catalog = String(assembly.sections.find(section => section.name === 'dashr:tool-catalog')?.text)
-    expect(catalog).toContain('tool.refine(')
+    expect(catalog).not.toContain('tool.refine(')
+    expect(catalog).not.toContain('tool.compact(')
     expect(catalog).toContain('tool.send_message(')
   })
 

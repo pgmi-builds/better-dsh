@@ -14,20 +14,28 @@
  * (blueprint §7.4) — the `eval` transport tool, the generated Tool
  * Catalog prompt section, the model-direct-call collapse, the tool→binding
  * bridge that binds the registry's agent-visible tools as `await tool.name(args)`
- * members (v0.1.5 Q8: one `tool` holder, no flat globals), the displaced
- * `send_message` bridge (ADR-0001: the single dual-direction A2A channel),
- * the Continual Harness (`refine`), and the compaction surface (`compact`).
+ * members (v0.1.5 Q8: one `tool` holder, no flat globals), and the displaced
+ * `send_message` bridge (ADR-0001: the single dual-direction A2A channel).
+ * The Continual Harness (`refine`) and the compaction bridge (`compact`)
+ * were removed in v0.1.8b — harness/refine became third-party territory, and
+ * context compaction is the host runtime's business, not the REPL's.
+ *
+ * The one thing this row still owns on the compaction front is the
+ * `dashr-compaction` SETTINGS section: it registers the tuned
+ * passive-compaction knobs (threshold 0.5, retain 0.05, DeepSeek V4 Flash
+ * summarizer) on the host plane, and the preset-local `./compaction` row
+ * reads them when it mounts the upstream `BasicCompactionEngine` per agent.
  *
  * The presentation row registers against the harness tool registry the way
  * any dsh tool row must (shape-mirroring `dsh-agent-tool-presentation` and
  * the code-mode half of `dsh-tools`, 0.1.0-rc.6), but it re-points execution
  * at our own `ctx.replRuntime` (the harness's runtime seam, vendored from
  * `@deepseek-ai/dsh-code-runtime` in `src/vendored/rlm-runtime.ts` as an
- * interface only): the host registry stays untouched, and this row composes
- * per scope — a DASHR preset mounts it in its standing scope, so every agent
- * joined under that preset gets the cell surface while PTC / native presets
- * in the SAME process keep their own presentation. One row per composition,
- * not one per session. The seam is transport only: the KERNEL semantics —
+ * interface only): the host registry stays untouched. The bundle patch
+ * mounts this row on the HOST plane, so every agent in every preset gets
+ * the cell surface (scoping, where wanted, is a PTC preset's own
+ * `tools:code-only` rule). One row per composition, not one per session.
+ * The seam is transport only: the KERNEL semantics —
  * resident IPython REPL, context as variables, last-expression completion —
  * are ours, not the upstream code mode's.
  *
@@ -77,11 +85,10 @@ import type {
 } from '@deepseek-ai/dsh-tools'
 // Type-only: brings the `ctx.tools` Context merge into this program.
 import type {} from '@deepseek-ai/dsh-tools'
-import { BlockAssembler, CallId, HarnessError, createUserMessage } from '@deepseek-ai/dsh-llm'
-import type { ContentBlock, GenerateOptions, StreamChunk } from '@deepseek-ai/dsh-llm'
+import { CallId, HarnessError } from '@deepseek-ai/dsh-llm'
+import type { ContentBlock } from '@deepseek-ai/dsh-llm'
 import { scopeTarget } from '@deepseek-ai/dsh-scope'
 import type { ScopeKey } from '@deepseek-ai/dsh-scope'
-import type { Agent } from '@deepseek-ai/dsh-agent'
 // Type-only: brings the `ctx.systemPrompt` Context merge and the
 // `system-prompt/assemble` event typing into this program.
 import type {} from '@deepseek-ai/dsh-system-prompt'
@@ -100,23 +107,14 @@ import type { DASHRSdkSchema } from './py-sdk.ts'
 import { snapshotJsonValue } from './snapshot-json.ts'
 import type { JsonValue } from './snapshot-json.ts'
 import type { DASHRSubagentsSurface } from './subagents-surface.ts'
-import { HarnessStore, renderHarnessSection } from './harness-store.ts'
-import type { HarnessApplyReport, HarnessOp } from './harness-store.ts'
-import { REFINE_MAX_TOKENS, REFINE_SYSTEM, buildRefineMessages, parseRefineAnswer, resolveRefineTarget } from './refine.ts'
-import type { RefineTarget } from './refine.ts'
-import type { DASHRCompactionResult, DASHRCompactionSurface, DASHRTokenMeterSurface } from './compaction-surface.ts'
+import { DASHR_COMPACTION_DEFAULTS, DASHR_COMPACTION_NS, DASHR_COMPACTION_SCHEMA, resolveCompactionConfig } from './compaction-shared.ts'
+import type { DashrCompactionConfig } from './compaction-shared.ts'
 import { readFileSync } from 'node:fs'
 
 /** The control prompt text, loaded at module time from the sibling markdown file (editable without touching TS). */
 const CONTROL_PROMPT_TEXT = readFileSync(new URL('../control-prompt.md', import.meta.url), 'utf8')
 
-// Public surface for the harness/refine/compact machinery (consumers and
-// tests construct stores and inspect routes independently of the bridge).
-export { HarnessStore, HARNESS_KINDS, HARNESS_LIMITS, renderHarnessSection } from './harness-store.ts'
-export type { HarnessApplyReport, HarnessEntry, HarnessKind, HarnessOp } from './harness-store.ts'
-export { REFINE_MAX_TOKENS, REFINE_SYSTEM, buildRefineMessages, parseRefineAnswer, resolveRefineTarget } from './refine.ts'
-export type { RefineTarget } from './refine.ts'
-export type { DASHRCompactionResult, DASHRCompactionSurface, DASHRTokenMeterSurface } from './compaction-surface.ts'
+
 
 /** Cordis plugin name. */
 export const name = 'dashr-repl'
@@ -130,68 +128,7 @@ export const inject = ['tools']
 
 /** Plugin config. */
 export interface Config extends RuntimeConfig {
-  /**
-   * Concurrency cap for one cell's overlapping sub-calls (default 10, the
-   * native loop scheduler's own default). Sub-calls follow the registry's
-   * native scheduling contract — only tools that classify concurrency-safe
-   * overlap; exclusive calls form barriers — so `1` restores strictly serial
-   * dispatch. Must be a positive integer.
-   */
   maxParallelSubCalls?: number
-  /**
-   * Root directory for the Continual Harness store (M4-B, blueprint §6):
-   * one JSON file per agent under `<harnessDir>/<agent>/harness.json`,
-   * written atomically and restored by the next composition that serves the
-   * same agent id. Absent (the default) = memory-only — the harness lives
-   * and dies with the composition, exactly the opt-in posture `snapshotDir`
-   * takes on the runtime side; a silent default location would persistently
-   * alter future prompts without an explicit deployment decision. Must be a
-   * non-empty string when set.
-   */
-  harnessDir?: string
-  /**
-   * The model route for refine()'s auxiliary call (M4-B): `'provider/model'`
-   * selects explicitly, a bare model id pairs with the calling agent's own
-   * provider, and absence falls back to the agent's own provider+model —
-   * refinement writes DURABLE prompt state, so the default is the agent's
-   * own model, never a guessed auxiliary one. Must be a non-empty string
-   * when set.
-   */
-  refineModel?: string
-  /**
-   * The summarization model for compact() (M4-B): when set, a DASHR-scoped
-   * `BasicCompactionEngine` is mounted under `ctx.isolate('compaction')`
-   * with this route (so a host-level engine stays untouched and the scoped
-   * one resolves only inside this composition). `'provider/model'` selects
-   * explicitly; a bare model id pairs with the first calling agent's
-   * provider. Absent = inherit the host-mounted engine and its model chain
-   * (configured ?? latest-request ?? agent). Must be a non-empty string
-   * when set.
-   */
-  compactModel?: string
-  /**
-   * The Context Recency Window (Feature 1): an absolute token ceiling for
-   * the passive pressure compaction. When set, a `RecencyAwareCompactionEngine`
-   * (a `BasicCompactionEngine` subclass) mounts under `ctx.isolate('compaction')`
-   * with `auto: true` — its `agent/pre-step` check compacts whenever the
-   * session's measured pressure exceeds this value, regardless of how much
-   * headroom the model's own context window still has. The upstream
-   * ratio threshold (0.8 × model window) stays active as a second,
-   * independent trigger arm: whichever ceiling is lower fires first.
-   * Requires `compactModel` in the full `'provider/model'` form (the
-   * engine mounts before any agent exists to pair a bare model id) and an
-   * absolute `retainTokens`. Must be a positive integer when set; absent =
-   * upstream behavior only.
-   */
-  recencyWindowTokens?: number
-  /**
-   * The absolute post-compaction retained tail, in tokens, for the recency
-   * engine (upstream's own `retainTokens` key passed through). Kept below
-   * `recencyWindowTokens` — the invariant the engine machine-checks at
-   * mount. Only meaningful with `recencyWindowTokens`; must be a positive
-   * integer when set.
-   */
-  retainTokens?: number
 }
 
 /** Runtime schema. */
@@ -199,20 +136,10 @@ export const Config: z<Config> = z.intersect([
   DashrRuntime.Config,
   z.object({
     maxParallelSubCalls: z.natural().min(1).default(10),
-    harnessDir: z.string(),
-    refineModel: z.string(),
-    compactModel: z.string(),
-    recencyWindowTokens: z.natural().min(1),
-    retainTokens: z.natural().min(1),
   }),
 ])
 
-/**
- * The `dashr:harness` section order: the first section after the 100–199
- * tool-guidance band (upstream's stated convention), where the Continual
- * Harness renders as durable guidance the model reads after its tools.
- */
-export const HARNESS_SECTION_ORDER = 200
+
 
 /** The model-facing name of the DASHR cell transport. */
 export const EVAL_NAME = 'eval'
@@ -273,32 +200,6 @@ const BRIDGE_TOOL_SCHEMAS: DASHRSdkSchema[] = [
         subagent_id: { type: 'string', description: "The child's durable id (required when receiver is 'child')." },
       },
       required: ['receiver', 'message'],
-      additionalProperties: false,
-    },
-    output: { type: 'object', properties: {}, additionalProperties: true },
-  },
-  {
-    name: 'refine',
-    description: 'Apply Continual Harness edits (add/update/delete durable notes, memories, skills).',
-    parameters: {
-      type: 'object',
-      properties: {
-        instruction: { type: 'string', description: 'The harness edit instruction.' },
-      },
-      required: ['instruction'],
-      additionalProperties: false,
-    },
-    output: { type: 'object', properties: {}, additionalProperties: true },
-  },
-  {
-    name: 'compact',
-    description: 'Check context usage and compact the conversation.',
-    parameters: {
-      type: 'object',
-      properties: {
-        reason: { type: 'string', description: 'Optional reason for compacting.' },
-      },
-      required: [],
       additionalProperties: false,
     },
     output: { type: 'object', properties: {}, additionalProperties: true },
@@ -423,14 +324,14 @@ function flatToolArgs(rawArgs: unknown): unknown {
  * Unwrap one bridge-tool {@link parseReplCall} packaging into its single
  * arguments object. Same one-object contract as {@link flatToolArgs}, but
  * bridge tools return a structured `{ error }` value instead of throwing, and
- * a call with no arguments reads as an empty object (compact() is
- * all-optional). Keyword and multi-positional forms are rejected.
+ * a call with no arguments reads as an empty object. Keyword and
+ * multi-positional forms are rejected.
  */
 function flatBridgeToolArgs(rawArgs: unknown): { ok: true, args: Record<string, unknown> } | { ok: false, error: string } {
   // The `tool.*` member proxy sends the single positional arguments object
   // DIRECTLY (no {args, kwargs} wrapper — that was the flat bare-callable
-  // shape). No arguments reads as an empty object (compact() is all-optional);
-  // a multi-positional list or a bare value is rejected.
+  // shape). No arguments reads as an empty object; a multi-positional list
+  // or a bare value is rejected.
   if (rawArgs === undefined || rawArgs === null) return { ok: true, args: {} }
   if (Array.isArray(rawArgs)) {
     return { ok: false, error: 'tools take exactly one positional arguments object — call e.g. tool.name({"field": value})' }
@@ -448,55 +349,6 @@ export function resolveMaxParallelSubCalls(value: number | undefined): number {
     throw new Error('dashr-repl: maxParallelSubCalls must be a positive integer')
   }
   return maxParallelSubCalls
-}
-
-/**
- * Resolve the harness storage root at the config boundary. `undefined` is
- * the legitimate memory-only default; the empty string is a typo of "unset"
- * in a YAML row, not a directory any process should write to.
- */
-export function resolveHarnessDir(value: string | undefined): string | undefined {
-  if (value === undefined) return undefined
-  if (typeof value !== 'string' || value.length === 0) {
-    throw new Error(`dashr-repl: harnessDir must be a non-empty string when set, got ${JSON.stringify(value)}`)
-  }
-  return value
-}
-
-/** Resolve the refine() model tier at the config boundary (same empty-string rejection as {@link resolveHarnessDir}). */
-export function resolveRefineModel(value: string | undefined): string | undefined {
-  if (value === undefined) return undefined
-  if (typeof value !== 'string' || value.length === 0) {
-    throw new Error(`dashr-repl: refineModel must be a non-empty string when set, got ${JSON.stringify(value)}`)
-  }
-  return value
-}
-
-/** Resolve the compact() model tier at the config boundary (same empty-string rejection as {@link resolveHarnessDir}). */
-export function resolveCompactModel(value: string | undefined): string | undefined {
-  if (value === undefined) return undefined
-  if (typeof value !== 'string' || value.length === 0) {
-    throw new Error(`dashr-repl: compactModel must be a non-empty string when set, got ${JSON.stringify(value)}`)
-  }
-  return value
-}
-
-/** Resolve the Context Recency Window at the config boundary (positive integer or absent). */
-export function resolveRecencyWindowTokens(value: number | undefined): number | undefined {
-  if (value === undefined) return undefined
-  if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) {
-    throw new Error(`dashr-repl: recencyWindowTokens must be a positive integer when set, got ${JSON.stringify(value)}`)
-  }
-  return value
-}
-
-/** Resolve the recency engine's retained tail at the config boundary (positive integer or absent). */
-export function resolveRetainTokens(value: number | undefined): number | undefined {
-  if (value === undefined) return undefined
-  if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) {
-    throw new Error(`dashr-repl: retainTokens must be a positive integer when set, got ${JSON.stringify(value)}`)
-  }
-  return value
 }
 
 /** Two-space JSON presentation, matching the shallow `eval` text contract (ported). */
@@ -614,63 +466,6 @@ export interface RunCellBridgeOptions {
    * structured "unavailable" error, never a crash.
    */
   requireSubagents?: () => DASHRSubagentsSurface | undefined
-  /**
-   * The Continual Harness store shared by every `eval` call AND the
-   * `dashr:harness` prompt section in this composition (M4-B): refine()
-   * edits it, the next assembly re-renders from it. Omitted (direct
-   * construction, tests) falls back to a per-call memory-only store, which
-   * still serves refine() inside ONE cell.
-   */
-  harness?: HarnessStore
-  /**
-   * The refine() model tier: `'provider/model'`, a bare model id, or absent
-   * for the agent's own route (validated at the config boundary).
-   */
-  refineModel?: string
-  /**
-   * The compact() model tier (validated at the config boundary). When set,
-   * {@link scopedCompaction} must also be wired — apply() derives it from
-   * this same key.
-   */
-  compactModel?: string
-  /**
-   * Resolves the host-plane `ctx.llm` service refine()'s auxiliary call
-   * streams through. Read at call time so a host adapter mounted later still
-   * becomes visible; absent means refine() answers with a structured
-   * "unavailable" error, never a crash.
-   */
-  requireLlm?: () => LlmStreamSurface | undefined
-  /**
-   * Resolves the host-plane `ctx.compaction` engine compact() inherits when
-   * no {@link compactModel} is configured. Absent (or an engine-less host)
-   * means compact() answers with a structured "unavailable" error.
-   */
-  requireCompaction?: () => DASHRCompactionSurface | undefined
-  /**
-   * Resolves the optional host-plane `ctx.tokenMeter` for compact()'s usage
-   * probe (the "check usage" half of the PA semantics). Absent simply omits
-   * the `context_tokens` field from the result.
-   */
-  requireTokenMeter?: () => DASHRTokenMeterSurface | undefined
-  /**
-   * Lazily mounts and returns the DASHR-scoped compaction engine when
-   * `compactModel` is configured (design A). Wired by {@link apply}; the
-   * bare-model form resolves its provider from the FIRST calling agent
-   * (documented semantics). Returns a structured error string when the
-   * scoped engine cannot be mounted.
-   */
-  scopedCompaction?: (agent: Agent) => Promise<ScopedCompactionOutcome>
-}
-
-/** The outcome of the lazy scoped-engine mount. */
-export type ScopedCompactionOutcome =
-  | { engine: DASHRCompactionSurface; target: RefineTarget }
-  | { error: string }
-
-/** The `ctx.llm` surface refine() streams through (the seam's streaming call alone). */
-export interface LlmStreamSurface {
-  /** Stream one model call as raw chunks; failures arrive as terminal `finish` chunks, not rejections. */
-  stream(options: GenerateOptions): AsyncIterable<StreamChunk>
 }
 
 /**
@@ -688,13 +483,6 @@ export interface LlmStreamSurface {
  */
 export function createRunCellTool(registry: ToolRuntime, options: RunCellBridgeOptions): ToolDefinition {
   const { requireRuntime, maxParallel, shapeDispatchLog, requireSubagents } = options
-  const harness = options.harness ?? new HarnessStore()
-  const refineModel = options.refineModel
-  const compactModel = options.compactModel
-  const requireLlm = options.requireLlm
-  const requireCompaction = options.requireCompaction
-  const requireTokenMeter = options.requireTokenMeter
-  const scopedCompaction = options.compactModel !== undefined ? options.scopedCompaction : undefined
   return defineTool({
     name: EVAL_NAME,
     description: EVAL_DESCRIPTION,
@@ -1031,153 +819,6 @@ export function createRunCellTool(registry: ToolRuntime, options: RunCellBridgeO
         return { error: `send_message() unknown receiver ${JSON.stringify(receiver)}: expected 'child' or 'parent'` }
       }
 
-      // refine() bare callable global (M4-B, blueprint §6): one in-cell
-      // instruction → one hand-built auxiliary LLM call → Continual Harness
-      // ops. Awaiting it inside the cell blocks that cell until the call
-      // settles (under the kernel run's own wall budget); the NEXT system
-      // prompt assembly re-renders the harness from the store, so the edit
-      // is visible to the next model request — prompt-as-variable. Errors are
-      // structured JSON fields; a parse failure leaves the store untouched.
-      const refineCallable: ReplBindingFunction = async (rawArgs: unknown): Promise<ReplJsonValue> => {
-        const parsed = flatBridgeToolArgs(rawArgs)
-        if (!parsed.ok) return { error: parsed.error }
-        const unknownKeys = Object.keys(parsed.args).filter(key => key !== 'instruction')
-        if (unknownKeys.length > 0) return { error: `refine() got unexpected key(s): ${unknownKeys.join(', ')}` }
-        const instruction = parsed.args['instruction']
-        if (typeof instruction !== 'string' || instruction.trim().length === 0) {
-          return { error: 'refine() requires {"instruction": "..."} (a non-empty string)' }
-        }
-        if (!exec.agent) {
-          return { error: 'refine() requires an agent session (the harness is per-agent; this run has no parent agent)' }
-        }
-        const llm = requireLlm?.()
-        if (!llm) {
-          return { error: 'refine() is unavailable: no ctx.llm service is mounted in this composition' }
-        }
-        const target = resolveRefineTarget(refineModel, exec.agent)
-        if ('error' in target) return { error: `refine() model route unresolved: ${target.error}` }
-        const entries = harness.list(exec.agent.id)
-        const options: GenerateOptions = {
-          provider: target.provider,
-          model: target.model,
-          messages: buildRefineMessages(entries, instruction),
-          system: REFINE_SYSTEM,
-          maxTokens: REFINE_MAX_TOKENS,
-          signal: exec.signal,
-          sessionId: exec.agent.session.id,
-        }
-        // A hand-built one-shot: no markAgentLoopRequest identity (that
-        // belongs to loop-built requests), so llm/stream listeners see an
-        // ordinary plugin-authored call whose content is NOT a pure function
-        // of the session log.
-        let answer: string
-        try {
-          const assembler = new BlockAssembler()
-          for await (const chunk of llm.stream(options)) assembler.push(chunk)
-          const finish = assembler.finish
-          if (finish.kind === 'error' || finish.kind === 'aborted') {
-            return { error: `refine() model call ${finish.kind}: ${finish.failure.message}` }
-          }
-          if (finish.kind === 'max-tokens') {
-            return { error: 'refine() model call hit its token cap before emitting a complete ops array' }
-          }
-          answer = assembler.blocks().filter((block): block is Extract<ContentBlock, { type: 'text' }> => block.type === 'text').map(block => block.text).join('\n')
-        } catch (error: unknown) {
-          return { error: `refine() model call failed: ${error instanceof Error ? error.message : String(error)}` }
-        }
-        let ops: HarnessOp[] | undefined
-        try {
-          ops = parseRefineAnswer(answer)
-        } catch (error: unknown) {
-          return { error: `refine() rejected the model's ops (store untouched): ${error instanceof Error ? error.message : String(error)}` }
-        }
-        if (ops === undefined) {
-          return { error: `refine() could not parse a JSON ops array from the model answer (store untouched): ${answer.slice(0, 160)}` }
-        }
-        let report: HarnessApplyReport
-        try {
-          report = await harness.applyOps(exec.agent.id, ops)
-        } catch (error: unknown) {
-          return { error: `refine() ops rejected (store untouched): ${error instanceof Error ? error.message : String(error)}` }
-        }
-        return {
-          refined: true,
-          applied: report.applied,
-          entries_before: report.before,
-          entries_after: report.after,
-          model: { provider: target.provider, model: target.model },
-        }
-      }
-
-      // compact() bare callable global (M4-B): the PA "check usage →
-      // summarize → keep working" semantics over the host compaction seam.
-      // The seam's compactNow requires an IDLE agent — an in-cell call runs
-      // inside a live agent turn, so it answers 'busy' there and the ladder
-      // falls through to compactIfNeeded('pressure'), the same policy entry
-      // the engine itself runs between steps: below threshold it is an
-      // honest no-op, above it the range is summarized NOW and the model's
-      // next request in the SAME turn already rides the compacted history.
-      const compactCallable: ReplBindingFunction = async (rawArgs: unknown): Promise<ReplJsonValue> => {
-        const parsed = flatBridgeToolArgs(rawArgs)
-        if (!parsed.ok) return { error: parsed.error }
-        const unknownKeys = Object.keys(parsed.args).filter(key => key !== 'reason')
-        if (unknownKeys.length > 0) return { error: `compact() got unexpected key(s): ${unknownKeys.join(', ')}` }
-        if (!exec.agent) {
-          return { error: 'compact() requires an agent session (this run has no parent agent)' }
-        }
-        const agent = exec.agent
-        const result: Record<string, ReplJsonValue> = {}
-        const meter = requireTokenMeter?.()
-        if (meter !== undefined) {
-          try {
-            result['context_tokens'] = meter.measure(agent.session).totalTokens
-          } catch {
-            // The probe is advisory; a failing meter must not mask compaction.
-          }
-        }
-        let engine: DASHRCompactionSurface | undefined
-        if (scopedCompaction !== undefined) {
-          const scoped = await scopedCompaction(agent)
-          if ('error' in scoped) {
-            return { ...result, error: scoped.error }
-          }
-          engine = scoped.engine
-          result['compact_model'] = { provider: scoped.target.provider, model: scoped.target.model }
-        } else {
-          engine = requireCompaction?.()
-          if (engine === undefined) {
-            return { ...result, error: 'compact() is unavailable: no ctx.compaction engine is mounted in this composition (and no compactModel is configured to mount a DASHR-scoped one)' }
-          }
-          result['compact_model'] = null
-        }
-        const summarize = (path: 'compact-now' | 'pressure', outcome: DASHRCompactionResult | null): ReplJsonValue => {
-          if (outcome === null) {
-            return { ...result, status: 'no-op', path }
-          }
-          return {
-            ...result,
-            status: 'compacted',
-            path,
-            compaction_id: typeof outcome.compactionId === 'number' ? outcome.compactionId : String(outcome.compactionId),
-            summary_seq: outcome.summarySeq,
-            shadowed_items: outcome.shadowedSeqs.length,
-            shadowed_tokens: outcome.shadowedTokenCount,
-          }
-        }
-        try {
-          return summarize('compact-now', await engine.compactNow(agent, exec.signal))
-        } catch (error: unknown) {
-          if ((error as { code?: unknown }).code !== 'busy') {
-            return { ...result, error: `compact() failed: ${error instanceof Error ? error.message : String(error)}` }
-          }
-        }
-        try {
-          return summarize('pressure', await engine.compactIfNeeded(agent, 'pressure', exec.signal))
-        } catch (error: unknown) {
-          return { ...result, error: `compact() pressure compaction failed: ${error instanceof Error ? error.message : String(error)}` }
-        }
-      }
-
       try {
         let result: ReplRunResult
         try {
@@ -1189,8 +830,6 @@ export function createRunCellTool(registry: ToolRuntime, options: RunCellBridgeO
                 functions: {
                   ...toolFunctions,
                   send_message: sendMessageCallable,
-                  refine: refineCallable,
-                  compact: compactCallable,
                 },
                 errorClass: TOOL_CALL_ERROR_CLASS,
               },
@@ -1309,26 +948,23 @@ export function apply(ctx: Context, config: Config): void {
   ctx.plugin(DashrRuntime, pickRuntimeConfig(config))
   const logger = ctx.logger('dashr-repl')
   const maxParallel = resolveMaxParallelSubCalls(config.maxParallelSubCalls)
-  const harnessDir = resolveHarnessDir(config.harnessDir)
-  const refineModel = resolveRefineModel(config.refineModel)
-  const compactModel = resolveCompactModel(config.compactModel)
-  const recencyWindowTokens = resolveRecencyWindowTokens(config.recencyWindowTokens)
-  const retainTokens = resolveRetainTokens(config.retainTokens)
-  // The recency engine mounts EAGERLY (its pre-step listener must exist
-  // before any session runs), so its summarizer route cannot pair a bare
-  // model id with "the first calling agent" — the full form is required,
-  // and the engine's selector needs an absolute tail to price.
-  if (recencyWindowTokens !== undefined) {
-    if (compactModel === undefined) {
-      throw new Error('dashr-repl: recencyWindowTokens requires compactModel — the recency engine summarizes with it and mounts before any agent exists to inherit a route from')
+  // The `dashr-compaction` settings section (v0.1.8b compaction rework):
+  // registered ONCE here at the host plane, read by the preset-local
+  // `./compaction` rows that mount the upstream engine per agent. `applies:
+  // 'restart'` matches the engine's freeze-at-construction config — an edit
+  // lands on the next agent mount, never mid-session. A composition without
+  // a settings provider never registers; the realm rows then fall back to
+  // their row config and the shared defaults.
+  ctx.inject(['settings'], (settingsCtx: Context) => {
+    const settings = settingsCtx.get('settings') as {
+      register(ns: string, schema: unknown, options: { base?: unknown, applies?: string, validate?: (value: unknown) => void }): unknown
     }
-    if (!compactModel.includes('/')) {
-      throw new Error(`dashr-repl: recencyWindowTokens requires the full "provider/model" compactModel form (bare model ids pair with the first calling agent, which does not exist at eager mount); got ${JSON.stringify(compactModel)}`)
-    }
-    if (retainTokens === undefined) {
-      throw new Error('dashr-repl: recencyWindowTokens requires retainTokens — the recency selector prices a concrete post-compaction tail')
-    }
-  }
+    settings.register(DASHR_COMPACTION_NS, DASHR_COMPACTION_SCHEMA, {
+      base: DASHR_COMPACTION_DEFAULTS,
+      applies: 'restart',
+      validate: value => resolveCompactionConfig(undefined, value as DashrCompactionConfig),
+    })
+  })
 
   // The wait is the loud failure: a preset row still pending on `replRuntime`
   // is what the preset mount audit reports as an unusable row, naming this
@@ -1376,137 +1012,11 @@ export function apply(ctx: Context, config: Config): void {
         return dispatch.content
       }
     }
-
-    // The Continual Harness store (M4-B), shared by every eval call AND
-    // the dashr:harness prompt section in this composition. `agent/disposed`
-    // drops one agent's in-memory cache only — with a harnessDir configured
-    // the FILE persists by design, so the agent's next session restores its
-    // entries (that is what "continual" means here).
-    const harness = new HarnessStore(harnessDir)
-
-    // Child lifecycle is the harness's job (plan Q16): no live-run registry
-    // here anymore — the tool layer owns admission and the parent's teardown
-    // drains continuable descendants. The per-session cleanup that remains
-    // is the harness store's in-memory cache (files persist by design).
-    runtimeCtx.events.on('agent/disposed', (payload: unknown) => {
-      const principal = (payload as { agent?: { id?: unknown } } | null)?.agent?.id
-      if (typeof principal === 'string' && principal.length > 0) {
-        harness.drop(principal)
-      }
-    })
-
-    // The compactModel tier's DASHR-scoped engine (design A), and Feature 1's
-    // Context Recency Window engine: an isolation-labelled child context —
-    // `ctx.isolate('compaction')` — so the provide can never collide with a
-    // host-level engine (cordis keys service registration by isolation
-    // label; a same-label provide throws), and the scoped instance never
-    // resolves outside this composition. Both share ONE engineScope and ONE
-    // mount promise: the recency engine mounts EAGERLY (its pre-step
-    // listener must exist before any session runs), and the design-A lazy
-    // path reuses it when it is already there.
-    //
-    // Engine choice:
-    //  - `recencyWindowTokens` set → `RecencyAwareCompactionEngine` with
-    //    `auto: true` + the absolute `retainTokens` tail. Its pre-step check
-    //    adds the recency arm to the host engine's own ratio arm; the first
-    //    compaction drops the measurement under both thresholds, so the
-    //    host engine's listener no-ops — the min() semantics fall out of
-    //    the two sequential checks, no coordination needed.
-    //  - design A only → upstream `BasicCompactionEngine` with `auto: false`
-    //    (the host engine keeps the automatic listeners; the scoped engine
-    //    serves explicit compact() calls), mounted lazily on the FIRST
-    //    compact() call because the bare-model form needs a provider then
-    //    (the first calling agent's).
-    // Both branches keep the optional peer unloaded until needed: the
-    // recency engine lives in its own module that is only dynamically
-    // imported here.
-    const engineScope = runtimeCtx.isolate('compaction')
-    let engineMount: Promise<ScopedCompactionOutcome> | undefined
-    // The eager recency mount (validated above: full provider/model form).
-    if (recencyWindowTokens !== undefined && compactModel !== undefined && retainTokens !== undefined) {
-      const slash = compactModel.indexOf('/')
-      const provider = compactModel.slice(0, slash)
-      const model = compactModel.slice(slash + 1)
-      engineMount = (async (): Promise<ScopedCompactionOutcome> => {
-        try {
-          const { RecencyAwareCompactionEngine } = await import('./compaction/recency-engine.js')
-          const fiber = engineScope.plugin(RecencyAwareCompactionEngine, {
-            summarizationProvider: provider,
-            summarizationModel: model,
-            retainTokens,
-            recencyWindowTokens,
-            auto: true,
-          })
-          await fiber
-          const engine = engineScope.get('compaction') as DASHRCompactionSurface | undefined
-          if (engine === undefined) {
-            return { error: 'recencyWindowTokens is set but the recency engine did not become available: the host composition must provide llm, tokenMeter, and sessions for it to load' }
-          }
-          logger.info('dashr-repl: recency engine mounted (ceiling %d tokens, tail %d tokens, summarizer %s/%s)', recencyWindowTokens, retainTokens, provider, model)
-          return { engine, target: { provider, model } }
-        } catch (error: unknown) {
-          return { error: `recencyWindowTokens is set but the recency engine could not be mounted: ${error instanceof Error ? error.message : String(error)} (is the optional peer @deepseek-ai/dsh-compaction-basic installed next to dashr-repl?)` }
-        }
-      })().then((outcome) => {
-        if ('error' in outcome) logger.warn(outcome.error)
-        return outcome
-      })
-    }
-    const scopedCompaction = compactModel === undefined ? undefined : (() => {
-      return (agent: Agent): Promise<ScopedCompactionOutcome> => {
-        const slash = compactModel.indexOf('/')
-        const provider = slash >= 0
-          ? compactModel.slice(0, slash)
-          : (typeof agent.options?.provider === 'string' && agent.options.provider.length > 0 ? agent.options.provider : undefined)
-        const model = slash >= 0 ? compactModel.slice(slash + 1) : compactModel
-        if (slash >= 0 && (provider?.length === 0 || model.length === 0)) {
-          return Promise.resolve({ error: `compactModel ${JSON.stringify(compactModel)} has an empty provider or model half; use the full "provider/model" form` })
-        }
-        if (provider === undefined) {
-          return Promise.resolve({ error: `compactModel ${JSON.stringify(compactModel)} is a bare model id and this agent has no provider to pair it with; use the "provider/model" form or configure the agent's provider` })
-        }
-        engineMount ??= (async (): Promise<ScopedCompactionOutcome> => {
-          // The eager recency mount may have completed between checks.
-          const existing = engineScope.get('compaction') as DASHRCompactionSurface | undefined
-          if (existing !== undefined) {
-            return { engine: existing, target: { provider, model } }
-          }
-          try {
-            const { BasicCompactionEngine } = await import('@deepseek-ai/dsh-compaction-basic')
-            // A proper plugin fiber, NOT a bare constructor call: the class's
-            // static inject (llm/tokenMeter/sessions) is what lets its OWN
-            // `this.ctx.tokenMeter` property reads resolve — a directly
-            // constructed instance has no fiber, so those reads would demand
-            // host services on ANCESTOR fibers (root children never qualify).
-            // The fiber also stays PENDING (loudly, via the error below)
-            // while a host singleton is missing.
-            const fiber = engineScope.plugin(BasicCompactionEngine, {
-              summarizationProvider: provider,
-              summarizationModel: model,
-              auto: false,
-            })
-            await fiber
-            const engine = engineScope.get('compaction') as DASHRCompactionSurface | undefined
-            if (engine === undefined) {
-              return { error: 'compactModel is set but the DASHR-scoped compaction engine did not become available: the host composition must provide llm, tokenMeter, and sessions for it to load' }
-            }
-            return { engine, target: { provider, model } }
-          } catch (error: unknown) {
-            return { error: `compactModel is set but the DASHR-scoped compaction engine could not be mounted: ${error instanceof Error ? error.message : String(error)} (is the optional peer @deepseek-ai/dsh-compaction-basic installed next to dashr-repl?)` }
-          }
-        })()
-        return engineMount
-      }
-    })()
-
     // ① The transport tool, an ordinary scoped registration (module doc
     // records the reservation delta). Registered through the injected
     // runtime context so the tool's lifetime follows the runtime service's.
     const requireSubagents = (): DASHRSubagentsSurface | undefined => runtimeCtx.get('subagents')
-    const requireLlm = (): LlmStreamSurface | undefined => runtimeCtx.get('llm') as LlmStreamSurface | undefined
-    const requireCompaction = (): DASHRCompactionSurface | undefined => runtimeCtx.get('compaction') as DASHRCompactionSurface | undefined
-    const requireTokenMeter = (): DASHRTokenMeterSurface | undefined => runtimeCtx.get('tokenMeter') as DASHRTokenMeterSurface | undefined
-    runtimeCtx.tools.register(createRunCellTool(registry, { requireRuntime, maxParallel, shapeDispatchLog, requireSubagents, harness, refineModel, compactModel, requireLlm, requireCompaction, requireTokenMeter, scopedCompaction }))
+    runtimeCtx.tools.register(createRunCellTool(registry, { requireRuntime, maxParallel, shapeDispatchLog, requireSubagents }))
 
     // ①′ The Control Prompt section (plan Q3): static, scope-independent
     // text teaching the cell paradigm BEFORE the Tool Catalog renders its
@@ -1533,19 +1043,6 @@ export function apply(ctx: Context, config: Config): void {
       text: context => renderToolsSdkPy([...collectSdkSchemas(registry, context.scope), ...BRIDGE_TOOL_SCHEMAS]),
     })
 
-    // ②′ The Continual Harness section (M4-B): prompt-as-variable. The text
-    // provider re-reads the CALLING agent's harness at EVERY assembly — the
-    // `context.agent` field dsh-agent's `assembleContextFor` carries (typed
-    // by its AssembleContext merge; a scope-only assembly has no agent and
-    // renders empty, as does an empty harness — `renderPrompt` drops empty
-    // sections, so absence costs nothing). A refine() that lands mid-turn is
-    // therefore reflected by the next request's system prompt with no
-    // restart, which is the whole point of the section.
-    systemPrompt.section({
-      name: 'dashr:harness',
-      order: HARNESS_SECTION_ORDER,
-      text: context => renderHarnessSection(harness.list(String(context.agent?.id ?? ''))),
-    })
 
   })
 }

@@ -34,4 +34,4 @@ cfg = await tool.read({"file_path": "config.yaml"})   # cfg stays alive in later
 
 - Payload-shaped work (a long read, a big write, a single command) → direct tool call. Logic-shaped work (loops, conditions, composition) → an `eval` cell.
 - Only print or return what you need next; everything else stays in the kernel.
-- Variables persist across cells and turns, but they live in the kernel subprocess: keep durable state in files or the Continual Harness (refine writes it).
+- Variables persist across cells and turns, but they live in the kernel subprocess: keep durable state in files.
