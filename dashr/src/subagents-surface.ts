@@ -5,21 +5,19 @@
  * dependency graph: subagents is a host-plane root-realm singleton (the
  * preset delegates its registration to the host composition), and importing
  * the package here would pull a host-plane capability into an agent-plane
- * plugin for typing alone. The agent_message(receiver='parent') uplink reads
+ * plugin for typing alone. The send_message(receiver='parent') uplink reads
  * it with the untyped `ctx.get('subagents')` escape hatch (the same
  * optional-capability pattern upstream's child-agent.ts uses for
  * `agentPresets`/`sandboxPolicy`), and this file only types the one
  * operation the bridge actually calls.
  *
- * Realm note (M3-B, blueprint §9): this row lives inside the preset's
- * entry-local `isolate: { rlmRuntime: true }` realm. An inner realm resolves
- * outer (root) services for names it does NOT isolate — verified against
- * cordis 4.0.1 `reflect.ts`/`context.ts` and with a live probe — so
- * `ctx.get('subagents')` reaches the root singleton from here, while the
- * realm-private `rlmRuntime` never leaks OUT to the root. The uplink
- * callback therefore lives in THIS presentation layer: it is the one place
- * that can simultaneously reach `ctx.subagents` (outward), the reporting
- * child `Agent` (`exec.agent`), and the run's abort signal.
+ * Host-plane note (v0.1.8): the row mounts on the HOST plane (the bundle
+ * patch's `insert`), so `ctx.replRuntime` is a process-global service and
+ * `ctx.subagents` — a host-plane root-realm singleton — is reachable from
+ * the presentation layer without any preset realm. The uplink callback
+ * therefore lives in THIS presentation layer: it is the one place that can
+ * simultaneously reach `ctx.subagents` (outward), the reporting child
+ * `Agent` (`exec.agent`), and the run's abort signal.
  *
  * Downlink note (ADR-0001): spawn/fork/send_message/list_agents/interrupt
  * bridging goes through the TOOL layer, not this surface — the delegation
@@ -27,7 +25,7 @@
  * maxDepth, config) that a direct service call would bypass. This mirror
  * exists only for the ONE direction no tool covers: a continuable child
  * reporting up to its parent.
- * @module dsh-rlm-mode/subagents-surface
+ * @module dashr-repl/subagents-surface
  */
 
 import type { Agent } from '@deepseek-ai/dsh-agent'
@@ -46,7 +44,7 @@ export interface DASHRSubagentReportOptions {
 }
 
 /**
- * The `ctx.subagents` service surface the agent_message() uplink calls.
+ * The `ctx.subagents` service surface the send_message() uplink calls.
  * `reportFrom` delivers content from one LIVE continuable child to its
  * durable direct parent — the child IS the authority credential (callers
  * cannot name a recipient), and the parent is bootstrapped by the service

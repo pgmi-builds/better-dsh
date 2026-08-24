@@ -73,10 +73,10 @@ describe('Continual Harness store + section', () => {
   it('sits after the tool-guidance band and neutralizes literal {{ against the prompt-variable machinery', async () => {
     const { ctx, agent } = await setupPresentation(fakeRuntime, { refineModel: 'zai/glm-5.2' })
     await registerStubLlm(ctx, { text: '[{"op":"add","kind":"note","title":"Templates","content":"Use {{var}} syntax in prompts."}]' })
-    const runtime = ctx.get('rlmRuntime') as FakeCellRuntime
+    const runtime = ctx.get('replRuntime') as FakeCellRuntime
     runtime.behavior = async (request) => {
-      const refine = request.bindings.find(binding => binding.global === 'refine')!
-      const value = await refine.functions['__call__']!({ args: [{ instruction: 'note the template syntax' }], kwargs: {} })
+      const tool = request.bindings.find(binding => binding.global === 'tool')!
+      const value = await tool.functions['refine']!({ instruction: 'note the template syntax' })
       return { logs: [], value }
     }
     await cell(ctx, agent.agent, 'program')
@@ -101,10 +101,10 @@ describe('refine() binding', () => {
       { op: 'add', kind: 'memory', title: 'Deployment fact', content: 'dev3 runs Ubuntu 26.04.' },
       { op: 'add', kind: 'note', title: 'Tone', content: 'Keep answers terse.' },
     ]) })
-    const runtime = ctx.get('rlmRuntime') as FakeCellRuntime
+    const runtime = ctx.get('replRuntime') as FakeCellRuntime
     runtime.behavior = async (request) => {
-      const refine = request.bindings.find(binding => binding.global === 'refine')!
-      const value = await refine.functions['__call__']!({ args: [{ instruction: 'remember the deployment facts' }], kwargs: {} })
+      const tool = request.bindings.find(binding => binding.global === 'tool')!
+      const value = await tool.functions['refine']!({ instruction: 'remember the deployment facts' })
       return { logs: [], value }
     }
     const result = await cell(ctx, agent.agent, 'program') as { result: unknown }
@@ -137,10 +137,10 @@ describe('refine() binding', () => {
     const { ctx, agent } = await setupPresentation(fakeRuntime, { refineModel: 'zai/glm-5.2' })
     const respond = { text: 'I would rather not emit JSON today, sorry.' }
     const { captured } = await registerStubLlm(ctx, respond)
-    const runtime = ctx.get('rlmRuntime') as FakeCellRuntime
+    const runtime = ctx.get('replRuntime') as FakeCellRuntime
     runtime.behavior = async (request) => {
-      const refine = request.bindings.find(binding => binding.global === 'refine')!
-      const unparseable = await refine.functions['__call__']!({ args: [{ instruction: 'x' }], kwargs: {} })
+      const tool = request.bindings.find(binding => binding.global === 'tool')!
+      const unparseable = await tool.functions['refine']!({ instruction: 'x' })
       return { logs: [], value: { unparseable } }
     }
     const first = await cell(ctx, agent.agent, 'program') as { result: { unparseable?: unknown } }
@@ -149,8 +149,8 @@ describe('refine() binding', () => {
 
     respond.text = '[{"op":"add","kind":"vibe","title":"x","content":"y"}]'
     runtime.behavior = async (request) => {
-      const refine = request.bindings.find(binding => binding.global === 'refine')!
-      const rejected = await refine.functions['__call__']!({ args: [{ instruction: 'x' }], kwargs: {} })
+      const tool = request.bindings.find(binding => binding.global === 'tool')!
+      const rejected = await tool.functions['refine']!({ instruction: 'x' })
       return { logs: [], value: { rejected } }
     }
     const second = await cell(ctx, agent.agent, 'program') as { result: { rejected?: unknown } }
@@ -161,10 +161,10 @@ describe('refine() binding', () => {
   it('resolves the model route: the agent route when unset, with a structured error when no route exists', async () => {
     const { ctx, agent } = await setupPresentation(fakeRuntime, {}, { provider: 'deepseek', model: 'dsv3' })
     const { captured } = await registerStubLlm(ctx, { text: '[]' })
-    const runtime = ctx.get('rlmRuntime') as FakeCellRuntime
+    const runtime = ctx.get('replRuntime') as FakeCellRuntime
     runtime.behavior = async (request) => {
-      const refine = request.bindings.find(binding => binding.global === 'refine')!
-      const agentRoute = await refine.functions['__call__']!({ args: [{ instruction: 'x' }], kwargs: {} })
+      const tool = request.bindings.find(binding => binding.global === 'tool')!
+      const agentRoute = await tool.functions['refine']!({ instruction: 'x' })
       return { logs: [], value: { agentRoute } }
     }
     await cell(ctx, agent.agent, 'program')
@@ -173,15 +173,15 @@ describe('refine() binding', () => {
     // No route anywhere: structured error, no llm call.
     const bare = await setupPresentation(fakeRuntime)
     await registerStubLlm(bare.ctx, { text: '[]' })
-    const bareRuntime = bare.ctx.get('rlmRuntime') as FakeCellRuntime
+    const bareRuntime = bare.ctx.get('replRuntime') as FakeCellRuntime
     let llmCalls = 0
     bare.ctx.on('llm/stream', function countingListener(options, next) {
       llmCalls += 1
       return next()
     })
     bareRuntime.behavior = async (request) => {
-      const refine = request.bindings.find(binding => binding.global === 'refine')!
-      const noRoute = await refine.functions['__call__']!({ args: [{ instruction: 'x' }], kwargs: {} })
+      const tool = request.bindings.find(binding => binding.global === 'tool')!
+      const noRoute = await tool.functions['refine']!({ instruction: 'x' })
       return { logs: [], value: { noRoute } }
     }
     const noRouteCell = await cell(bare.ctx, bare.agent.agent, 'program') as { result: { noRoute?: unknown } }
@@ -207,10 +207,10 @@ describe('refine() binding', () => {
       })
     } })
     onTestFinished(() => fiber.dispose())
-    const runtime = ctx.get('rlmRuntime') as FakeCellRuntime
+    const runtime = ctx.get('replRuntime') as FakeCellRuntime
     runtime.behavior = async (request) => {
-      const refine = request.bindings.find(binding => binding.global === 'refine')!
-      const pending = refine.functions['__call__']!({ args: [{ instruction: 'x' }], kwargs: {} })
+      const tool = request.bindings.find(binding => binding.global === 'tool')!
+      const pending = tool.functions['refine']!({ instruction: 'x' })
       controller.abort()
       await pending
       return { logs: [], value: null }
@@ -242,23 +242,23 @@ describe('refine() binding', () => {
 
   it('validates the binding signature and requires an agent + llm service', async () => {
     const { ctx, agent } = await setupPresentation(fakeRuntime)
-    const runtime = ctx.get('rlmRuntime') as FakeCellRuntime
+    const runtime = ctx.get('replRuntime') as FakeCellRuntime
     runtime.behavior = async (request) => {
-      const refine = request.bindings.find(binding => binding.global === 'refine')!
-      const noArgs = await refine.functions['__call__']!({ args: [], kwargs: {} })
-      const kwargs = await refine.functions['__call__']!({ args: ['x'], kwargs: { label: 'y' } })
-      const empty = await refine.functions['__call__']!({ args: [{ instruction: '   ' }], kwargs: {} })
+      const tool = request.bindings.find(binding => binding.global === 'tool')!
+      const noArgs = await tool.functions['refine']!({})
+      const kwargs = await tool.functions['refine']!('x')
+      const empty = await tool.functions['refine']!({ instruction: '   ' })
       return { logs: [], value: { noArgs, kwargs, empty } }
     }
     const result = await cell(ctx, agent.agent, 'program') as { result: Record<string, { error?: string }> }
     expect(result.result['noArgs']?.error).toContain('requires {"instruction"')
-    expect(result.result['kwargs']?.error).toContain('not keyword arguments')
+    expect(result.result['kwargs']?.error).toContain('not a bare value')
     expect(result.result['empty']?.error).toContain('non-empty string')
 
     // No ctx.llm mounted: structured unavailability, never a crash.
     runtime.behavior = async (request) => {
-      const refine = request.bindings.find(binding => binding.global === 'refine')!
-      const value = await refine.functions['__call__']!({ args: [{ instruction: 'x' }], kwargs: {} })
+      const tool = request.bindings.find(binding => binding.global === 'tool')!
+      const value = await tool.functions['refine']!({ instruction: 'x' })
       return { logs: [], value }
     }
     const noLlm = await cell(ctx, agent.agent, 'program') as { result?: { error?: string } }
@@ -273,10 +273,10 @@ describe('harness persistence', () => {
 
     const first = await setupPresentation(fakeRuntime, { harnessDir: dir }, { provider: 'zai', model: 'glm-5.2' })
     await registerStubLlm(first.ctx, { text: '[{"op":"add","kind":"skill","title":"Rebuild","content":"npm run build in both packages."}]' })
-    const runtimeOne = first.ctx.get('rlmRuntime') as FakeCellRuntime
+    const runtimeOne = first.ctx.get('replRuntime') as FakeCellRuntime
     runtimeOne.behavior = async (request) => {
-      const refine = request.bindings.find(binding => binding.global === 'refine')!
-      const value = await refine.functions['__call__']!({ args: [{ instruction: 'remember the rebuild step' }], kwargs: {} })
+      const tool = request.bindings.find(binding => binding.global === 'tool')!
+      const value = await tool.functions['refine']!({ instruction: 'remember the rebuild step' })
       return { logs: [], value }
     }
     await cell(first.ctx, first.agent.agent, 'program')
@@ -293,10 +293,10 @@ describe('harness persistence', () => {
   it('is memory-only without harnessDir: a fresh composition starts empty', async () => {
     const first = await setupPresentation(fakeRuntime, {}, { provider: 'zai', model: 'glm-5.2' })
     await registerStubLlm(first.ctx, { text: '[{"op":"add","kind":"note","title":"N","content":"C"}]' })
-    const runtimeOne = first.ctx.get('rlmRuntime') as FakeCellRuntime
+    const runtimeOne = first.ctx.get('replRuntime') as FakeCellRuntime
     runtimeOne.behavior = async (request) => {
-      const refine = request.bindings.find(binding => binding.global === 'refine')!
-      await refine.functions['__call__']!({ args: [{ instruction: 'x' }], kwargs: {} })
+      const tool = request.bindings.find(binding => binding.global === 'tool')!
+      await tool.functions['refine']!({ instruction: 'x' })
       return { logs: [], value: null }
     }
     await cell(first.ctx, first.agent.agent, 'program')

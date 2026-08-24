@@ -33,3 +33,6 @@ Thumbs.db
 # --- local agent tooling (keep on disk, never commit) ---
 .agents/
 .pi/
+
+# --- dsh-better-edit runtime artifact (hash store written into cwd) ---
+.dsh_better_edit/

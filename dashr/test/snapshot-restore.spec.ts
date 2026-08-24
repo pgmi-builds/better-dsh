@@ -14,10 +14,10 @@ import type { Config } from '../src/index.ts'
  * capture them, the shim/hidden exclusion must still hold around them, and
  * a same-principal restore must revive the USER state as pure values while
  * the binding surface answers from the CURRENT host (each run reinstalling
- * its bindings over whatever the snapshot brought back). The rlm() side of
- * the exercise now dispatches the (fake) `subagent` TOOL — masking means
- * the binding surface never names it, but the dispatch target is the
- * registry tool all the same. Real kernels throughout; the provider fibers
+ * its bindings over whatever the snapshot brought back). The delegation side
+ * of the exercise now calls the (fake) `subagent` TOOL directly — it is a
+ * native `tool.*` member, and the dispatch target is the registry tool all
+ * the same. Real kernels throughout; the provider fibers
  * are disposed by the helper's onTestFinished hooks.
  */
 
@@ -35,21 +35,21 @@ interface ManifestShape {
   skipped: boolean
 }
 
-describe('ipython snapshot path with live bindings (M4-A N1)', () => {
-  it('snapshots through ipython with flat tool/rlm proxies in the namespace and restores pure user state for the same principal', async () => {
+describe('eval snapshot path with live bindings (M4-A N1)', () => {
+  it('snapshots through eval with tool.* proxies in the namespace and restores pure user state for the same principal', async () => {
     const snapshotDir = mkdtempSync(join(tmpdir(), 'dashr-presentation-snap-'))
     snapshotDirs.push(snapshotDir)
     const presentation: Config = {}
 
     // First composition: one cell that leaves user state AND exercises
-    // bindings, so a flat tool global and the rlm callable are live in the
+    // bindings, so the tool object and its members are live in the
     // namespace when the turn-end snapshot cell runs right after it.
     const first = await setupKernel(presentation, { snapshotDir })
     const callsFirst = registerFakeDelegationTools(first.ctx)
     const warm = await runCell(first.ctx, [
       'kept = 41',
       'import math',
-      "handle = await rlm({'mode': 'spawn', 'prompt': 'task', 'label': 'worker'})",
+      "handle = await tool.subagent({'description': 'worker', 'prompt': 'task'})",
       'handle["subagentId"]',
     ].join('\n'), { agent: first.agent.agent })
     expect(warm.isError).toBe(false)
@@ -65,11 +65,11 @@ describe('ipython snapshot path with live bindings (M4-A N1)', () => {
     for (const name of ['kept', 'math', 'handle']) expect(manifest.names).toContain(name)
     // ...alongside the flat binding surface itself (dill captures the
     // callable proxies and the error class — plain non-shim globals).
-    for (const name of ['rlm', 'agent_message', 'refine', 'compact', 'ToolCallError']) expect(manifest.names).toContain(name)
+    for (const name of ['tool', 'ToolCallError']) expect(manifest.names).toContain(name)
     // The pre-0.1.5 holder name and the deleted rlm_await are gone.
     for (const name of ['tools', 'rlm_await']) expect(manifest.names).not.toContain(name)
-    // Masked names never bind (ADR-0002), even though the tools are
-    // registered and were dispatched.
+    // No flat tool global ever leaks: every tool (native or bridged) is a
+    // member of the `tool` object, never a top-level namespace name.
     for (const name of ['subagent', 'send_message', 'workflow']) expect(manifest.names).not.toContain(name)
     // The exclusion semantics still hold around them: no dashr shim name
     // (the `_dashr`/`__dashr` prefix rule, any case) and none of IPython's
@@ -86,7 +86,7 @@ describe('ipython snapshot path with live bindings (M4-A N1)', () => {
     })
     const resumed = await runCell(second.ctx, [
       'kind = type(kept).__name__',
-      "again = await rlm({'mode': 'spawn', 'prompt': 'after restore'})",
+      "again = await tool.subagent({'description': 'subagent', 'prompt': 'after restore'})",
       '[kind, kept, math.floor(2.5), again["subagentId"]]',
     ].join('\n'), { agent: second.agent.agent })
     expect(resumed.isError).toBe(false)
@@ -94,7 +94,7 @@ describe('ipython snapshot path with live bindings (M4-A N1)', () => {
     // Restored USER state is pure values, not proxy wrappers.
     expect(resumed.value).toEqual({ logs: expect.arrayContaining([expect.stringContaining('namespace restored from the turn-1 snapshot')]), result: ['int', 41, 2, 'stub-second-session'] })
     // The binding surface answers from the CURRENT host: the post-restore
-    // rlm() dispatch went to THIS composition's registry, proving the
+    // subagent dispatch went to THIS composition's registry, proving the
     // reinstall each run performs over whatever the snapshot restored is
     // effective — a dangling pre-snapshot proxy could never reach it.
     expect(callsSecond.map(call => call.tool)).toEqual(['subagent'])

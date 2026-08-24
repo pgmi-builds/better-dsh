@@ -5,8 +5,8 @@
  * Vendored from `@deepseek-ai/dsh-code-runtime@0.1.0-rc.6` (`src/index.ts`)
  * per blueprint v0.5 §7.6, so this plugin carries zero dsh runtime
  * dependencies. Intentional deltas from upstream (everything else verbatim):
- * the service registers under our own key `rlmRuntime` (class renamed
- * `CodeRuntime` → `RLMRuntime`, Context property likewise), the class doc's
+ * the service registers under our own key `replRuntime` (class renamed
+ * `CodeRuntime` → `ReplRuntime`, Context property likewise), the class doc's
  * "isolate runs from one another" clause is replaced by this seam's stateful
  * contract (see the class doc), the monorepo-internal Agent Note link is
  * cited by name instead of a relative path, and `invariant.ts` (a monorepo
@@ -98,12 +98,12 @@ export const PORTABLE_RESERVED_WORDS: ReadonlySet<string> = new Set([
 
 declare module '@deepseek-ai/cordis' {
   interface Context {
-    rlmRuntime: RLMRuntime
+    replRuntime: ReplRuntime
   }
 }
 
 /**
- * Registers one `ctx.rlmRuntime` implementation. Program, budget, abort, and substrate
+ * Registers one `ctx.replRuntime` implementation. Program, budget, abort, and substrate
  * failures resolve in {@link CodeRunResult}; only Service Definition contract misuse rejects. Implementations bridge
  * structured-cloneable bindings, materialize each declared namespace rejection
  * class, treat programs as hostile peers — budget, interrupt, and substrate
@@ -113,7 +113,7 @@ declare module '@deepseek-ai/cordis' {
  * isolate-runs-from-one-another clause), and terminate and await in-flight
  * runs during disposal.
  */
-export abstract class RLMRuntime extends Service {
+export abstract class ReplRuntime extends Service {
   /**
    * The source language {@link run} expects `program` to be written in, as a
    * lowercase identifier. Informational, not gating — a consumer that
@@ -133,7 +133,7 @@ export abstract class RLMRuntime extends Service {
   abstract readonly isolation: string
 
   constructor(ctx: Context) {
-    super(ctx, 'rlmRuntime')
+    super(ctx, 'replRuntime')
   }
 
   /**
@@ -148,4 +148,4 @@ export abstract class RLMRuntime extends Service {
   abstract run(request: CodeRunRequest): Promise<CodeRunResult>
 }
 
-export default RLMRuntime
+export default ReplRuntime

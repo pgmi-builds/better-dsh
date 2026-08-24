@@ -10,7 +10,7 @@
  * and its answer is parsed under a strict all-or-nothing op schema: anything
  * unparseable leaves the store untouched and surfaces as a structured cell
  * error, never a half-applied prompt mutation.
- * @module dsh-rlm-mode/refine
+ * @module dashr-repl/refine
  */
 
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
@@ -32,8 +32,8 @@ export interface RefineTarget {
 /**
  * Resolve the refine call's route. `refineModel` accepts a `provider/model`
  * selector or a bare model id (the bare form pairs with the calling agent's
- * own provider — the same fallback philosophy `rlm()`'s model kwarg and the
- * subagent tier inherit through). Unset falls back to the agent's own
+ * own provider — the same fallback philosophy the subagent tier inherits
+ * through). Unset falls back to the agent's own
  * provider+model entirely: refinement writes DURABLE prompt state, so the
  * composition's default is "the agent summarizes for itself".
  * @returns the route, or an error string when no route can be named.
@@ -92,7 +92,7 @@ export function buildRefineMessages(entries: readonly HarnessEntry[], instructio
       type: 'text',
       text: `Current harness entries:\n${dump}\n\nInstruction:\n${instruction}`,
     }],
-    source: { kind: 'plugin', plugin: 'dsh-rlm-mode' },
+    source: { kind: 'plugin', plugin: 'dashr-repl' },
   })]
 }
 

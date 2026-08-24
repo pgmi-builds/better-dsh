@@ -1,15 +1,14 @@
-# dsh-rlm-mode
+# dashr
 
-The DASHR plugin for the DeepSeek Harness — the RLM mode: a **stateful
-`ctx.rlmRuntime` provider** (one persistent IPython kernel subprocess **per
-session**, the run's `principal`, held in a map inside the one service
-instance per mount — the upstream "plugins key
-their state by Session/Agent" model, which a per-mount realm cannot provide
-on its own. Each `run()` is one cell on the calling session's kernel;
-variables, imports, and definitions assigned in run N survive into run N+1 —
-*state codification* (blueprint §1.1 channel ②), deliberately NOT the
-per-run isolation a one-shot execution backend provides — and two sessions
-sharing one service instance never see each other's variables.
+DASHR is a persistent-kernel REPL for the DeepSeek Harness (dsh): a
+**stateful `ctx.replRuntime` provider** (one persistent IPython kernel
+subprocess **per session**, the run's `principal`, held in a map inside the
+one service instance per mount). Each `run()` is one cell on the calling
+session's kernel; variables, imports, and definitions assigned in run N
+survive into run N+1 — *state codification* (blueprint §1.1 channel ②),
+deliberately NOT the per-run isolation a one-shot execution backend
+provides — and two sessions sharing one service instance never see each
+other's variables.
 
 Naming (v0.1.5 layer model): the runtime class is **`DashrRuntime`** — the
 standing-mount-layer component (one instance per mount holding the
@@ -18,19 +17,17 @@ profile-level `DashrDaemon` concept stays an empty shell; the session layer
 is the ipykernel subprocess itself, a pure interpreter with no harness
 awareness.
 
-This is M1 of DASHR: the kernel provider. The consumer half —
-the `ipython` transport tool, the Python SDK renderer, and the presentation
-plugin that binds them to the dsh tool registry — lives in the sibling
-package `dsh-rlm-mode` (`../dashr-presentation`). The provider
-registers the service key `rlmRuntime` through its own vendored Service
-Definition (see `src/vendored/rlm-runtime.ts`), so it carries **zero dsh
-runtime package dependencies**: only `@deepseek-ai/cordis` (peer),
+The presentation half — the `eval` transport tool, the Python SDK renderer,
+and the tool→binding bridge — lives in the SAME package (merged in v0.1.8;
+the pre-merge `dsh-rlm-mode`/`dashr-presentation` sibling split is gone).
+The runtime registers the service key `replRuntime` through its own vendored
+Service Definition (see `src/vendored/rlm-runtime.ts`), so it carries **zero
+dsh runtime package dependencies**: only `@deepseek-ai/cordis` (peer),
 `schemastery`, and `zeromq`.
 
 ## Package positioning
 
-- npm name: `dsh-rlm-mode` (local `--patch` development;
-  publish scope still open — blueprint §11 #4).
+- npm name: `@pgmi-builds/dashr`.
 - A standard Cordis plugin (`Context` + schemastery `Config`, every tunable
   configurable from `cordis.yml`, no hardcoded tunables).
 - "Registrations are effects": the kernel lifecycle (lazy spawn on a key's
@@ -41,7 +38,7 @@ runtime package dependencies**: only `@deepseek-ai/cordis` (peer),
   pointing at `lib/index.js` / `lib/index.d.ts`) — the build emits beside the
   manifest (`outDir: 'lib'`; the tsdown default `dist/` left the exports map
   dangling, fixed in M2B). The root also re-exports the vendored Service
-  Definition's public contract (`RLMRuntime` plus the `CodeRun*` /
+  Definition's public contract (`ReplRuntime` plus the `CodeRun*` /
   `CodeBinding*` / `CodeJsonValue` types) so consumers depend on the
   published shape instead of reaching into sources. The declaration keeps
   dependency imports external (`dts: { resolve: false }`): bundled copies
@@ -50,14 +47,18 @@ runtime package dependencies**: only `@deepseek-ai/cordis` (peer),
 ## Install
 
 ```sh
-npm install dsh-rlm-mode
+npm install @pgmi-builds/dashr
 ```
 
-The provider needs a Python interpreter with `ipykernel` (and `dill` for
-snapshots). For development and tests, create a dedicated kernel venv:
+The runtime OWNS its kernel environment. With `python` left at the
+`python3` sentinel (or absent), it provisions a managed venv under the
+package (`.venv-kernel`) on first use, installing `ipykernel` + `dill`
+(CPython 3.11) — no `/tmp` symlink, no blind trust in a host `python3`.
+An explicit `python` (or `DASHR_KERNEL_PYTHON`) is verified instead. For
+development and tests, pre-create the venv:
 
 ```sh
-npm run kernel:venv        # uv venv .venv-kernel + ipykernel + dill
+npm run kernel:venv        # uv venv .venv-kernel --python 3.11 + ipykernel + dill
 ```
 
 Tests pick the kernel interpreter from `DASHR_TEST_PYTHON`, falling back to
@@ -69,7 +70,7 @@ Every field of the plugin `Config` (schemastery defaults shown):
 
 | Field | Default | Meaning |
 | --- | --- | --- |
-| `python` | `python3` | Interpreter with `ipykernel` installed; spawned with `-m ipykernel_launcher`. |
+| `python` | `python3` | Explicit interpreter with `ipykernel`; the bare `python3` sentinel (or absent) selects a managed venv under `kernelEnvDir`. |
 | `startupTimeoutMs` | `30000` | Budget for kernel spawn → ready, in milliseconds. |
 | `runTimeoutMs` | `120000` | Wall budget per run; expiry interrupts the kernel then force-settles. |
 | `interruptGraceMs` | `2000` | Grace between a timeout/abort interrupt and the force-settle. |
@@ -80,6 +81,9 @@ Every field of the plugin `Config` (schemastery defaults shown):
 | `snapshotDir` | *(unset)* | Base directory for per-session namespace snapshots (`<dir>/<principal>/state.dill` + `manifest.json`); none when absent. |
 | `snapshotSizeCapBytes` | `268435456` | Serialized-size cap for a turn-end snapshot; over-cap snapshots are skipped (one-time model warning). |
 | `username` | `dashr` | Jupyter username stamped on wire messages. |
+| `kernelEnvDir` | *(unset)* | Managed venv directory (defaults to `<package>/.venv-kernel`). |
+| `kernelPythonVersion` | *(unset)* | Preferred CPython version for a managed venv (default `3.11`). |
+| `kernelAutoInstall` | `true` | Provision the managed venv (`ipykernel` + `dill`) on first use. |
 
 ## Persistent-state semantics
 
@@ -183,7 +187,7 @@ Mounted in a preset's standing scope, it contributes:
   scheduling pipeline as FLAT top-level callables — `await name({...})`
   inside the cell, one positional arguments object per callable, keyword
   arguments rejected. Every binding — registry tool or bridge callable — uses
-  this same one-object form; the bridge callables `rlm`, `agent_message`,
+  this same one-object form; the bridge callables `rlm`, `send_message`,
   `agent_list`, `rlm_workflow`, `rlm_ralph`, `refine`, and `compact` are
   declared in the same catalog block as the registry tools (see "Delegation
   and messaging" and "Continual Harness + refine()").
@@ -357,7 +361,7 @@ The row waits for `ctx.rlmRuntime` at mount (`ctx.inject`) and re-reads it at
 use time: a preset against a runtime-less deployment fails at mount, named in
 the preset's activation audit, instead of at the first prompt.
 
-## Delegation and messaging (rlm, agent_message, agent_list, rlm_workflow, rlm_ralph)
+## Delegation and messaging (rlm, send_message, agent_list, rlm_workflow, rlm_ralph)
 
 The upstream delegation tools stay REGISTERED and executable but are masked
 from the model's surface (presentation-only, ADR-0002): `subagent`,
@@ -365,7 +369,7 @@ from the model's surface (presentation-only, ADR-0002): `subagent`,
 `ralph`, and the child-scoped `report` appear in neither the Tool Catalog
 text nor the kernel binding names. The bridge callables re-expose them with
 the cell's ergonomics, dispatching through the SAME nested sub-dispatch
-pipeline (and `agent_message({"receiver": "parent", ...})` over the service
+pipeline (and `send_message({"receiver": "parent", ...})` over the service
 layer for `report`), so the upstream enforcement surface (approval, sandbox,
 `maxDepth`, per-instance config) is inherited wholesale. Every bridge callable
 takes the SAME one-object form as the registry tools — `await name({...})`:
@@ -380,7 +384,7 @@ takes the SAME one-object form as the registry tools — `await name({...})`:
   next step depends on the child's result: that call blocks and returns the
   child's output. There is no `rlm_await` (the pre-v0.1.5 polling wrapper is
   gone — foreground mode covers blocking fan-in, and `asyncio.gather` fans out).
-- `await agent_message({"receiver": "child" | "parent", "message": ...,
+- `await send_message({"receiver": "child" | "parent", "message": ...,
   "subagent_id": ...})` — the dual-use A2A channel. `"receiver": "child"` (with
   the spawn's `subagent_id`) bridges the `send_message` tool downlink;
   `"receiver": "parent"` reports up through the SERVICE layer
@@ -409,7 +413,7 @@ sits inside the preset's `isolate: { rlmRuntime: true }` realm. Cordis resolves
 outer-realm services for names the inner realm does NOT isolate, so this row
 reaches `ctx.subagents` outward through `ctx.get('subagents')` while the
 realm-private `rlmRuntime` stays invisible to the root. The
-`agent_message` uplink callback lives HERE because it is the one layer that
+`send_message` uplink callback lives HERE because it is the one layer that
 can simultaneously see `ctx.subagents` (outward), the reporting child `Agent`
 (`exec.agent`), and the run's abort signal; every DOWNLINK bridges the tool
 layer instead, so the delegation tools' policy surface stays in force.

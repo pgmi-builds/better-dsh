@@ -5,7 +5,7 @@ import { runCell, setupKernel } from './helpers.ts'
 /**
  * End-to-end tier over a REAL IPython kernel (no mocks — kernels are local
  * and cheap once booted, per dsh's real-over-mock policy): the full stack —
- * the model-direct `ipython` call through the registry pipeline, the bridge,
+ * the model-direct `eval` call through the registry pipeline, the bridge,
  * the kernel-side `tools` binding over the host-request comm channel, and the
  * persistent namespace — is exercised as the agent loop would drive it. Each
  * test boots one kernel; disposal on test finish shuts it down.
@@ -38,7 +38,7 @@ function valueOf(result: { isError: boolean; value?: unknown }): unknown {
   return { ...value, logs: stripWarnings(value.logs) }
 }
 
-describe('ipython end-to-end on a real kernel', () => {
+describe('eval end-to-end on a real kernel', () => {
   it('runs a cell: logs and completion value shape the outer result', async () => {
     const { ctx, agent } = await setupKernel()
     const result = await runCell(ctx, [
@@ -59,7 +59,7 @@ describe('ipython end-to-end on a real kernel', () => {
     const result = await runCell(ctx, 'nothing = 1', { agent: agent.agent })
     expect(result.isError).toBe(false)
     expect(result.value).toEqual({ logs: [] })
-    expect(result.content).toEqual([{ type: 'text', text: '(ipython completed with no output)' }])
+    expect(result.content).toEqual([{ type: 'text', text: '(eval completed with no output)' }])
   })
 
   it('a None final expression yields no completion value (REPL displayhook)', async () => {
@@ -69,7 +69,7 @@ describe('ipython end-to-end on a real kernel', () => {
     expect(result.value).toEqual({ logs: [] })
   })
 
-  it('is stateful through the whole stack: a variable survives between two ipython calls', async () => {
+  it('is stateful through the whole stack: a variable survives between two eval calls', async () => {
     const { ctx, agent } = await setupKernel()
     const calls: unknown[] = []
     ctx.tools.register(defineTool({
@@ -87,7 +87,7 @@ describe('ipython end-to-end on a real kernel', () => {
     }))
     // Cell one: call the tool and KEEP its answer in the kernel namespace.
     const first = await runCell(ctx, [
-      'answer = await remember({"value": "first"})',
+      'answer = await tool.remember({"value": "first"})',
       'answer',
     ].join('\n'), { agent: agent.agent })
     expect(first.isError).toBe(false)
@@ -115,7 +115,7 @@ describe('ipython end-to-end on a real kernel', () => {
     }))
     const result = await runCell(ctx, [
       'try:',
-      '    await boom({})',
+      '    await tool.boom({})',
       '    outcome = {"caught": "none"}',
       'except ToolCallError as e:',
       '    outcome = {"caught": e.toolName, "message": str(e)}',
@@ -137,7 +137,7 @@ describe('ipython end-to-end on a real kernel', () => {
       },
       execute(): Promise<never> { return Promise.reject(new Error('the tool exploded')) },
     }))
-    const result = await runCell(ctx, 'await boom({})', { agent: agent.agent })
+    const result = await runCell(ctx, 'await tool.boom({})', { agent: agent.agent })
     expect(result.isError).toBe(true)
     if (!result.isError) throw new Error('expected failure')
     expect(result.error.info).toMatchObject({ name: 'DASHRRunFailedError', code: 'CODE_RUN_FAILED' })
@@ -173,7 +173,7 @@ describe('ipython end-to-end on a real kernel', () => {
     const result = await runCell(ctx, [
       'import asyncio',
       'values = await asyncio.gather(*[',
-      '    slow_read({"id": tag}) for tag in ("a", "b", "c")',
+      '    tool.slow_read({"id": tag}) for tag in ("a", "b", "c")',
       '])',
       '",".join(values)',
     ].join('\n'), { agent: agent.agent })
@@ -217,8 +217,8 @@ describe('ipython end-to-end on a real kernel', () => {
       execute: args => Promise.resolve(`echo:${String((args as { value: string }).value)}`),
     }))
     const result = await runCell(ctx, [
-      'first = await echo({"value": "one"})',
-      'second = await echo({"value": "two"})',
+      'first = await tool.echo({"value": "one"})',
+      'second = await tool.echo({"value": "two"})',
       'second',
     ].join('\n'), { agent: agent.agent })
     expect(result.isError).toBe(false)

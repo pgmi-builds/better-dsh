@@ -1,5 +1,5 @@
 /**
- * `DashrRuntime`: DASHR's STATEFUL `ctx.rlmRuntime` backend (our vendored
+ * `DashrRuntime`: DASHR's STATEFUL `ctx.replRuntime` backend (our vendored
  * Service Definition, blueprint v0.5 §7.6), the standing-mount layer of the
  * v0.1.5 architecture — between the profile-level DashrDaemon concept (a v0.1.5
  * empty shell: named, not yet built) and the session-level ipykernel
@@ -26,11 +26,11 @@
  * blueprint §8.3), restore-on-first-boot, and the death→revive chain (§8.3
  * "kernel death 行为链") that respawns onto the nearest replayable snapshot
  * instead of M3-A's fresh-empty respawn.
- * @module dsh-rlm-mode/runtime
+ * @module dashr-repl/runtime
  */
 
 import { randomBytes } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
@@ -40,7 +40,7 @@ import {
   PORTABLE_RESERVED_WORDS,
   RESERVED_BINDING_GLOBALS,
   RESERVED_ERROR_MEMBERS,
-  RLMRuntime,
+  ReplRuntime,
 } from './vendored/rlm-runtime.ts'
 import type {
   CodeBindingNamespace,
@@ -54,10 +54,12 @@ import type { CellOutcome, HostRequestOutcome, SnapshotSpec } from './kernel.ts'
 import { buildRunCell } from './python.ts'
 import type { NamespaceSpecs } from './python.ts'
 import { MIN_OUTPUT_BYTES, extractStream, finalizeOutput, plainTraceback } from './output.ts'
+import { resolveKernelEnv } from './kernel-env.ts'
+import type { KernelEnv } from './kernel-env.ts'
 
 /** Plugin config: every tunable, changeable from `cordis.yml` (no hardcoded tunables). */
 export interface Config {
-  /** Python interpreter with `ipykernel` installed. */
+  /** Python interpreter with `ipykernel` installed. The bare sentinel `python3` (or absent) selects a managed venv under {@link Config.kernelEnvDir}. */
   python?: string
   /** Budget for kernel spawn → ready, in milliseconds. */
   startupTimeoutMs?: number
@@ -81,12 +83,17 @@ export interface Config {
   snapshotDir?: string
   /** Serialized-size cap for a turn-end snapshot, in bytes; over-cap snapshots are skipped with a one-time model warning. */
   snapshotSizeCapBytes?: number
-  /** Jupyter username stamped on wire messages. */
+  /** Managed venv directory (used when `python` is absent/`python3`); defaults to `<package>/.venv-kernel`. */
+  kernelEnvDir?: string
+  /** Preferred CPython version for a managed venv. */
+  kernelPythonVersion?: string
+  /** Provision the managed venv (ipykernel + dill) on first use; default true. */
+  kernelAutoInstall?: boolean
   username?: string
 }
 
 /** {@link Config} after schemastery fills the defaults. */
-type ResolvedConfig = Required<Omit<Config, 'snapshotDir'>> & Pick<Config, 'snapshotDir'>
+type ResolvedConfig = Required<Omit<Config, 'snapshotDir' | 'kernelEnvDir' | 'kernelPythonVersion'>> & Pick<Config, 'snapshotDir' | 'kernelEnvDir' | 'kernelPythonVersion'>
 
 const IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/
 
@@ -158,14 +165,14 @@ interface SnapshotManifest {
 }
 
 /**
- * The {@link RLMRuntime} backend this package registers (`ctx.rlmRuntime`)
+ * The {@link ReplRuntime} backend this package registers (`ctx.replRuntime`)
  * — the standing-mount layer of the v0.1.5 architecture, the de facto daemon
  * while the profile-level DashrDaemon stays an empty shell. One service
  * instance per mount holds one lazily-spawned kernel per session principal;
  * each kernel's lifecycle — snapshot and shutdown on session end, snapshot
  * and shutdown of every key on plugin disposal — is effect-owned.
  */
-export class DashrRuntime extends RLMRuntime {
+export class DashrRuntime extends ReplRuntime {
   static Config: z<Config> = z.object({
     python: z.string().default('python3'),
     startupTimeoutMs: z.number().default(30_000),
@@ -177,6 +184,9 @@ export class DashrRuntime extends RLMRuntime {
     maxOutputBytes: z.number().default(67_108_864),
     snapshotDir: z.string(),
     snapshotSizeCapBytes: z.number().default(268_435_456),
+    kernelEnvDir: z.string(),
+    kernelPythonVersion: z.string(),
+    kernelAutoInstall: z.boolean().default(true),
     username: z.string().default('dashr'),
   })
 
@@ -188,6 +198,8 @@ export class DashrRuntime extends RLMRuntime {
   /** One entry per session principal that has run code (lazy — never pre-seeded). */
   private readonly kernels = new Map<string, KeyedKernel>()
   private disposed = false
+  /** Lazily-resolved (and, when managed, provisioned) kernel interpreter. */
+  private kernelEnvPromise: Promise<KernelEnv> | undefined
 
   constructor(ctx: Context, config: Config) {
     super(ctx)
@@ -197,23 +209,23 @@ export class DashrRuntime extends RLMRuntime {
     for (const key of ['startupTimeoutMs', 'runTimeoutMs', 'interruptGraceMs', 'disposeTimeoutMs', 'snapshotTimeoutMs'] as const) {
       const value = this.config[key]
       if (!(Number.isFinite(value) && value > 0)) {
-        throw new Error(`dsh-rlm-mode: config.${key} must be a positive number, got ${String(value)}`)
+        throw new Error(`dashr-repl: config.${key} must be a positive number, got ${String(value)}`)
       }
     }
     // The SIGALRM escalation must fire strictly inside the force-settle grace,
     // or it would never get its chance to break a busy cell before the run
     // resolves.
     if (!(this.config.interruptConfirmMs > 0 && this.config.interruptConfirmMs < this.config.interruptGraceMs)) {
-      throw new Error(`dsh-rlm-mode: config.interruptConfirmMs must be positive and below interruptGraceMs (${this.config.interruptGraceMs}), got ${String(this.config.interruptConfirmMs)}`)
+      throw new Error(`dashr-repl: config.interruptConfirmMs must be positive and below interruptGraceMs (${this.config.interruptGraceMs}), got ${String(this.config.interruptConfirmMs)}`)
     }
     if (!Number.isSafeInteger(this.config.maxOutputBytes) || this.config.maxOutputBytes < MIN_OUTPUT_BYTES) {
-      throw new Error(`dsh-rlm-mode: config.maxOutputBytes must be a safe integer of at least ${MIN_OUTPUT_BYTES}, got ${String(this.config.maxOutputBytes)}`)
+      throw new Error(`dashr-repl: config.maxOutputBytes must be a safe integer of at least ${MIN_OUTPUT_BYTES}, got ${String(this.config.maxOutputBytes)}`)
     }
     if (!Number.isSafeInteger(this.config.snapshotSizeCapBytes) || this.config.snapshotSizeCapBytes < 1) {
-      throw new Error(`dsh-rlm-mode: config.snapshotSizeCapBytes must be a positive safe integer, got ${String(this.config.snapshotSizeCapBytes)}`)
+      throw new Error(`dashr-repl: config.snapshotSizeCapBytes must be a positive safe integer, got ${String(this.config.snapshotSizeCapBytes)}`)
     }
-    this.logger = ctx.logger('dsh-rlm-mode')
-    ctx.effect(() => () => this.teardown(), 'ipython code-runtime teardown')
+    this.logger = ctx.logger('dashr-repl')
+    ctx.effect(() => () => this.teardown(), 'eval code-runtime teardown')
 
     // Session-end teardown, keyed: dsh's agent registry emits `agent/disposed`
     // (payload `{ agent }`, the agent's `id` being the session id our runs
@@ -257,12 +269,18 @@ export class DashrRuntime extends RLMRuntime {
    * @returns the run's outcome per the seam contract.
    */
   async run(request: CodeRunRequest): Promise<CodeRunResult> {
-    if (this.disposed) throw new Error('dsh-rlm-mode: run() after disposal')
+    if (this.disposed) throw new Error('dashr-repl: run() after disposal')
     const bindings = this.validateBindings(request)
     if (request.signal?.aborted) {
       return { logs: [], error: { kind: 'abort', message: String(request.signal.reason) } }
     }
     const key = request.principal && request.principal.length > 0 ? request.principal : AGENTLESS_KEY
+    // reset=true abandons the persistent namespace: dispose the live kernel
+    // and clear its on-disk snapshot BEFORE any dead-kernel or reuse logic,
+    // so the next ensureKernel spawns a fresh, EMPTY kernel.
+    if (request.reset) {
+      await this.resetKey(key)
+    }
 
     // A kernel that died since this key's last run is never silently reused:
     // its namespace is gone, and executing the program would surface a
@@ -310,7 +328,7 @@ export class DashrRuntime extends RLMRuntime {
     const sentinel = `__dashr_${randomBytes(9).toString('hex')}__`
     const cell = buildRunCell(request.program, JSON.stringify(specs), sentinel)
     const outcome = await kernel.executeCell(cell, {
-      timeoutMs: this.config.runTimeoutMs,
+      timeoutMs: request.timeoutMs ?? this.config.runTimeoutMs,
       interruptGraceMs: this.config.interruptGraceMs,
       interruptConfirmMs: this.config.interruptConfirmMs,
       ...request.signal ? { signal: request.signal } : {},
@@ -404,18 +422,18 @@ export class DashrRuntime extends RLMRuntime {
     const bindings = new Map<string, CodeBindingNamespace>()
     for (const namespace of request.bindings) {
       if (!IDENTIFIER.test(namespace.global) || PORTABLE_RESERVED_WORDS.has(namespace.global)) {
-        throw new Error(`dsh-rlm-mode: binding global ${JSON.stringify(namespace.global)} is not a usable identifier`)
+        throw new Error(`dashr-repl: binding global ${JSON.stringify(namespace.global)} is not a usable identifier`)
       }
       if (RESERVED_BINDING_GLOBALS.has(namespace.global) || KERNEL_OWNED_NAME.test(namespace.global)) {
-        throw new Error(`dsh-rlm-mode: reserved binding global ${JSON.stringify(namespace.global)}`)
+        throw new Error(`dashr-repl: reserved binding global ${JSON.stringify(namespace.global)}`)
       }
       if (bindings.has(namespace.global)) {
-        throw new Error(`dsh-rlm-mode: duplicate binding global ${JSON.stringify(namespace.global)}`)
+        throw new Error(`dashr-repl: duplicate binding global ${JSON.stringify(namespace.global)}`)
       }
       // A bare callable global dispatches exactly one host function; any other
       // count is a contract error (the kernel installer has no member to pick).
       if (namespace.callable === true && Object.keys(namespace.functions).length !== 1) {
-        throw new Error(`dsh-rlm-mode: callable binding global ${JSON.stringify(namespace.global)} must declare exactly one function`)
+        throw new Error(`dashr-repl: callable binding global ${JSON.stringify(namespace.global)} must declare exactly one function`)
       }
       bindings.set(namespace.global, namespace)
     }
@@ -430,21 +448,21 @@ export class DashrRuntime extends RLMRuntime {
       const descriptor = namespace.errorClass
       if (!descriptor) continue
       if (!IDENTIFIER.test(descriptor.name) || PORTABLE_RESERVED_WORDS.has(descriptor.name)) {
-        throw new Error(`dsh-rlm-mode: binding error class ${JSON.stringify(descriptor.name)} is not a usable identifier`)
+        throw new Error(`dashr-repl: binding error class ${JSON.stringify(descriptor.name)} is not a usable identifier`)
       }
       if (RESERVED_BINDING_GLOBALS.has(descriptor.name) || KERNEL_OWNED_NAME.test(descriptor.name)) {
-        throw new Error(`dsh-rlm-mode: reserved binding global ${JSON.stringify(descriptor.name)}`)
+        throw new Error(`dashr-repl: reserved binding global ${JSON.stringify(descriptor.name)}`)
       }
       if (bindings.has(descriptor.name)) {
-        throw new Error(`dsh-rlm-mode: duplicate injected global ${JSON.stringify(descriptor.name)}`)
+        throw new Error(`dashr-repl: duplicate injected global ${JSON.stringify(descriptor.name)}`)
       }
       const member = descriptor.memberNameProperty
       if (member.length === 0 || RESERVED_ERROR_MEMBERS.has(member) || DUNDER_MEMBER.test(member)) {
-        throw new Error(`dsh-rlm-mode: binding error member property ${JSON.stringify(descriptor.memberNameProperty)} is not usable`)
+        throw new Error(`dashr-repl: binding error member property ${JSON.stringify(descriptor.memberNameProperty)} is not usable`)
       }
       const declared = errorClasses.get(descriptor.name)
       if (declared !== undefined && declared !== member) {
-        throw new Error(`dsh-rlm-mode: error class ${JSON.stringify(descriptor.name)} declared with conflicting member properties ${JSON.stringify(declared)} and ${JSON.stringify(member)}`)
+        throw new Error(`dashr-repl: error class ${JSON.stringify(descriptor.name)} declared with conflicting member properties ${JSON.stringify(declared)} and ${JSON.stringify(member)}`)
       }
       errorClasses.set(descriptor.name, member)
     }
@@ -480,11 +498,32 @@ export class DashrRuntime extends RLMRuntime {
     return { ok: true, result: value }
   }
 
+  /** Resolve (and provision, when managed) the kernel interpreter once per runtime. */
+  private resolveKernelPython(): Promise<KernelEnv> {
+    this.kernelEnvPromise ??= resolveKernelEnv({
+      python: this.config.python,
+      venvDir: this.config.kernelEnvDir,
+      pythonVersion: this.config.kernelPythonVersion,
+      autoInstall: this.config.kernelAutoInstall,
+      log: (level, message) => {
+        if (level === 'warn') this.logger.warn(message)
+        else this.logger.info(message)
+      },
+    }).catch((error: unknown) => {
+      // A failed provision must not cache a rejected promise forever: the
+      // next ensureKernel retries (e.g. after the user installs uv/venv).
+      this.kernelEnvPromise = undefined
+      throw error
+    })
+    return this.kernelEnvPromise
+  }
+
+
   /**
    * Spawn-or-reuse the kernel for one key. The lazy map guarantees one
    * entry is created here and nowhere else, so a key that never runs never
    * holds a subprocess — the subagent fan-out guarantee (blueprint §6:
-   * rlm() ×N spawns nothing until a child actually executes code).
+   * subagent ×N spawns nothing until a child actually executes code).
    * @param key - the run principal (or the agentless default).
    */
   private async ensureKernel(key: string, cwd?: string): Promise<KeyedKernel> {
@@ -499,7 +538,7 @@ export class DashrRuntime extends RLMRuntime {
         key,
         cwd: kernelCwd,
         bridge: new IpyKernelBridge({
-          python: this.config.python,
+          python: (await this.resolveKernelPython()).python,
           ...kernelCwd ? { cwd: kernelCwd } : {},
           startupTimeoutMs: this.config.startupTimeoutMs,
           disposeTimeoutMs: this.config.disposeTimeoutMs,
@@ -643,6 +682,21 @@ export class DashrRuntime extends RLMRuntime {
     this.kernels.delete(key)
     await this.teardownKernel(entry)
   }
+  /**
+   * Reset one session's kernel to a fresh, empty namespace: dispose the live
+   * subprocess WITHOUT a turn-end snapshot and clear its on-disk snapshot, so
+   * the next ensureKernel spawns empty (restore finds nothing to replay).
+   */
+  private async resetKey(key: string): Promise<void> {
+    const entry = this.kernels.get(key)
+    if (entry) {
+      this.kernels.delete(key)
+      await entry.bridge.dispose()
+    }
+    if (this.config.snapshotDir) {
+      rmSync(join(this.config.snapshotDir, keyDirectoryName(key)), { recursive: true, force: true })
+    }
+  }
 
   /** Snapshot (when configured) then dispose one key's kernel; failures log, never throw into a listener. */
   private async teardownKernel(entry: KeyedKernel): Promise<void> {
@@ -674,7 +728,7 @@ export default DashrRuntime
  * tests, any future backend) can depend on the PUBLISHED shape instead of
  * reaching into `./src/*` (which the published tarball does not carry).
  */
-export { RLMRuntime } from './vendored/rlm-runtime.ts'
+export { ReplRuntime } from './vendored/rlm-runtime.ts'
 export type {
   CodeBindingErrorClass,
   CodeBindingFunction,

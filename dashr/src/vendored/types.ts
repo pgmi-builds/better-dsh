@@ -1,6 +1,6 @@
 /**
  * Vocabulary types for the code-execution seam: what a caller hands a
- * {@link ./rlm-runtime.ts | RLMRuntime} and what it gets back. Pure types — no
+ * {@link ./rlm-runtime.ts | ReplRuntime} and what it gets back. Pure types — no
  * runtime code lives here.
  *
  * Vendored from `@deepseek-ai/dsh-code-runtime@0.1.0-rc.6` (`src/types.ts`)
@@ -139,6 +139,21 @@ export interface CodeRunRequest {
    * header).
    */
   cwd?: string
+  /**
+   * Per-run wall budget override, in milliseconds. Absent → the runtime's
+   * configured `runTimeoutMs`. DASHR-owned delta: upstream's one-shot seam
+   * fixes the budget in config alone; a stateful REPL wants a cell to be
+   * able to say "this one is slow" without reconfiguring the whole mount.
+   */
+  timeoutMs?: number
+  /**
+   * Reset the persistent namespace to empty BEFORE this run. The runtime
+   * disposes the principal's kernel and clears its on-disk snapshot, so the
+   * next spawn restores nothing and starts a fresh, empty namespace.
+   * DASHR-owned delta: the M3-B snapshot/restore chain owns state revival;
+   * a model must be able to abandon that state deliberately.
+   */
+  reset?: boolean
 }
 
 /**

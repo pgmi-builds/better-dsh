@@ -12,11 +12,11 @@
  * an absent key means "disabled", never a silent default location).
  *
  * Keying is per-agent (`exec.agent.id`, the same principal the kernel map
- * and the rlm run registry key on), so sessions joined to one standing mount
+ * keys on), so sessions joined to one standing mount
  * never see each other's harness. `agent/disposed` drops the in-memory cache
  * only; the FILE survives by design — "continual" means the next session of
  * the same agent id restores its entries.
- * @module dsh-rlm-mode/harness-store
+ * @module dashr-repl/harness-store
  */
 
 import { randomUUID } from 'node:crypto'
@@ -24,7 +24,7 @@ import { readFileSync } from 'node:fs'
 import { mkdir, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 
-/** The v1 controlled entry kinds, mirroring the harness taxonomy the blueprint names (subagent specs deferred — rlm() itself is DASHR's delegation surface). */
+/** The v1 controlled entry kinds, mirroring the harness taxonomy the blueprint names (subagent specs deferred — the native subagent tool is DASHR's delegation surface). */
 export const HARNESS_KINDS = ['note', 'memory', 'skill'] as const
 
 /** One durable harness entry. */

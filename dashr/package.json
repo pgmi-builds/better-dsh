@@ -1,7 +1,7 @@
 {
-  "name": "dsh-rlm-mode",
-  "description": "RLM Mode for DeepSeek Harness (dsh): one persistent Python kernel per agent session — schema-driven tools.* bindings, sub-agents, harness, and snapshots",
-  "version": "0.1.6",
+"name": "@pgmi-builds/dashr",
+"description": "DASHR: a persistent Python-kernel REPL for DeepSeek Harness (dsh) — the `eval` tool with `tool.*` bindings, sub-agents, harness, and snapshots",
+  "version": "0.1.8",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -19,8 +19,8 @@
   },
   "files": [
     "lib",
-    "preset",
-    "cordis.patch.yml"
+    "cordis.patch.yml",
+    "control-prompt.md"
   ],
   "scripts": {
     "build": "tsdown",
@@ -123,8 +123,8 @@
   "keywords": [
     "dsh",
     "deepseek-harness",
-    "rlm",
-    "recursive-language-model",
+    "repl",
+    "eval",
     "ipython",
     "kernel",
     "agent",

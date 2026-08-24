@@ -75,16 +75,16 @@ describe('renderToolsSdkPy — determinism and shape (flat v0.1.5 render)', () =
 
   it('renders each tool as a TOP-LEVEL async def — no Tools protocol, no tools singleton', () => {
     const text = renderToolsSdkPy([nested, echo])
-    expect(text).toContain('async def echo(args: EchoArgs) -> str:')
-    expect(text).toContain('async def deploy(args: DeployArgs) -> DeployOutput:')
+    expect(text).toContain('tool.echo(args: EchoArgs) -> str')
+    expect(text).toContain('tool.deploy(args: DeployArgs) -> DeployOutput')
     expect(text).not.toContain('class Tools(Protocol)')
     expect(text).not.toContain('tools: Tools')
     expect(text).not.toContain('Protocol')
     // Docstring carries the description, indented one level (function body).
-    expect(text).toContain('    """Echo the value back."""')
-    expect(text).toContain('    """Deploy a service."""')
+    expect(text).toContain('# Echo the value back.')
+    expect(text).toContain('# Deploy a service.')
     // Function defs come after the TypedDict declarations they reference.
-    expect(text.indexOf('class DeployOutput(TypedDict):')).toBeLessThan(text.indexOf('async def deploy('))
+    expect(text.indexOf('class DeployOutput(TypedDict):')).toBeLessThan(text.indexOf('tool.deploy('))
   })
 
   it('lists exactly the typing symbols used, in the canonical order', () => {
@@ -117,7 +117,7 @@ describe('renderToolsSdkPy — determinism and shape (flat v0.1.5 render)', () =
     }
     const text = renderToolsSdkPy([exotic])
     expect(text).toContain('args: dict[str, Any]')
-    expect(text).toContain('async def mixed(')
+    expect(text).toContain('tool.mixed(')
     expect(text).toContain('from typing import Any')
   })
 })
@@ -130,9 +130,9 @@ describe('renderToolsSdkPy — non-bindable tool names', () => {
       parameters: { type: 'object', properties: {}, additionalProperties: false },
       output: { type: 'string' },
     }])
-    expect(text).toContain('# "class": registered but NOT callable from cells (its name is not a usable flat global) — (args: ClassArgs) -> str')
+    expect(text).toContain('# "class": registered but NOT callable from cells (its name is not a usable member name) — (args: ClassArgs) -> str')
     expect(text).toContain('#   Reserved name tool.')
-    expect(text).not.toContain('async def class(')
+    expect(text).not.toContain('tool.class(')
   })
 
   it('routes an exotic (non-identifier) tool name to a not-callable comment', () => {
@@ -166,7 +166,7 @@ describe('renderToolsSdkPy — non-bindable tool names', () => {
       output: { type: 'string' },
     }])
     expect(text).toContain('# "type": registered but NOT callable from cells')
-    expect(text).not.toContain('async def type(')
+    expect(text).not.toContain('tool.type(')
   })
 
   it('still names the derived class for a commented tool with typed args', () => {
@@ -184,9 +184,9 @@ describe('renderToolsSdkPy — non-bindable tool names', () => {
     expect(text).toMatch(/class ClassArgs\(TypedDict\):[\s\S]*?value: str/)
   })
 
-  it('marks file_glob with the stdlib-shadow note, from the model\'s perspective', () => {
+  it('binds glob directly as a tool member (no rename, no shadow note)', () => {
     const text = renderToolsSdkPy([{
-      name: 'file_glob',
+      name: 'glob',
       description: 'Glob files by pattern.',
       parameters: {
         type: 'object',
@@ -196,17 +196,16 @@ describe('renderToolsSdkPy — non-bindable tool names', () => {
       },
       output: { type: 'string' },
     }])
-    expect(text).toContain('async def file_glob(args: FileGlobArgs) -> str')
-    expect(text).toContain('would shadow the stdlib `glob` module')
-    // The note explains the rename without referencing any upstream.
-    expect(text).not.toContain('upstream')
+    expect(text).toContain('tool.glob(args: GlobArgs) -> str')
+    expect(text).not.toContain('shadow')
+    expect(text).not.toContain('file_glob')
   })
 })
 
 describe('renderToolsSdkPy — DASHR cell instructions', () => {
-  it('states the persistent-kernel cell semantics, ipython by name', () => {
+  it('states the persistent-kernel cell semantics, eval by name', () => {
     const text = renderToolsSdkPy([echo])
-    expect(text).toContain('## Writing cells for ipython')
+    expect(text).toContain('## Writing cells for eval')
     expect(text).toContain('PERSISTENT IPython kernel')
     expect(text).toContain('still alive in later ones')
     expect(text).toContain('Top-level `await` works; a top-level `return` is a SyntaxError')
@@ -223,7 +222,7 @@ describe('renderToolsSdkPy — DASHR cell instructions', () => {
     const text = renderToolsSdkPy([echo])
     expect(text).toContain('the bound names are `ToolCallError` and every tool function declared below')
     expect(text).toContain('the `TypedDict` classes do NOT exist at run time')
-    expect(text).toContain('await echo({"field": 1})')
+    expect(text).toContain('await tool.echo({"field": 1})')
     // No holder, no prefix promise anywhere.
     expect(text).not.toContain('await tools.')
     expect(text).not.toContain('`tools`')

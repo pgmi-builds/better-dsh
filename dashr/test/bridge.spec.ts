@@ -8,7 +8,7 @@ import { createRunCellTool } from '../src/index.ts'
 import { FakeCellRuntime, fakeRuntime, runCell, setupPresentation } from './helpers.ts'
 
 /**
- * The `ipython` dispatch bridge against an in-repo fake `rlmRuntime` — the
+ * The `eval` dispatch bridge against an in-repo fake `replRuntime` — the
  * same tier upstream `code-mode.spec.ts` runs: serialization, the nested
  * scheduler's concurrency contract (ported PendingDispatch driver), abort
  * drain, error mapping, and the audit events — all without a kernel. The
@@ -69,8 +69,8 @@ function registerGated(ctx: Context, name: string, concurrencySafe: boolean) {
 
 /** The flat binding callable for one tool global (v0.1.5: per-tool namespaces). */
 function tool(request: { bindings: { global: string, functions: Record<string, (args: unknown) => Promise<unknown>> }[] }, name: string): (args: unknown) => Promise<unknown> {
-  const namespace = request.bindings.find(binding => binding.global === name)
-  const fn = namespace?.functions['__call__']
+  const namespace = request.bindings.find(binding => binding.global === 'tool')
+  const fn = namespace?.functions[name]
   if (!fn) throw new Error(`no flat binding for ${JSON.stringify(name)}`)
   return fn
 }
@@ -79,13 +79,13 @@ describe('the sub-dispatch scheduler (native concurrency contract)', () => {
   it('overlaps concurrency-safe calls under Promise.all and logs a start event per dispatch', async () => {
     const { ctx, agent } = await setupPresentation(fakeRuntime)
     const gated = registerGated(ctx, 'safe_read', true)
-    const runtime = ctx.get('rlmRuntime') as FakeCellRuntime
+    const runtime = ctx.get('replRuntime') as FakeCellRuntime
     runtime.behavior = async (request) => {
       const flatTool = (name: string) => tool(request, name)
       const all = Promise.all([
-        flatTool('safe_read')({ args: [{ id: 'a' }], kwargs: {} }),
-        flatTool('safe_read')({ args: [{ id: 'b' }], kwargs: {} }),
-        flatTool('safe_read')({ args: [{ id: 'c' }], kwargs: {} }),
+        flatTool('safe_read')({ id: 'a' }),
+        flatTool('safe_read')({ id: 'b' }),
+        flatTool('safe_read')({ id: 'c' }),
       ])
       await expect.poll(() => gated.pending()).toBe(3)
       gated.releaseAll()
@@ -106,12 +106,12 @@ describe('the sub-dispatch scheduler (native concurrency contract)', () => {
     const { ctx, agent } = await setupPresentation(fakeRuntime)
     const safe = registerGated(ctx, 'safe_read', true)
     const unsafe = registerGated(ctx, 'writer', false)
-    const runtime = ctx.get('rlmRuntime') as FakeCellRuntime
+    const runtime = ctx.get('replRuntime') as FakeCellRuntime
     runtime.behavior = async (request) => {
       const flatTool = (name: string) => tool(request, name)
-      const reads = [flatTool('safe_read')({ args: [{ id: 'r1' }], kwargs: {} }), flatTool('safe_read')({ args: [{ id: 'r2' }], kwargs: {} })]
-      const write = flatTool('writer')({ args: [{ id: 'w' }], kwargs: {} })
-      const tail = flatTool('safe_read')({ args: [{ id: 'r3' }], kwargs: {} })
+      const reads = [flatTool('safe_read')({ id: 'r1' }), flatTool('safe_read')({ id: 'r2' })]
+      const write = flatTool('writer')({ id: 'w' })
+      const tail = flatTool('safe_read')({ id: 'r3' })
       await expect.poll(() => safe.pending()).toBe(2)
       expect(unsafe.pending()).toBe(0)
       safe.releaseAll()
@@ -133,13 +133,13 @@ describe('the sub-dispatch scheduler (native concurrency contract)', () => {
   it('maxParallelSubCalls caps the overlap window', async () => {
     const { ctx, agent } = await setupPresentation(fakeRuntime, { maxParallelSubCalls: 2 })
     const gated = registerGated(ctx, 'safe_read', true)
-    const runtime = ctx.get('rlmRuntime') as FakeCellRuntime
+    const runtime = ctx.get('replRuntime') as FakeCellRuntime
     runtime.behavior = async (request) => {
       const flatTool = (name: string) => tool(request, name)
       const all = Promise.all([
-        flatTool('safe_read')({ args: [{ id: 'a' }], kwargs: {} }),
-        flatTool('safe_read')({ args: [{ id: 'b' }], kwargs: {} }),
-        flatTool('safe_read')({ args: [{ id: 'c' }], kwargs: {} }),
+        flatTool('safe_read')({ id: 'a' }),
+        flatTool('safe_read')({ id: 'b' }),
+        flatTool('safe_read')({ id: 'c' }),
       ])
       await expect.poll(() => gated.pending()).toBe(2)
       expect(gated.pending()).toBe(2)
@@ -176,10 +176,10 @@ describe('the sub-dispatch scheduler (native concurrency contract)', () => {
         return String((args as { id: string }).id)
       },
     }))
-    const runtime = ctx.get('rlmRuntime') as FakeCellRuntime
+    const runtime = ctx.get('replRuntime') as FakeCellRuntime
     runtime.behavior = async (request) => {
       const flatTool = (name: string) => tool(request, name)
-      const values = await Promise.all([flatTool('probe')({ args: [{ id: 'a' }], kwargs: {} }), flatTool('probe')({ args: [{ id: 'b' }], kwargs: {} }), flatTool('probe')({ args: [{ id: 'c' }], kwargs: {} })])
+      const values = await Promise.all([flatTool('probe')({ id: 'a' }), flatTool('probe')({ id: 'b' }), flatTool('probe')({ id: 'c' })])
       return { logs: [], value: values.map(String).join(',') }
     }
     const result = await runCell(ctx, 'program', { agent: agent.agent })
@@ -195,11 +195,11 @@ describe('the sub-dispatch scheduler (native concurrency contract)', () => {
     const { ctx, agent } = await setupPresentation(fakeRuntime)
     const gated = registerGated(ctx, 'writer', false)
     const abandoned: string[] = []
-    const runtime = ctx.get('rlmRuntime') as FakeCellRuntime
+    const runtime = ctx.get('replRuntime') as FakeCellRuntime
     runtime.behavior = async (request) => {
       const flatTool = (name: string) => tool(request, name)
-      flatTool('writer')({ args: [{ id: 'w1' }], kwargs: {} }).catch(() => 'settled-under-abort')
-      flatTool('writer')({ args: [{ id: 'w2' }], kwargs: {} }).catch((error: unknown) => {
+      flatTool('writer')({ id: 'w1' }).catch(() => 'settled-under-abort')
+      flatTool('writer')({ id: 'w2' }).catch((error: unknown) => {
         abandoned.push(error instanceof Error ? error.message : String(error))
       })
       await expect.poll(() => gated.pending()).toBe(1)
@@ -211,18 +211,18 @@ describe('the sub-dispatch scheduler (native concurrency contract)', () => {
     const settles = agent.events.filter(event => event.type === 'tool/code-dispatch').map(event => (event.data as { subCallId: string }).subCallId)
     expect(starts).toEqual(['call-1:code:1'])
     expect(settles).toEqual(['call-1:code:1'])
-    expect(abandoned).toEqual(['ipython run is over (ipython settled); writer tool call abandoned'])
+    expect(abandoned).toEqual(['eval run is over (eval settled); writer tool call abandoned'])
   })
 
   it('an outer abort mid-run aborts in-flight sub-dispatches and still settles their events', async () => {
     const { ctx, agent } = await setupPresentation(fakeRuntime)
     const gated = registerGated(ctx, 'safe_read', true)
-    const runtime = ctx.get('rlmRuntime') as FakeCellRuntime
+    const runtime = ctx.get('replRuntime') as FakeCellRuntime
     const outer = new AbortController()
     const bindingOutcome: string[] = []
     runtime.behavior = async (request) => {
       const flatTool = (name: string) => tool(request, name)
-      void flatTool('safe_read')({ args: [{ id: 'x' }], kwargs: {} })
+      void flatTool('safe_read')({ id: 'x' })
         .then(() => 'resolved', (error: unknown) => {
           bindingOutcome.push(error instanceof Error ? error.message : String(error))
         })
@@ -246,21 +246,21 @@ describe('the sub-dispatch scheduler (native concurrency contract)', () => {
   })
 })
 
-describe('the ipython dispatch bridge (result shaping)', () => {
+describe('the eval dispatch bridge (result shaping)', () => {
   it('bridges tool calls, returns only the curated output, and logs events with upstream payload shapes', async () => {
     const { ctx, agent } = await setupPresentation(fakeRuntime)
     const calls = registerEcho(ctx)
-    const runtime = ctx.get('rlmRuntime') as FakeCellRuntime
+    const runtime = ctx.get('replRuntime') as FakeCellRuntime
     runtime.behavior = async (request) => {
       const flatTool = (name: string) => tool(request, name)
-      const first = await flatTool('echo')({ args: [{ value: 'one' }], kwargs: {} })
-      const second = await flatTool('echo')({ args: [{ value: 'two' }], kwargs: {} })
+      const first = await flatTool('echo')({ value: 'one' })
+      const second = await flatTool('echo')({ value: 'two' })
       if (typeof first !== 'string' || typeof second !== 'string') throw new Error('echo returned a non-string')
       return { logs: [`saw ${first}`], value: second }
     }
     const result = await runCell(ctx, 'const …: string = …', { agent: agent.agent })
     expect(result.isError).toBe(false)
-    if (result.isError) throw new Error('expected ipython success')
+    if (result.isError) throw new Error('expected eval success')
     expect(result.value).toEqual({ logs: ['saw echo:one'], result: 'echo:two' })
     expect(result.content).toEqual([{ type: 'text', text: 'saw echo:one\necho:two' }])
     expect(calls).toEqual([{ value: 'one' }, { value: 'two' }])
@@ -289,11 +289,11 @@ describe('the ipython dispatch bridge (result shaping)', () => {
       },
       execute(): Promise<never> { return Promise.reject(new Error('deliberate failure')) },
     }))
-    const runtime = ctx.get('rlmRuntime') as FakeCellRuntime
+    const runtime = ctx.get('replRuntime') as FakeCellRuntime
     runtime.behavior = async (request) => {
       const flatTool = (name: string) => tool(request, name)
       try {
-        await flatTool('fail')({ args: [{}], kwargs: {} })
+        await flatTool('fail')({})
         return { logs: [], value: 'unreachable' }
       } catch (error: unknown) {
         return { logs: [], value: `caught: ${error instanceof Error ? error.message : String(error)}` }
@@ -309,11 +309,11 @@ describe('the ipython dispatch bridge (result shaping)', () => {
   it('rejects a binding argument that is not lossless JSON, dispatching nothing', async () => {
     const { ctx, agent } = await setupPresentation(fakeRuntime)
     const calls = registerEcho(ctx)
-    const runtime = ctx.get('rlmRuntime') as FakeCellRuntime
+    const runtime = ctx.get('replRuntime') as FakeCellRuntime
     runtime.behavior = async (request) => {
       const flatTool = (name: string) => tool(request, name)
       try {
-        await flatTool('echo')({ args: [{ value: 'x', big: 1n }], kwargs: {} })
+        await flatTool('echo')({ value: 'x', big: 1n })
         return { logs: [], value: 'unreachable' }
       } catch (error: unknown) {
         return { logs: [], value: error instanceof Error ? error.message : String(error) }
@@ -327,7 +327,7 @@ describe('the ipython dispatch bridge (result shaping)', () => {
 
   it('a failed run surfaces as CODE_RUN_FAILED with the failure kind and captured logs', async () => {
     const { ctx, agent } = await setupPresentation(fakeRuntime)
-    const runtime = ctx.get('rlmRuntime') as FakeCellRuntime
+    const runtime = ctx.get('replRuntime') as FakeCellRuntime
     runtime.behavior = async () => ({ logs: ['partial output'], error: { kind: 'exception', message: 'boom' } })
     const result = await runCell(ctx, 'program', { agent: agent.agent })
     expect(result.isError).toBe(true)
@@ -337,7 +337,7 @@ describe('the ipython dispatch bridge (result shaping)', () => {
     expect((result.content[0] as { text: string }).text).toContain('Captured output:\npartial output')
   })
 
-  it('forwards a nested terminal conclusion onto the successful ipython result', async () => {
+  it('forwards a nested terminal conclusion onto the successful eval result', async () => {
     const { ctx, agent } = await setupPresentation(fakeRuntime)
     ctx.tools.register(defineTool({
       name: 'finalize',
@@ -352,18 +352,18 @@ describe('the ipython dispatch bridge (result shaping)', () => {
         return Promise.resolve('done')
       },
     }))
-    const runtime = ctx.get('rlmRuntime') as FakeCellRuntime
+    const runtime = ctx.get('replRuntime') as FakeCellRuntime
     runtime.behavior = async (request) => {
       const flatTool = (name: string) => tool(request, name)
-      await flatTool('finalize')({ args: [{}], kwargs: {} })
+      await flatTool('finalize')({})
       return { logs: [], value: 'cell complete' }
     }
-    const concluded = await runCell(ctx, 'await finalize({})', { agent: agent.agent })
+    const concluded = await runCell(ctx, 'await tool.finalize({})', { agent: agent.agent })
     expect(concluded.isError).toBe(false)
     expect(concluded.concludesTurn).toBe(true)
   })
 
-  it('defers sub-call additionalContexts onto the outer ipython result', async () => {
+  it('defers sub-call additionalContexts onto the outer eval result', async () => {
     const { ctx, agent } = await setupPresentation(fakeRuntime)
     registerEcho(ctx)
     ctx.on('tools/post-execute', (exec, _result, next): Promise<PostToolDecision> => {
@@ -378,11 +378,11 @@ describe('the ipython dispatch bridge (result shaping)', () => {
       }
       return next()
     })
-    const runtime = ctx.get('rlmRuntime') as FakeCellRuntime
+    const runtime = ctx.get('replRuntime') as FakeCellRuntime
     runtime.behavior = async (request) => {
       const flatTool = (name: string) => tool(request, name)
-      await flatTool('echo')({ args: [{ value: 'x' }], kwargs: {} })
-      await flatTool('echo')({ args: [{ value: 'y' }], kwargs: {} })
+      await flatTool('echo')({ value: 'x' })
+      await flatTool('echo')({ value: 'y' })
       return { logs: [], value: 'done' }
     }
     const result = await runCell(ctx, 'program', { agent: agent.agent })
@@ -395,10 +395,10 @@ describe('the ipython dispatch bridge (result shaping)', () => {
     const { ctx, agent } = await setupPresentation(fakeRuntime)
     registerEcho(ctx)
     ctx.on('tools/code-dispatch-log', () => { throw new Error('log-content listener failed') })
-    const runtime = ctx.get('rlmRuntime') as FakeCellRuntime
+    const runtime = ctx.get('replRuntime') as FakeCellRuntime
     runtime.behavior = async (request) => {
       const flatTool = (name: string) => tool(request, name)
-      const value = await flatTool('echo')({ args: [{ value: 'x' }], kwargs: {} })
+      const value = await flatTool('echo')({ value: 'x' })
       return { logs: [], value: String(value) }
     }
     const result = await runCell(ctx, 'program', { agent: agent.agent })
@@ -414,10 +414,10 @@ describe('the ipython dispatch bridge (result shaping)', () => {
       if (dispatch.name !== 'echo') return next()
       return Promise.resolve([{ type: 'text', text: 'spilled: locator' }])
     })
-    const runtime = ctx.get('rlmRuntime') as FakeCellRuntime
+    const runtime = ctx.get('replRuntime') as FakeCellRuntime
     runtime.behavior = async (request) => {
       const flatTool = (name: string) => tool(request, name)
-      const value = await flatTool('echo')({ args: [{ value: 'x' }], kwargs: {} })
+      const value = await flatTool('echo')({ value: 'x' })
       return { logs: [], value: `program:${String(value)}` }
     }
     const result = await runCell(ctx, 'program', { agent: agent.agent })
@@ -432,7 +432,7 @@ describe('the ipython dispatch bridge (result shaping)', () => {
   it('passes the run-scoped abort signal into runtime.run and forwards binding coverage of the calling agent', async () => {
     const { ctx, agent, other } = await setupPresentation(fakeRuntime)
     registerEcho(ctx)
-    const runtime = ctx.get('rlmRuntime') as FakeCellRuntime
+    const runtime = ctx.get('replRuntime') as FakeCellRuntime
     runtime.behavior = async (request) => {
       // The FLAT surface: one namespace per bindable tool (each carrying the
       // shared ToolCallError contract) plus the bridge tools.
@@ -450,19 +450,19 @@ describe('the ipython dispatch bridge (result shaping)', () => {
     expect(result.isError).toBe(false)
     expect(result.value).toMatchObject({
       result: {
-        names: ['echo', 'rlm', 'agent_message', 'agent_list', 'rlm_workflow', 'rlm_ralph', 'refine', 'compact'],
+        names: ['tool'],
         signalPresent: true,
         errorClasses: ['ToolCallError'],
       },
     })
-    // ipython stays invisible to the neighbor agent's binding coverage (its
+    // eval stays invisible to the neighbor agent's binding coverage (its
     // dispatch table has no transport at all).
     expect(ctx.tools.schemas(other.agent).map(tool => tool.name)).toEqual(['echo'])
   })
 
   it('threads the calling agent\'s session id into runtime.run as the principal (M3-A kernel keying)', async () => {
     const { ctx, agent } = await setupPresentation(fakeRuntime)
-    const runtime = ctx.get('rlmRuntime') as FakeCellRuntime
+    const runtime = ctx.get('replRuntime') as FakeCellRuntime
     const result = await runCell(ctx, 'program', { agent: agent.agent })
     expect(result.isError).toBe(false)
     // The identity a stateful backend keys its kernel by: the calling
@@ -470,13 +470,13 @@ describe('the ipython dispatch bridge (result shaping)', () => {
     expect(runtime.lastRequest?.principal).toBe('dashr-agent')
   })
 
-  it('omits the principal for an agentless ipython call (the runtime\'s shared default key)', async () => {
+  it('omits the principal for an agentless eval call (the runtime\'s shared default key)', async () => {
     // Agentless calls never traverse the preset scope (a bare registry
     // execute resolves no scoped registration — documented scope semantics),
     // so the agentless branch is pinned by driving the tool definition
     // directly, the way a composite consumer would.
     const { ctx } = await setupPresentation(fakeRuntime)
-    const runtime = ctx.get('rlmRuntime') as FakeCellRuntime
+    const runtime = ctx.get('replRuntime') as FakeCellRuntime
     const tool = createRunCellTool(ctx.tools, {
       requireRuntime: () => runtime,
       maxParallel: 2,
@@ -488,7 +488,7 @@ describe('the ipython dispatch bridge (result shaping)', () => {
         callId: CallId('agentless-call'),
         rootCallId: CallId('agentless-call'),
         token: Symbol('agentless-token') as ToolExecutionToken,
-        name: 'ipython',
+        name: 'eval',
         arguments: {},
         signal: new AbortController().signal,
         deferContext: () => {},

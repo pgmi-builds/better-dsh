@@ -113,7 +113,7 @@ describe('DashrRuntime — per-session kernel keying', () => {
   it('destroys exactly the disposed session kernel on agent/disposed', async () => {
     const ctx = new Context()
     const fiber = await ctx.plugin(DashrRuntime, { python: KERNEL_PYTHON })
-    const runtime = ctx.rlmRuntime as DashrRuntime
+    const runtime = ctx.replRuntime as DashrRuntime
     try {
       const setupA = await runtime.run({ program: 'a = 1', bindings: [], principal: 'sess-end-a' })
       const setupB = await runtime.run({ program: 'b = 1', bindings: [], principal: 'sess-end-b' })
@@ -187,7 +187,7 @@ describe('DashrRuntime — per-session kernel cwd', () => {
     snapshotDirs.push(workspace)
     const fiber = await ctx.plugin(DashrRuntime, { python: KERNEL_PYTHON, runTimeoutMs: 30_000 })
     onTestFinished(() => fiber.dispose())
-    const runtime = ctx.rlmRuntime as DashrRuntime
+    const runtime = ctx.replRuntime as DashrRuntime
 
     // The presentation layer threads `agent.session.header.cwd` down as
     // `request.cwd`; the runtime must spawn the kernel THERE, not inherit
@@ -202,4 +202,35 @@ describe('DashrRuntime — per-session kernel cwd', () => {
     expect(agentless.error).toBeUndefined()
     expect(agentless.logs.join('')).toContain(process.cwd())
   }, 60_000)
+})
+
+describe('DashrRuntime — eval timeout and reset', () => {
+  it('honors a per-run timeoutMs override, interrupting the cell early', async () => {
+    const { runtime } = await setupRuntime({ runTimeoutMs: 30_000 })
+    const start = Date.now()
+    const timed = await runtime.run({ program: 'while True:\n    pass', bindings: [], timeoutMs: 400 })
+    expect(timed.error?.kind).toBe('timeout')
+    expect(Date.now() - start).toBeLessThan(10_000)
+    // The interrupt freed the kernel: a later run still works.
+    const after = await runtime.run({ program: 'print("recovered")', bindings: [] })
+    expect(after.error).toBeUndefined()
+    expect(after.logs).toContain('recovered')
+  }, 30_000)
+
+  it('reset=true abandons the persistent namespace and starts a fresh empty kernel', async () => {
+    const { runtime } = await setupRuntime()
+    await runtime.run({ program: 'kept = 41 + 1', bindings: [], principal: 'sess-reset' })
+    const before = await runtime.run({ program: 'print(kept)', bindings: [], principal: 'sess-reset' })
+    expect(before.error).toBeUndefined()
+    expect(before.logs).toContain('42')
+
+    // reset discards `kept`: the kernel restarts empty, and stays usable.
+    const reset = await runtime.run({ program: 'print("kept" in globals())', bindings: [], principal: 'sess-reset', reset: true })
+    expect(reset.error).toBeUndefined()
+    expect(reset.logs).toContain('False')
+
+    const after = await runtime.run({ program: 'print("alive")', bindings: [], principal: 'sess-reset' })
+    expect(after.error).toBeUndefined()
+    expect(after.logs).toContain('alive')
+  }, 30_000)
 })

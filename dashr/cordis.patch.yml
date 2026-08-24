@@ -1,24 +1,17 @@
-# DASHR bundle patch: declares dsh-rlm-mode as a DSH bundle so `dsh plugin
-# add` reconciles it into the profile's bundle list — the marketplace-presence
-# hook. This file must remain a top-level YAML array to satisfy the bundle
-# loader, but it intentionally mounts NOTHING on the profile plane.
+# DASHR bundle patch: mounts `dashr-repl` on the HOST plane. Its `eval` tool
+# and persistent-kernel REPL runtime land in the global scope layer, so every
+# agent in every preset sees them (`agent → preset → global`). One
+# process-global runtime keys one kernel per Session/Agent, torn down on
+# `agent/disposed` — the promotion of the v0.1.5 DashrDaemon shell.
 #
-# The stateful kernel provider + ipython presentation live ONLY in the
-# rlm-mode agent preset (preset/rlm-mode/agent.cordis.yml), which mounts the
-# `dashr-kernel` group on the AGENT plane under an entry-local
-# `isolate: rlmRuntime` realm — one private kernel per session.
+# The tool is an ordinary registration: upstream's `code` preset still applies
+# its own `tools:code-only` rule (a direct `eval` call in a PTC session resolves
+# to UNKNOWN_TOOL). DASHR ships no PTC mode, so that rule never bites here.
 #
-# Mounting `dashr-kernel` here on the profile plane as well would register the
-# same `rlmRuntime` service twice — once process-global, once per-session —
-# and `dsh-agent-presets` rejects the preset mount as a leaked process-global
-# service ("the second mount of this preset collides with the first"), which
-# makes RLM Mode unselectable in the Web UI.
-#
-# v0.1.5 layering decision (plan §2): DashrDaemon is the PROFILE-level daemon
-# concept — a process-global owner for cross-session kernel lifecycle — but
-# in v0.1.5 it stays an empty shell, so this file remains `[]` and mounts no
-# code. DashrRuntime lives at the standing-mount layer and is the de facto
-# daemon today: it keys one kernel per session, listens for `agent/disposed`,
-# and owns snapshots. A future DashrDaemon (process pool / lifecycle) would
-# mount here.
-[]
+# `python` is only a hint: the runtime OWNS the kernel environment. An
+# explicit interpreter (DASHR_KERNEL_PYTHON) is verified; the bare
+- insert:
+    - id: dashr-repl
+      name: '@pgmi-builds/dashr'
+      config:
+        python: !!js process.env.DASHR_KERNEL_PYTHON ?? 'python3'

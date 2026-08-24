@@ -69,10 +69,10 @@ describe('compact() binding', () => {
     const { nowCalls } = await registerStubCompaction(ctx, {
       compactNow: async () => fakeResult(),
     })
-    const runtime = ctx.get('rlmRuntime') as FakeCellRuntime
+    const runtime = ctx.get('replRuntime') as FakeCellRuntime
     runtime.behavior = async (request) => {
-      const compact = request.bindings.find(binding => binding.global === 'compact')!
-      return { logs: [], value: await compact.functions['__call__']!({ args: [], kwargs: {} }) }
+      const tool = request.bindings.find(binding => binding.global === 'tool')!
+      return { logs: [], value: await tool.functions['compact']!({}) }
     }
     // runCell's fixed signal would not be observable; pass our own.
     const result = await runCell(ctx, 'program', { agent: agent.agent, signal })
@@ -97,10 +97,10 @@ describe('compact() binding', () => {
       compactNow: () => { throw busyError() },
       compactIfNeeded: async () => fakeResult({ shadowedTokenCount: 900 }),
     })
-    const runtime = ctx.get('rlmRuntime') as FakeCellRuntime
+    const runtime = ctx.get('replRuntime') as FakeCellRuntime
     runtime.behavior = async (request) => {
-      const compact = request.bindings.find(binding => binding.global === 'compact')!
-      const via = await compact.functions['__call__']!({ args: [{ reason: 'context is filling' }], kwargs: {} })
+      const tool = request.bindings.find(binding => binding.global === 'tool')!
+      const via = await tool.functions['compact']!({ reason: 'context is filling' })
       return { logs: [], value: via }
     }
     const result = await cell(ctx, agent.agent, 'program')
@@ -117,10 +117,10 @@ describe('compact() binding', () => {
       compactNow: () => { throw busyError() },
       compactIfNeeded: async () => null,
     })
-    const runtime = ctx.get('rlmRuntime') as FakeCellRuntime
+    const runtime = ctx.get('replRuntime') as FakeCellRuntime
     runtime.behavior = async (request) => {
-      const compact = request.bindings.find(binding => binding.global === 'compact')!
-      return { logs: [], value: await compact.functions['__call__']!({ args: [], kwargs: {} }) }
+      const tool = request.bindings.find(binding => binding.global === 'tool')!
+      return { logs: [], value: await tool.functions['compact']!({}) }
     }
     expect(await cell(ctx, agent.agent, 'program')).toEqual({ status: 'no-op', path: 'pressure', compact_model: null })
   })
@@ -131,10 +131,10 @@ describe('compact() binding', () => {
       c.provide('tokenMeter', { measure: () => ({ totalTokens: 4321 }) })
     } })
     onTestFinished(() => meterFiber.dispose())
-    const runtime = ctx.get('rlmRuntime') as FakeCellRuntime
+    const runtime = ctx.get('replRuntime') as FakeCellRuntime
     runtime.behavior = async (request) => {
-      const compact = request.bindings.find(binding => binding.global === 'compact')!
-      return { logs: [], value: await compact.functions['__call__']!({ args: [], kwargs: {} }) }
+      const tool = request.bindings.find(binding => binding.global === 'tool')!
+      return { logs: [], value: await tool.functions['compact']!({}) }
     }
     expect(await cell(ctx, agent.agent, 'program')).toEqual({
       context_tokens: 4321,
@@ -145,18 +145,18 @@ describe('compact() binding', () => {
   it('validates the signature: no args or one reason key, nothing else', async () => {
     const { ctx, agent } = await setupPresentation(fakeRuntime)
     await registerStubCompaction(ctx, { compactNow: async () => null })
-    const runtime = ctx.get('rlmRuntime') as FakeCellRuntime
+    const runtime = ctx.get('replRuntime') as FakeCellRuntime
     runtime.behavior = async (request) => {
-      const compact = request.bindings.find(binding => binding.global === 'compact')!
-      const two = await compact.functions['__call__']!({ args: ['a', 'b'], kwargs: {} })
-      const kwarg = await compact.functions['__call__']!({ args: [], kwargs: { reason: 'x' } })
-      const nonString = await compact.functions['__call__']!({ args: [1], kwargs: {} })
-      const reason = await compact.functions['__call__']!({ args: [{ reason: 'wrapping up' }], kwargs: {} })
+      const tool = request.bindings.find(binding => binding.global === 'tool')!
+      const two = await tool.functions['compact']!(['a', 'b'])
+      const kwarg = await tool.functions['compact']!('x')
+      const nonString = await tool.functions['compact']!(1)
+      const reason = await tool.functions['compact']!({ reason: 'wrapping up' })
       return { logs: [], value: { two, kwarg, nonString, reason } }
     }
     const result = await cell(ctx, agent.agent, 'program') as Record<string, { error?: string }>
     expect(result['two']?.error).toContain('exactly one positional')
-    expect(result['kwarg']?.error).toContain('not keyword arguments')
+    expect(result['kwarg']?.error).toContain('not a bare value')
     expect(result['nonString']?.error).toContain('not a bare value')
     expect(result['reason']).toMatchObject({ status: 'no-op' })
   })
@@ -166,10 +166,10 @@ describe('compact() binding', () => {
     await registerStubCompaction(ctx, {
       compactNow: () => { throw new Error('persistence backend down') },
     })
-    const runtime = ctx.get('rlmRuntime') as FakeCellRuntime
+    const runtime = ctx.get('replRuntime') as FakeCellRuntime
     runtime.behavior = async (request) => {
-      const compact = request.bindings.find(binding => binding.global === 'compact')!
-      return { logs: [], value: await compact.functions['__call__']!({ args: [], kwargs: {} }) }
+      const tool = request.bindings.find(binding => binding.global === 'tool')!
+      return { logs: [], value: await tool.functions['compact']!({}) }
     }
     expect(await cell(ctx, agent.agent, 'program')).toEqual({
       compact_model: null,
@@ -222,7 +222,7 @@ describe('compact() design A: the DASHR-scoped engine', () => {
     // A session whose routed request says deepseek/dsv3; 100 tokens of
     // pressure against an 800k threshold: an honest pressure no-op. The
     // agent object itself stays the setup one (its identity is the subject
-    // the scope registry resolves ipython for); only its session surface is
+    // the scope registry resolves eval for); only its session surface is
     // enriched with what the real engine reads: the routed request header,
     // the compaction-lock event log, and the busy maintenance gate.
     const session = agent.agent.session as unknown as {
@@ -234,10 +234,10 @@ describe('compact() design A: the DASHR-scoped engine', () => {
     const looping = agent.agent as unknown as { runMaintenance?: () => never }
     looping.runMaintenance = (): never => { throw new Error('agent "dashr-agent" already has active work') }
     const { nowCalls, pressureCalls } = await registerStubCompaction(ctx, {})
-    const runtime = ctx.get('rlmRuntime') as FakeCellRuntime
+    const runtime = ctx.get('replRuntime') as FakeCellRuntime
     runtime.behavior = async (request) => {
-      const compact = request.bindings.find(binding => binding.global === 'compact')!
-      return { logs: [], value: await compact.functions['__call__']!({ args: [], kwargs: {} }) }
+      const tool = request.bindings.find(binding => binding.global === 'tool')!
+      return { logs: [], value: await tool.functions['compact']!({}) }
     }
     const result = await cell(ctx, agent.agent, 'program')
     // The HOST engine was never consulted (the scoped one shadowed it).
@@ -269,10 +269,10 @@ describe('compact() design A: the DASHR-scoped engine', () => {
     }
     const bareSession = bare.agent.agent.session as unknown as { events?: unknown[] }
     bareSession.events = []
-    const bareRuntime = bare.ctx.get('rlmRuntime') as FakeCellRuntime
+    const bareRuntime = bare.ctx.get('replRuntime') as FakeCellRuntime
     bareRuntime.behavior = async (request) => {
-      const compact = request.bindings.find(binding => binding.global === 'compact')!
-      return { logs: [], value: await compact.functions['__call__']!({ args: [], kwargs: {} }) }
+      const tool = request.bindings.find(binding => binding.global === 'tool')!
+      return { logs: [], value: await tool.functions['compact']!({}) }
     }
     // The engine mounts and the ladder runs; without a routed request the
     // pressure entry no-ops immediately (routedTarget undefined).
@@ -280,10 +280,10 @@ describe('compact() design A: the DASHR-scoped engine', () => {
     expect(result).toMatchObject({ compact_model: { provider: 'zai', model: 'glm-5.2' } })
 
     const unprovided = await setupPresentation(fakeRuntime, { compactModel: 'glm-5.2' })
-    const unprovidedRuntime = unprovided.ctx.get('rlmRuntime') as FakeCellRuntime
+    const unprovidedRuntime = unprovided.ctx.get('replRuntime') as FakeCellRuntime
     unprovidedRuntime.behavior = async (request) => {
-      const compact = request.bindings.find(binding => binding.global === 'compact')!
-      return { logs: [], value: await compact.functions['__call__']!({ args: [], kwargs: {} }) }
+      const tool = request.bindings.find(binding => binding.global === 'tool')!
+      return { logs: [], value: await tool.functions['compact']!({}) }
     }
     expect(await cell(unprovided.ctx, unprovided.agent.agent, 'program')).toEqual({
       error: expect.stringContaining('bare model id and this agent has no provider'),
@@ -295,10 +295,10 @@ describe('compact() design A: the DASHR-scoped engine', () => {
     // contains a slash; indexOf('/') === 0 enters the split branch and the
     // empty provider half is rejected there.
     const bad = await setupPresentation(fakeRuntime, { compactModel: '/glm-5.2' }, { provider: 'zai', model: 'parent' })
-    const badRuntime = bad.ctx.get('rlmRuntime') as FakeCellRuntime
+    const badRuntime = bad.ctx.get('replRuntime') as FakeCellRuntime
     badRuntime.behavior = async (request) => {
-      const compact = request.bindings.find(binding => binding.global === 'compact')!
-      return { logs: [], value: await compact.functions['__call__']!({ args: [], kwargs: {} }) }
+      const tool = request.bindings.find(binding => binding.global === 'tool')!
+      return { logs: [], value: await tool.functions['compact']!({}) }
     }
     expect(await cell(bad.ctx, bad.agent.agent, 'program')).toEqual({
       error: expect.stringContaining('empty provider or model half'),

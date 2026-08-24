@@ -1,4 +1,4 @@
-/** `dsh-rlm-mode`: the DASHR RLM mode — one plugin, one row.
+/** `dashr-repl`: the DASHR RLM mode — one plugin, one row.
  *
  * Naming (v0.1.5 layer model): the runtime class is `DashrRuntime`, the
  * standing-mount-layer component — one instance per mount holding the
@@ -9,20 +9,19 @@
  *
  * This package merges what were two sibling plugins into a single
  * composition row: `DashrRuntime` (the stateful kernel runtime — the
- * `ctx.rlmRuntime` implementation, mounted first, below) and the RLM
+ * `ctx.replRuntime` implementation, mounted first, below) and the
  * agent-plane presentation
- * (blueprint §7.4) — the `ipython` transport tool, the generated Tool
+ * (blueprint §7.4) — the `eval` transport tool, the generated Tool
  * Catalog prompt section, the model-direct-call collapse, the tool→binding
- * bridge that binds the registry's agent-visible tools as FLAT top-level
- * `await name(args)` functions (v0.1.5 Q8: no `tools` holder, no prefix), the
- * masked-tool bridges (`rlm`/`agent_message`/`agent_list`/`rlm_workflow`/
- * `rlm_ralph`, ADR-0001 tool-layer dispatch), the Continual Harness
- * (`refine`), and the compaction surface (`compact`).
+ * bridge that binds the registry's agent-visible tools as `await tool.name(args)`
+ * members (v0.1.5 Q8: one `tool` holder, no flat globals), the displaced
+ * `send_message` bridge (ADR-0001: the single dual-direction A2A channel),
+ * the Continual Harness (`refine`), and the compaction surface (`compact`).
  *
  * The presentation row registers against the harness tool registry the way
  * any dsh tool row must (shape-mirroring `dsh-agent-tool-presentation` and
  * the code-mode half of `dsh-tools`, 0.1.0-rc.6), but it re-points execution
- * at our own `ctx.rlmRuntime` (the harness's runtime seam, vendored from
+ * at our own `ctx.replRuntime` (the harness's runtime seam, vendored from
  * `@deepseek-ai/dsh-code-runtime` in `src/vendored/rlm-runtime.ts` as an
  * interface only): the host registry stays untouched, and this row composes
  * per scope — a DASHR preset mounts it in its standing scope, so every agent
@@ -34,7 +33,7 @@
  *
  * Registration deltas from the upstream code-mode row, recorded per
  * blueprint §7.6:
- * - `ipython` (not `run_code`): the registry reserves `run_code`
+ * - `eval` (not `run_code`): the registry reserves `run_code`
  *   unconditionally, and a distinct name is what lets a DASHR preset and a
  *   PTC code preset share one process registry without collision.
  * - The transport is an ORDINARY scoped registration, not the registry's
@@ -47,18 +46,18 @@
  *   `UNKNOWN_TOOL`: same model-facing route-back text, different pipeline
  *   stage. `tools.guard` is the published monotonic-denial extension point.
  * - The `system-prompt/assemble` listener that filters `assembly.tools` down
- *   to `ipython` uses the assembly waterfall's documented authority
+ *   to `eval` uses the assembly waterfall's documented authority
  *   (dsh-tools README: "its returned assembly is authoritative").
  *
  * The runtime is mounted at the TOP of `apply` (before the presentation
  * injects), so a DASHR preset against a runtime-less composition fails AT
  * MOUNT — named in the preset's activation audit — instead of at the first
- * prompt. The presentation resolves `ctx.rlmRuntime` at USE time (never a
+ * prompt. The presentation resolves `ctx.replRuntime` at USE time (never a
  * static inject): a static inject entry would hold the whole composition
- * hostage to the runtime service existing, and the `ipython` execution
- * path re-reads `ctx.get('rlmRuntime')` with an actionable error,
+ * hostage to the runtime service existing, and the `eval` execution
+ * path re-reads `ctx.get('replRuntime')` with an actionable error,
  * mirroring upstream `requireCodeRuntime`.
- * @module dsh-rlm-mode
+ * @module dashr-repl
  */
 
 
@@ -89,12 +88,12 @@ import type {} from '@deepseek-ai/dsh-system-prompt'
 // The seam surface is mirrored locally (see the module for why the vendored
 // Service Definition is depended on structurally, not by import).
 import type {
-  RlmBindingErrorClass,
-  RlmBindingFunction,
-  RlmBindingNamespace,
-  RlmJsonValue,
-  RlmRunResult,
-  RlmRuntimeSurface,
+  ReplBindingErrorClass,
+  ReplBindingFunction,
+  ReplBindingNamespace,
+  ReplJsonValue,
+  ReplRunResult,
+  ReplRuntimeSurface,
 } from './runtime-surface.ts'
 import { isFlatBindableName, renderToolsSdkPy } from './py-sdk.ts'
 import type { DASHRSdkSchema } from './py-sdk.ts'
@@ -106,7 +105,10 @@ import type { HarnessApplyReport, HarnessOp } from './harness-store.ts'
 import { REFINE_MAX_TOKENS, REFINE_SYSTEM, buildRefineMessages, parseRefineAnswer, resolveRefineTarget } from './refine.ts'
 import type { RefineTarget } from './refine.ts'
 import type { DASHRCompactionResult, DASHRCompactionSurface, DASHRTokenMeterSurface } from './compaction-surface.ts'
-import { DASHR_CONTROL_PROMPT } from './control-prompt.ts'
+import { readFileSync } from 'node:fs'
+
+/** The control prompt text, loaded at module time from the sibling markdown file (editable without touching TS). */
+const CONTROL_PROMPT_TEXT = readFileSync(new URL('../control-prompt.md', import.meta.url), 'utf8')
 
 // Public surface for the harness/refine/compact machinery (consumers and
 // tests construct stores and inspect routes independently of the bridge).
@@ -117,10 +119,10 @@ export type { RefineTarget } from './refine.ts'
 export type { DASHRCompactionResult, DASHRCompactionSurface, DASHRTokenMeterSurface } from './compaction-surface.ts'
 
 /** Cordis plugin name. */
-export const name = 'dsh-rlm-mode'
+export const name = 'dashr-repl'
 
 /**
- * Required services. `rlmRuntime` is NOT listed: see the module doc — the
+ * Required services. `replRuntime` is NOT listed: see the module doc — the
  * mode-dependent wait is declared inside {@link apply} instead, and the
  * execution path re-reads the service at use time with an actionable error.
  */
@@ -213,39 +215,27 @@ export const Config: z<Config> = z.intersect([
 export const HARNESS_SECTION_ORDER = 200
 
 /** The model-facing name of the DASHR cell transport. */
-export const IPYTHON_NAME = 'ipython'
+export const EVAL_NAME = 'eval'
 
 /**
- * The upstream delegation tool names masked from the model's surface
- * (ADR-0002: masking is presentation-only). These tools stay REGISTERED,
- * EXECUTABLE, and dispatchable, but they appear in NEITHER the Tool Catalog
- * text NOR the kernel binding names. The registry itself is never touched
- * (no `restrict()`, no disable patch). Seven of them are dispatched by the
- * `rlm`/`agent_message`/`agent_list`/`rlm_workflow`/`rlm_ralph` bridges
- * through the nested sub-dispatch pipeline with a parent token; `report`
- * (the child-scoped uplink tool the host's subagent-report package installs
- * into every continuable child) is covered by `agent_message({"receiver": "parent", ...})`,
- * which calls the same `ctx.subagents.reportFrom` service directly — the
- * model sees ONE dual-direction channel, never a separate report tool.
+ * The upstream A2A tool names displaced from the model's surface (ADR-0002:
+ * masking is presentation-only). They stay REGISTERED, EXECUTABLE, and
+ * dispatchable, but appear in NEITHER the Tool Catalog text NOR the kernel
+ * binding names. The registry itself is never touched (no `restrict()`, no
+ * disable patch). Exactly two are displaced, both by the single
+ * `send_message` bridge: upstream `send_message` (the parent→child downlink)
+ * and `report` (the child→parent uplink the host's subagent-report package
+ * installs into every continuable child) collapse into ONE dual-direction
+ * channel — `send_message({"receiver": "child"|"parent", ...})`. Every other
+ * delegation tool (`subagent`, `subagent_fork`, `list_agents`,
+ * `interrupt_agent`, `workflow`, `ralph`) stays directly exposed as a native
+ * `tool.*` binding — the model calls it exactly as the host ships it.
  */
 export const MASKED_TOOL_NAMES: ReadonlySet<string> = new Set([
-  'subagent',
-  'subagent_fork',
   'send_message',
-  'list_agents',
-  'interrupt_agent',
-  'workflow',
-  'ralph',
   'report',
 ])
 
-/**
- * The ONLY renamed unmasked tool (plan Q8/Q13): the registry's `glob` binds
- * and renders as `file_glob`, because a bare `glob` global would shadow the
- * stdlib `glob` module in the kernel namespace. Every other unmasked tool
- * keeps its registered name.
- */
-export const TOOL_NAME_RENAMES: ReadonlyMap<string, string> = new Map([['glob', 'file_glob']])
 
 /**
  * The typed-rejection contract declared on EVERY flat tool namespace: a
@@ -253,7 +243,7 @@ export const TOOL_NAME_RENAMES: ReadonlyMap<string, string> = new Map([['glob', 
  * binding global (= the tool name the model knows). Identical descriptors
  * may repeat across namespaces; the runtime materializes the class once.
  */
-const TOOL_CALL_ERROR_CLASS: RlmBindingErrorClass = { name: 'ToolCallError', memberNameProperty: 'toolName' }
+const TOOL_CALL_ERROR_CLASS: ReplBindingErrorClass = { name: 'ToolCallError', memberNameProperty: 'toolName' }
 
 /** The `dashr:control-prompt` section order: the FIRST section in the 100–199 tool-guidance band, so the cell paradigm is taught before the Tool Catalog renders its signatures. */
 export const CONTROL_SECTION_ORDER = 100
@@ -273,24 +263,7 @@ export const SDK_SECTION_ORDER = 150
  */
 const BRIDGE_TOOL_SCHEMAS: DASHRSdkSchema[] = [
   {
-    name: 'rlm',
-    description: 'Spawn, fork, or interrupt a sub-agent. mode selects the operation. Children run in the background by default (admission returns a durable subagent id and the child reports up when it settles as a wakeup notice); run_in_background=false blocks for the result.',
-    parameters: {
-      type: 'object',
-      properties: {
-        mode: { type: 'string', description: "'spawn' (fresh child), 'fork' (child seeded with this conversation's completed turns), or 'interrupt' (cancel an agent's current turn)." },
-        prompt: { type: 'string', description: "The child's task. Required for 'spawn' and 'fork'." },
-        label: { type: 'string', description: 'Short display label (defaults to subagent).' },
-        run_in_background: { type: 'boolean', description: 'false blocks until the child settles; default runs in the background.' },
-        agent_id: { type: 'string', description: "The running agent to cancel. Required for 'interrupt'." },
-      },
-      required: ['mode'],
-      additionalProperties: false,
-    },
-    output: { type: 'object', properties: {}, additionalProperties: true },
-  },
-  {
-    name: 'agent_message',
+    name: 'send_message',
     description: "The single agent-to-agent message channel, both directions: receiver 'child' delivers down to a child; receiver 'parent' reports up to this agent's parent (live continuable children only; a root agent gets a structured UNAUTHORIZED instead).",
     parameters: {
       type: 'object',
@@ -300,47 +273,6 @@ const BRIDGE_TOOL_SCHEMAS: DASHRSdkSchema[] = [
         subagent_id: { type: 'string', description: "The child's durable id (required when receiver is 'child')." },
       },
       required: ['receiver', 'message'],
-      additionalProperties: false,
-    },
-    output: { type: 'object', properties: {}, additionalProperties: true },
-  },
-  {
-    name: 'agent_list',
-    description: "List sub-agents: scope 'children' (direct children, the default) or 'descendants' (the whole tree).",
-    parameters: {
-      type: 'object',
-      properties: {
-        scope: { type: 'string', description: "'children' or 'descendants'." },
-      },
-      required: [],
-      additionalProperties: false,
-    },
-    output: { type: 'object', properties: {}, additionalProperties: true },
-  },
-  {
-    name: 'rlm_workflow',
-    description: 'Run a JavaScript orchestration script over sub-agents.',
-    parameters: {
-      type: 'object',
-      properties: {
-        meta: { type: 'object', properties: {}, additionalProperties: true, description: 'The workflow meta identity block.' },
-        script: { type: 'string', description: 'The JavaScript orchestration script.' },
-      },
-      required: ['meta', 'script'],
-      additionalProperties: false,
-    },
-    output: { type: 'object', properties: {}, additionalProperties: true },
-  },
-  {
-    name: 'rlm_ralph',
-    description: 'Drive iterative fresh-agent rounds toward an objective.',
-    parameters: {
-      type: 'object',
-      properties: {
-        objective: { type: 'string', description: 'The objective to drive toward.' },
-        max_rounds: { type: 'integer', description: 'Optional positive cap on rounds.' },
-      },
-      required: ['objective'],
       additionalProperties: false,
     },
     output: { type: 'object', properties: {}, additionalProperties: true },
@@ -374,21 +306,21 @@ const BRIDGE_TOOL_SCHEMAS: DASHRSdkSchema[] = [
 ]
 
 /**
- * The `ipython` tool description the model sees: cell semantics — the
+ * The `eval` tool description the model sees: cell semantics — the
  * persistent kernel — stated up front, unlike upstream's one-shot
  * `PYTHON_FLAVOR` (blueprint §1.1: DASHR is channel ② state codification,
  * and the model's Code-Interpreter prior matches THIS contract).
  */
-const IPYTHON_DESCRIPTION
+const EVAL_DESCRIPTION
   = 'Execute one Python cell on the persistent kernel. Takes two required '
     + 'arguments: `cell`, one Python program body (top-level `await` and `return` work; variables, '
     + 'imports, and definitions from earlier cells are still alive), and `description`, '
-    + 'a short summary of what the cell does. Call tools as plain `await name(args)` '
+    + 'a short summary of what the cell does; optional `timeout` (seconds) bounds the wall-clock and optional `reset` restarts the kernel empty. Call tools as `await tool.name(args)` '
     + 'functions per the declarations in the system prompt. Only what you print or '
     + 'return comes back — curate it.'
 
 /** The `cell` parameter's model-facing description. */
-const IPYTHON_CELL_PARAM_DESCRIPTION
+const EVAL_CELL_PARAM_DESCRIPTION
   = 'The cell: one Python program body for the persistent kernel (top-level '
     + '`await` and `return` work).'
 
@@ -397,14 +329,14 @@ const IPYTHON_CELL_PARAM_DESCRIPTION
  * contract, ported verbatim in shape from upstream `run_code` (the label
  * surfaces on the generic card as the call's always-visible title).
  */
-const IPYTHON_DESCRIPTION_PARAM_DESCRIPTION
+const EVAL_DESCRIPTION_PARAM_DESCRIPTION
   = 'Clear, concise description of what this cell does in active voice, '
     + '5-10 words (shown in the UI). Examples: "Load dataframe and summarize '
     + 'columns"; "Run test file and capture failures"; "Patch config key across '
     + 'cordis.yml files".'
 
 /**
- * Thrown by `ipython` when the cell itself failed — a program exception, a
+ * Thrown by `eval` when the cell itself failed — a program exception, a
  * budget expiry, an abort, or kernel death. Extends {@link HarnessError} with
  * the same `code: 'CODE_RUN_FAILED'` as upstream `CodeRunFailedError`, so
  * registry-side error taxonomy and session-log consumers see the shape they
@@ -443,7 +375,7 @@ function jsonNormalizeArgs(value: unknown): { dispatched: unknown; logged: unkno
 }
 
 /** One bare-callable binding's packaged arguments, sent by the kernel-side callable proxy. */
-type RlmCallParse =
+type ReplCallParse =
   | { ok: true, args: unknown[], kwargs: Record<string, unknown> }
   | { ok: false, error: string }
 
@@ -453,7 +385,7 @@ type RlmCallParse =
  * which unwrap a single positional argument), so callable bindings own their
  * signature validation — the "host owns the namespace" rule.
  */
-function parseRlmCall(rawArgs: unknown): RlmCallParse {
+function parseReplCall(rawArgs: unknown): ReplCallParse {
   if (typeof rawArgs === 'object' && rawArgs !== null && !Array.isArray(rawArgs)) {
     const record = rawArgs as Record<string, unknown>
     if (Array.isArray(record.args)
@@ -466,7 +398,7 @@ function parseRlmCall(rawArgs: unknown): RlmCallParse {
 }
 
 /**
- * Unwrap one bare-callable {@link parseRlmCall} packaging into the single
+ * Unwrap one bare-callable {@link parseReplCall} packaging into the single
  * arguments object a registry dispatch expects. The kernel's callable
  * channel packages EVERY call as `{args, kwargs}`; a tool call — registry
  * tool or bridge tool alike — is exactly ONE positional arguments
@@ -476,7 +408,7 @@ function parseRlmCall(rawArgs: unknown): RlmCallParse {
  * member names the binding the model called).
  */
 function flatToolArgs(rawArgs: unknown): unknown {
-  const parsed = parseRlmCall(rawArgs)
+  const parsed = parseReplCall(rawArgs)
   if (!parsed.ok) throw new Error(parsed.error)
   const { args: callArgs, kwargs } = parsed
   if (Object.keys(kwargs).length > 0) {
@@ -488,35 +420,32 @@ function flatToolArgs(rawArgs: unknown): unknown {
 }
 
 /**
- * Unwrap one bridge-tool {@link parseRlmCall} packaging into its single
+ * Unwrap one bridge-tool {@link parseReplCall} packaging into its single
  * arguments object. Same one-object contract as {@link flatToolArgs}, but
  * bridge tools return a structured `{ error }` value instead of throwing, and
- * a call with no arguments reads as an empty object (agent_list()/compact()
- * are all-optional). Keyword and multi-positional forms are rejected.
+ * a call with no arguments reads as an empty object (compact() is
+ * all-optional). Keyword and multi-positional forms are rejected.
  */
 function flatBridgeToolArgs(rawArgs: unknown): { ok: true, args: Record<string, unknown> } | { ok: false, error: string } {
-  const parsed = parseRlmCall(rawArgs)
-  if (!parsed.ok) return { ok: false, error: parsed.error }
-  const { args: callArgs, kwargs } = parsed
-  if (Object.keys(kwargs).length > 0) {
-    return { ok: false, error: 'tools take one positional arguments object, not keyword arguments — call e.g. name({"field": value})' }
+  // The `tool.*` member proxy sends the single positional arguments object
+  // DIRECTLY (no {args, kwargs} wrapper — that was the flat bare-callable
+  // shape). No arguments reads as an empty object (compact() is all-optional);
+  // a multi-positional list or a bare value is rejected.
+  if (rawArgs === undefined || rawArgs === null) return { ok: true, args: {} }
+  if (Array.isArray(rawArgs)) {
+    return { ok: false, error: 'tools take exactly one positional arguments object — call e.g. tool.name({"field": value})' }
   }
-  if (callArgs.length > 1) {
-    return { ok: false, error: 'tools take exactly one positional arguments object — call e.g. name({"field": value})' }
+  if (typeof rawArgs !== 'object') {
+    return { ok: false, error: 'tools take one positional arguments object, not a bare value — call e.g. tool.name({"field": value})' }
   }
-  const arg = callArgs[0]
-  if (arg === undefined || arg === null) return { ok: true, args: {} }
-  if (typeof arg !== 'object' || Array.isArray(arg)) {
-    return { ok: false, error: 'tools take one positional arguments object, not a bare value — call e.g. name({"field": value})' }
-  }
-  return { ok: true, args: arg as Record<string, unknown> }
+  return { ok: true, args: rawArgs as Record<string, unknown> }
 }
 
-/** Resolve the ipython overlap cap at the config boundary (schemastery already validated the range; direct construction in tests bypasses it). */
+/** Resolve the eval overlap cap at the config boundary (schemastery already validated the range; direct construction in tests bypasses it). */
 export function resolveMaxParallelSubCalls(value: number | undefined): number {
   const maxParallelSubCalls = value ?? 10
   if (!Number.isInteger(maxParallelSubCalls) || maxParallelSubCalls < 1) {
-    throw new Error('dsh-rlm-mode: maxParallelSubCalls must be a positive integer')
+    throw new Error('dashr-repl: maxParallelSubCalls must be a positive integer')
   }
   return maxParallelSubCalls
 }
@@ -529,7 +458,7 @@ export function resolveMaxParallelSubCalls(value: number | undefined): number {
 export function resolveHarnessDir(value: string | undefined): string | undefined {
   if (value === undefined) return undefined
   if (typeof value !== 'string' || value.length === 0) {
-    throw new Error(`dsh-rlm-mode: harnessDir must be a non-empty string when set, got ${JSON.stringify(value)}`)
+    throw new Error(`dashr-repl: harnessDir must be a non-empty string when set, got ${JSON.stringify(value)}`)
   }
   return value
 }
@@ -538,7 +467,7 @@ export function resolveHarnessDir(value: string | undefined): string | undefined
 export function resolveRefineModel(value: string | undefined): string | undefined {
   if (value === undefined) return undefined
   if (typeof value !== 'string' || value.length === 0) {
-    throw new Error(`dsh-rlm-mode: refineModel must be a non-empty string when set, got ${JSON.stringify(value)}`)
+    throw new Error(`dashr-repl: refineModel must be a non-empty string when set, got ${JSON.stringify(value)}`)
   }
   return value
 }
@@ -547,7 +476,7 @@ export function resolveRefineModel(value: string | undefined): string | undefine
 export function resolveCompactModel(value: string | undefined): string | undefined {
   if (value === undefined) return undefined
   if (typeof value !== 'string' || value.length === 0) {
-    throw new Error(`dsh-rlm-mode: compactModel must be a non-empty string when set, got ${JSON.stringify(value)}`)
+    throw new Error(`dashr-repl: compactModel must be a non-empty string when set, got ${JSON.stringify(value)}`)
   }
   return value
 }
@@ -556,7 +485,7 @@ export function resolveCompactModel(value: string | undefined): string | undefin
 export function resolveRecencyWindowTokens(value: number | undefined): number | undefined {
   if (value === undefined) return undefined
   if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) {
-    throw new Error(`dsh-rlm-mode: recencyWindowTokens must be a positive integer when set, got ${JSON.stringify(value)}`)
+    throw new Error(`dashr-repl: recencyWindowTokens must be a positive integer when set, got ${JSON.stringify(value)}`)
   }
   return value
 }
@@ -565,12 +494,12 @@ export function resolveRecencyWindowTokens(value: number | undefined): number | 
 export function resolveRetainTokens(value: number | undefined): number | undefined {
   if (value === undefined) return undefined
   if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) {
-    throw new Error(`dsh-rlm-mode: retainTokens must be a positive integer when set, got ${JSON.stringify(value)}`)
+    throw new Error(`dashr-repl: retainTokens must be a positive integer when set, got ${JSON.stringify(value)}`)
   }
   return value
 }
 
-/** Two-space JSON presentation, matching the shallow `ipython` text contract (ported). */
+/** Two-space JSON presentation, matching the shallow `eval` text contract (ported). */
 const JSON_INDENT = '  '
 
 /** ECMAScript caps `JSON.stringify`'s `space` string at ten characters; total indentation is capped there so formatted output stays linear (ported). */
@@ -612,7 +541,7 @@ function renderJsonValue(value: Exclude<JsonValue, string>): string {
       tasks.push({ kind: 'text', text: compact ? ']' : `\n${JSON_INDENT.repeat(task.depth)}]` })
       for (let index = current.length - 1; index >= 0; index--) {
         const item = current[index]
-        if (item === undefined) throw new Error('dsh-rlm-mode: cannot render a sparse JSON array')
+        if (item === undefined) throw new Error('dashr-repl: cannot render a sparse JSON array')
         tasks.push({ kind: 'value', value: item, depth: childDepth, compact })
         tasks.push({
           kind: 'text',
@@ -633,9 +562,9 @@ function renderJsonValue(value: Exclude<JsonValue, string>): string {
     tasks.push({ kind: 'text', text: compact ? '}' : `\n${JSON_INDENT.repeat(task.depth)}}` })
     for (let index = keys.length - 1; index >= 0; index--) {
       const key = keys[index]
-      if (key === undefined) throw new Error('dsh-rlm-mode: cannot render a missing JSON object key')
+      if (key === undefined) throw new Error('dashr-repl: cannot render a missing JSON object key')
       const item = current[key]
-      if (item === undefined) throw new Error('dsh-rlm-mode: cannot render an undefined JSON object property')
+      if (item === undefined) throw new Error('dashr-repl: cannot render an undefined JSON object property')
       tasks.push({ kind: 'value', value: item, depth: childDepth, compact })
       tasks.push({
         kind: 'text',
@@ -653,19 +582,19 @@ function renderValue(value: JsonValue): string {
   return typeof value === 'string' ? value : renderJsonValue(value)
 }
 
-/** Canonical value returned by the outer `ipython` transport. */
+/** Canonical value returned by the outer `eval` transport. */
 type RunCellOutput = { logs: string[]; result?: JsonValue }
 
 /**
- * Capabilities the `ipython` bridge closes over, mirroring upstream's
+ * Capabilities the `eval` bridge closes over, mirroring upstream's
  * `RunCodeBridgeOptions` (the `requireRuntime` idiom): the registry-private
  * staged scheduler travels through the exported `TOOL_RUNTIME_SCHEDULER`
  * symbol-keyed property rather than a closure, because — unlike upstream —
  * the registry does not mint this tool for us.
  */
 export interface RunCellBridgeOptions {
-  /** Resolves `ctx.rlmRuntime` or throws the loud misconfiguration error (use-time read). */
-  requireRuntime: () => RlmRuntimeSurface
+  /** Resolves `ctx.replRuntime` or throws the loud misconfiguration error (use-time read). */
+  requireRuntime: () => ReplRuntimeSurface
   /** The run's overlap cap for parallel-classified sub-calls (validated config). */
   maxParallel: number
   /**
@@ -678,7 +607,7 @@ export interface RunCellBridgeOptions {
   shapeDispatchLog: (dispatch: CodeDispatchLog) => Promise<ContentBlock[]>
   /**
    * Resolves the host-plane `ctx.subagents` service (or undefined when this
-   * composition has no subagent capability) for the agent_message()
+   * composition has no subagent capability) for the send_message()
    * receiver='parent' UPLINK alone — every downlink bridges the tool layer
    * instead (ADR-0001). Read at run time so a host-side provider mounted
    * later still becomes visible; absent means the uplink answers with a
@@ -686,7 +615,7 @@ export interface RunCellBridgeOptions {
    */
   requireSubagents?: () => DASHRSubagentsSurface | undefined
   /**
-   * The Continual Harness store shared by every `ipython` call AND the
+   * The Continual Harness store shared by every `eval` call AND the
    * `dashr:harness` prompt section in this composition (M4-B): refine()
    * edits it, the next assembly re-renders from it. Omitted (direct
    * construction, tests) falls back to a per-call memory-only store, which
@@ -745,7 +674,7 @@ export interface LlmStreamSurface {
 }
 
 /**
- * Build the `ipython` {@link ToolDefinition}: required `cell` and
+ * Build the `eval` {@link ToolDefinition}: required `cell` and
  * `description` parameters, executed through the dispatch bridge described
  * in the module doc. Sub-calls ride the registry's exported staged scheduler
  * (`prepare`/`dispatch`/`finalize`/`finish`) under the native concurrency
@@ -767,14 +696,22 @@ export function createRunCellTool(registry: ToolRuntime, options: RunCellBridgeO
   const requireTokenMeter = options.requireTokenMeter
   const scopedCompaction = options.compactModel !== undefined ? options.scopedCompaction : undefined
   return defineTool({
-    name: IPYTHON_NAME,
-    description: IPYTHON_DESCRIPTION,
+    name: EVAL_NAME,
+    description: EVAL_DESCRIPTION,
     parameters: {
-      cell: { type: 'string', required: true, description: IPYTHON_CELL_PARAM_DESCRIPTION },
+      cell: { type: 'string', required: true, description: EVAL_CELL_PARAM_DESCRIPTION },
       description: {
         type: 'string',
         required: true,
-        description: IPYTHON_DESCRIPTION_PARAM_DESCRIPTION,
+        description: EVAL_DESCRIPTION_PARAM_DESCRIPTION,
+      },
+      timeout: {
+        type: 'number',
+        description: 'Optional wall-clock budget for this cell, in seconds; the kernel is interrupted (then force-stopped) if the cell exceeds it. Omit to use the runtime default.',
+      },
+      reset: {
+        type: 'boolean',
+        description: 'Optional: reset the persistent kernel namespace to EMPTY before running — variables, imports, and definitions from earlier cells are discarded and the kernel restarts fresh. Omit to keep the namespace.',
       },
     },
     output: {
@@ -789,12 +726,12 @@ export function createRunCellTool(registry: ToolRuntime, options: RunCellBridgeO
       render: (_args, value) => {
         const rendered = value.result === undefined ? '' : renderValue(value.result)
         const parts = [value.logs.join('\n'), rendered].filter(part => part.length > 0)
-        return [{ type: 'text', text: parts.length > 0 ? parts.join('\n') : `(${IPYTHON_NAME} completed with no output)` }]
+        return [{ type: 'text', text: parts.length > 0 ? parts.join('\n') : `(${EVAL_NAME} completed with no output)` }]
       },
     },
     async execute(args, exec): Promise<RunCellOutput> {
       if (args.description.trim().length === 0) {
-        throw new Error('dsh-rlm-mode: invalid description: expected a non-empty string')
+        throw new Error('dashr-repl: invalid description: expected a non-empty string')
       }
       const runtime = requireRuntime()
 
@@ -902,9 +839,9 @@ export function createRunCellTool(registry: ToolRuntime, options: RunCellBridgeO
 
       const runOver = (): boolean => runController.signal.aborted
 
-      const binding = (name: string): RlmBindingFunction => async (rawArgs: unknown): Promise<JsonValue> => {
+      const binding = (name: string): ReplBindingFunction => async (rawArgs: unknown): Promise<JsonValue> => {
         if (runOver()) {
-          throw new Error(`${IPYTHON_NAME} run is over (${String(runController.signal.reason)}); ${name} not dispatched`)
+          throw new Error(`${EVAL_NAME} run is over (${String(runController.signal.reason)}); ${name} not dispatched`)
         }
         const normalized = jsonNormalizeArgs(rawArgs)
         const n = ++dispatches
@@ -962,7 +899,7 @@ export function createRunCellTool(registry: ToolRuntime, options: RunCellBridgeO
             settled: false,
             classify: () => registry.executionMode(input).kind,
             abandon: () => {
-              reject(new Error(`${IPYTHON_NAME} run is over (${String(runController.signal.reason)}); ${name} tool call abandoned`))
+              reject(new Error(`${EVAL_NAME} run is over (${String(runController.signal.reason)}); ${name} tool call abandoned`))
             },
             async start(): Promise<void> {
               exec.agent?.session.append('tool/code-dispatch-start', {
@@ -1013,7 +950,7 @@ export function createRunCellTool(registry: ToolRuntime, options: RunCellBridgeO
         // flight already aborted the dispatch; stop the program now rather
         // than hand it a result from a run that is over.
         if (runOver()) {
-          throw new Error(`${IPYTHON_NAME} run is over (${String(runController.signal.reason)}); ${name} result discarded`)
+          throw new Error(`${EVAL_NAME} run is over (${String(runController.signal.reason)}); ${name} result discarded`)
         }
         // The kernel turns a binding rejection into ToolCallError and adds
         // only the binding name. Native content and internal error metadata
@@ -1022,90 +959,30 @@ export function createRunCellTool(registry: ToolRuntime, options: RunCellBridgeO
         return outcome.value
       }
 
-      // FLAT per-tool binding namespaces (plan Q8): every bindable, unmasked
-      // tool becomes its own top-level callable global — no `tools` holder,
-      // no prefix. Masking is presentation-only (ADR-0002): the masked
-      // upstream delegation names stay registered and executable but appear
-      // in neither this binding surface nor the Tool Catalog — the bridges
-      // below dispatch them internally through the SAME nested sub-dispatch
-      // pipeline as any other tool. `glob` binds as `file_glob` (the one
-      // rename, Q13). Names that cannot serve as flat globals (exotic,
-      // reserved, underscore-leading — the policy shared with the renderer's
-      // isFlatBindableName) are simply not bound; the catalog renders them
-      // as not-callable comments. Enumerate the CALLING AGENT's visible set
-      // (scoped tools join, restricted globals vanish) — the same view the
-      // Tool Catalog declared, so a cell binds exactly what its prompt
-      // promised; sub-dispatch re-resolves per call through the same view
-      // (exec.agent threads down). A tool whose binding name collides with a
-      // bridge tool or the error class fails the run loudly at the
-      // runtime's duplicate-global validation — the contract-misuse channel.
-      const toolNamespaces: RlmBindingNamespace[] = []
+      // ONE `tool.*` namespace (blueprint §2.2, OMP loopback): every
+      // bindable, unmasked tool becomes a MEMBER async callable
+      // `await tool.name(args)` — no flat globals, no prefix. Masking is
+      // presentation-only (ADR-0002): the masked upstream delegation names
+      // stay registered and executable but appear in neither this binding
+      // surface nor the Tool Catalog — the bridges below dispatch them
+      // internally through the SAME nested sub-dispatch pipeline. Names that
+      // cannot serve as members (exotic, reserved, underscore-leading — the
+      // policy shared with the renderer's isFlatBindableName) are simply not
+      // bound; the catalog renders them as not-callable comments. Enumerate
+      // the CALLING AGENT's visible set (scoped tools join, restricted
+      // globals vanish) — the same view the Tool Catalog declared, so a cell
+      // binds exactly what its prompt promised; sub-dispatch re-resolves per
+      // call through the same view (exec.agent threads down).
+      const toolFunctions: Record<string, ReplBindingFunction> = {}
       for (const schema of registry.schemas(exec.agent)) {
-        if (schema.name === IPYTHON_NAME) continue
+        if (schema.name === EVAL_NAME) continue
         if (MASKED_TOOL_NAMES.has(schema.name)) continue
-        const bindingName = TOOL_NAME_RENAMES.get(schema.name) ?? schema.name
-        if (!isFlatBindableName(bindingName)) continue
-        toolNamespaces.push({
-          global: bindingName,
-          // The dispatch target stays the REGISTERED name; only the global
-          // the program calls is renamed. Identical errorClass descriptors
-          // repeat across namespaces by design (single materialization).
-          functions: { __call__: async (rawArgs: unknown) => binding(schema.name)(flatToolArgs(rawArgs)) },
-          callable: true,
-          errorClass: TOOL_CALL_ERROR_CLASS,
-        })
+        if (!isFlatBindableName(schema.name)) continue
+        toolFunctions[schema.name] = async (args: unknown) => binding(schema.name)(args)
       }
 
-      // rlm() bare callable global (ADR-0001: bridge the TOOL layer): mode
-      // dispatch over the registry's delegation tools, executed through the
-      // nested sub-dispatch pipeline above — inheriting upstream policy
-      // wholesale (approval, sandbox, maxDepth, per-instance config).
-      // 'spawn'/'fork' → the subagent/subagent_fork tools (one-shot vs
-      // continuable follows the tool layer's run_in_background parameter
-      // plus its backgroundMode config); 'interrupt' → interrupt_agent.
-      // The TOOL's own JSON output returns unchanged; a failed dispatch
-      // rejects the binding, which the kernel materializes as ToolCallError
-      // — the same contract as a direct flat tool call. Signature
-      // validation errors are structured return values instead.
-      const rlmCallable: RlmBindingFunction = async (rawArgs: unknown): Promise<RlmJsonValue> => {
-        const parsed = flatBridgeToolArgs(rawArgs)
-        if (!parsed.ok) return { error: parsed.error }
-        const a = parsed.args
-        const unknownKeys = Object.keys(a).filter(key => !['mode', 'prompt', 'label', 'run_in_background', 'agent_id'].includes(key))
-        if (unknownKeys.length > 0) return { error: `rlm() got unexpected key(s): ${unknownKeys.join(', ')}` }
-        const mode = a['mode']
-        if (typeof mode !== 'string' || (mode !== 'spawn' && mode !== 'fork' && mode !== 'interrupt')) {
-          return { error: "rlm() requires {\"mode\": \"spawn\" | \"fork\" | \"interrupt\", ...}" }
-        }
-        if (mode === 'interrupt') {
-          const agentId = a['agent_id']
-          if (typeof agentId !== 'string' || agentId.length === 0) {
-            return { error: 'rlm() interrupt mode requires {"agent_id": "..."}' }
-          }
-          return await binding('interrupt_agent')({ agent_id: agentId })
-        }
-        const prompt = a['prompt']
-        if (typeof prompt !== 'string') {
-          return { error: `rlm() ${mode} mode requires {"prompt": "..."}` }
-        }
-        const label = a['label']
-        if (label !== undefined && label !== null && typeof label !== 'string') {
-          return { error: 'rlm() label must be a string or null' }
-        }
-        const runInBackground = a['run_in_background']
-        if (runInBackground !== undefined && runInBackground !== null && typeof runInBackground !== 'boolean') {
-          return { error: 'rlm() run_in_background must be a boolean or null' }
-        }
-        // The upstream tool's `description` is REQUIRED (a 3-5 word display
-        // label): default it to 'subagent' when the caller gave none.
-        return await binding(mode === 'spawn' ? 'subagent' : 'subagent_fork')({
-          description: label ?? 'subagent',
-          prompt,
-          ...(runInBackground !== undefined && runInBackground !== null ? { run_in_background: runInBackground } : {}),
-        })
-      }
 
-      // agent_message() bare callable global (plan Q25): one dual-use A2A
+      // send_message() bare callable global (plan Q25): one dual-use A2A
       // function. receiver='child' bridges the send_message TOOL downlink
       // (subagent_id required — the id a spawn call returned). receiver=
       // 'parent' bridges the SERVICE-layer reportFrom uplink — the only
@@ -1115,96 +992,43 @@ export function createRunCellTool(registry: ToolRuntime, options: RunCellBridgeO
       // (the upstream default; a scheduling policy, not model-facing). A
       // root caller fails the service's authorizeReporter with SubagentError
       // 'UNAUTHORIZED', surfaced here as a structured error value.
-      const agentMessageCallable: RlmBindingFunction = async (rawArgs: unknown): Promise<RlmJsonValue> => {
+      const sendMessageCallable: ReplBindingFunction = async (rawArgs: unknown): Promise<ReplJsonValue> => {
         const parsed = flatBridgeToolArgs(rawArgs)
         if (!parsed.ok) return { error: parsed.error }
         const a = parsed.args
         const unknownKeys = Object.keys(a).filter(key => !['receiver', 'message', 'subagent_id'].includes(key))
-        if (unknownKeys.length > 0) return { error: `agent_message() got unexpected key(s): ${unknownKeys.join(', ')}` }
+        if (unknownKeys.length > 0) return { error: `send_message() got unexpected key(s): ${unknownKeys.join(', ')}` }
         const receiver = a['receiver']
         const message = a['message']
         if (typeof receiver !== 'string' || typeof message !== 'string') {
-          return { error: 'agent_message() requires {"receiver": "child" | "parent", "message": "..."}' }
+          return { error: 'send_message() requires {"receiver": "child" | "parent", "message": "..."}' }
         }
         if (receiver === 'child') {
           const subagentId = a['subagent_id']
           if (typeof subagentId !== 'string' || subagentId.length === 0) {
-            return { error: 'agent_message() receiver "child" requires {"subagent_id": "..."} — the durable subagent id a spawn returned' }
+            return { error: 'send_message() receiver "child" requires {"subagent_id": "..."} — the durable subagent id a spawn returned' }
           }
           return await binding('send_message')({ subagent_id: subagentId, message })
         }
         if (receiver === 'parent') {
           if (!exec.agent) {
-            return { error: 'agent_message(receiver=\'parent\') requires an agent session (this run has no agent to report from)' }
+            return { error: 'send_message(receiver=\'parent\') requires an agent session (this run has no agent to report from)' }
           }
           const subagents = requireSubagents?.()
           if (!subagents) {
-            return { error: "agent_message(receiver='parent') is unavailable: no ctx.subagents service is mounted in this composition" }
+            return { error: "send_message(receiver='parent') is unavailable: no ctx.subagents service is mounted in this composition" }
           }
           try {
             const messageId = await subagents.reportFrom(exec.agent, [{ type: 'text', text: message }], { delivery: 'wakeup', signal: exec.signal })
             return { delivered: true, message_id: messageId }
           } catch (error: unknown) {
             if ((error as { code?: unknown }).code === 'UNAUTHORIZED') {
-              return { error: `agent_message(receiver='parent') rejected: only a live continuable child agent can report to its parent (a root agent has none) — ${error instanceof Error ? error.message : String(error)}` }
+              return { error: `send_message(receiver='parent') rejected: only a live continuable child agent can report to its parent (a root agent has none) — ${error instanceof Error ? error.message : String(error)}` }
             }
-            return { error: `agent_message(receiver='parent') failed: ${error instanceof Error ? error.message : String(error)}` }
+            return { error: `send_message(receiver='parent') failed: ${error instanceof Error ? error.message : String(error)}` }
           }
         }
-        return { error: `agent_message() unknown receiver ${JSON.stringify(receiver)}: expected 'child' or 'parent'` }
-      }
-
-      // agent_list() bare callable global: the list_agents tool bridge
-      // (scope 'children' = direct children, 'descendants' = the whole tree).
-      const agentListCallable: RlmBindingFunction = async (rawArgs: unknown): Promise<RlmJsonValue> => {
-        const parsed = flatBridgeToolArgs(rawArgs)
-        if (!parsed.ok) return { error: parsed.error }
-        const a = parsed.args
-        const unknownKeys = Object.keys(a).filter(key => key !== 'scope')
-        if (unknownKeys.length > 0) return { error: `agent_list() got unexpected key(s): ${unknownKeys.join(', ')}` }
-        const scope = (a['scope'] ?? 'children') as string
-        if (scope !== 'children' && scope !== 'descendants') {
-          return { error: `agent_list() scope must be 'children' or 'descendants', got ${JSON.stringify(scope)}` }
-        }
-        return await binding('list_agents')({ scope })
-      }
-
-      // rlm_workflow() bare callable global: the workflow tool bridge —
-      // a JavaScript orchestration script plus its meta identity block.
-      const rlmWorkflowCallable: RlmBindingFunction = async (rawArgs: unknown): Promise<RlmJsonValue> => {
-        const parsed = flatBridgeToolArgs(rawArgs)
-        if (!parsed.ok) return { error: parsed.error }
-        const a = parsed.args
-        const unknownKeys = Object.keys(a).filter(key => !['meta', 'script'].includes(key))
-        if (unknownKeys.length > 0) return { error: `rlm_workflow() got unexpected key(s): ${unknownKeys.join(', ')}` }
-        const meta = a['meta']
-        const script = a['script']
-        if (typeof meta !== 'object' || meta === null || Array.isArray(meta) || typeof script !== 'string') {
-          return { error: 'rlm_workflow() requires {"meta": {...}, "script": "..."}' }
-        }
-        return await binding('workflow')({ meta, script })
-      }
-
-      // rlm_ralph() bare callable global: the ralph tool bridge (fresh-agent
-      // iterative rounds). kwargs map 1:1 onto the tool's own optional
-      // fields; None means "omit the key" (the tool's configured default).
-      const rlmRalphCallable: RlmBindingFunction = async (rawArgs: unknown): Promise<RlmJsonValue> => {
-        const parsed = flatBridgeToolArgs(rawArgs)
-        if (!parsed.ok) return { error: parsed.error }
-        const a = parsed.args
-        const unknownKeys = Object.keys(a).filter(key => !['objective', 'max_rounds'].includes(key))
-        if (unknownKeys.length > 0) return { error: `rlm_ralph() got unexpected key(s): ${unknownKeys.join(', ')}` }
-        const objective = a['objective']
-        if (typeof objective !== 'string') return { error: 'rlm_ralph() requires {"objective": "..."}' }
-        const maxRounds = a['max_rounds']
-        if (maxRounds !== undefined && maxRounds !== null
-          && (typeof maxRounds !== 'number' || !Number.isInteger(maxRounds) || maxRounds < 1)) {
-          return { error: 'rlm_ralph() max_rounds must be a positive integer or null' }
-        }
-        return await binding('ralph')({
-          objective,
-          ...(maxRounds !== undefined && maxRounds !== null ? { maxRounds } : {}),
-        })
+        return { error: `send_message() unknown receiver ${JSON.stringify(receiver)}: expected 'child' or 'parent'` }
       }
 
       // refine() bare callable global (M4-B, blueprint §6): one in-cell
@@ -1214,7 +1038,7 @@ export function createRunCellTool(registry: ToolRuntime, options: RunCellBridgeO
       // prompt assembly re-renders the harness from the store, so the edit
       // is visible to the next model request — prompt-as-variable. Errors are
       // structured JSON fields; a parse failure leaves the store untouched.
-      const refineCallable: RlmBindingFunction = async (rawArgs: unknown): Promise<RlmJsonValue> => {
+      const refineCallable: ReplBindingFunction = async (rawArgs: unknown): Promise<ReplJsonValue> => {
         const parsed = flatBridgeToolArgs(rawArgs)
         if (!parsed.ok) return { error: parsed.error }
         const unknownKeys = Object.keys(parsed.args).filter(key => key !== 'instruction')
@@ -1293,7 +1117,7 @@ export function createRunCellTool(registry: ToolRuntime, options: RunCellBridgeO
       // the engine itself runs between steps: below threshold it is an
       // honest no-op, above it the range is summarized NOW and the model's
       // next request in the SAME turn already rides the compacted history.
-      const compactCallable: RlmBindingFunction = async (rawArgs: unknown): Promise<RlmJsonValue> => {
+      const compactCallable: ReplBindingFunction = async (rawArgs: unknown): Promise<ReplJsonValue> => {
         const parsed = flatBridgeToolArgs(rawArgs)
         if (!parsed.ok) return { error: parsed.error }
         const unknownKeys = Object.keys(parsed.args).filter(key => key !== 'reason')
@@ -1302,7 +1126,7 @@ export function createRunCellTool(registry: ToolRuntime, options: RunCellBridgeO
           return { error: 'compact() requires an agent session (this run has no parent agent)' }
         }
         const agent = exec.agent
-        const result: Record<string, RlmJsonValue> = {}
+        const result: Record<string, ReplJsonValue> = {}
         const meter = requireTokenMeter?.()
         if (meter !== undefined) {
           try {
@@ -1326,7 +1150,7 @@ export function createRunCellTool(registry: ToolRuntime, options: RunCellBridgeO
           }
           result['compact_model'] = null
         }
-        const summarize = (path: 'compact-now' | 'pressure', outcome: DASHRCompactionResult | null): RlmJsonValue => {
+        const summarize = (path: 'compact-now' | 'pressure', outcome: DASHRCompactionResult | null): ReplJsonValue => {
           if (outcome === null) {
             return { ...result, status: 'no-op', path }
           }
@@ -1355,52 +1179,19 @@ export function createRunCellTool(registry: ToolRuntime, options: RunCellBridgeO
       }
 
       try {
-        let result: RlmRunResult
+        let result: ReplRunResult
         try {
           result = await runtime.run({
             program: args.cell,
             bindings: [
-              ...toolNamespaces,
               {
-                global: 'rlm',
-                functions: { __call__: rlmCallable },
-                callable: true,
-                errorClass: TOOL_CALL_ERROR_CLASS,
-              },
-              {
-                global: 'agent_message',
-                functions: { __call__: agentMessageCallable },
-                callable: true,
-                errorClass: TOOL_CALL_ERROR_CLASS,
-              },
-              {
-                global: 'agent_list',
-                functions: { __call__: agentListCallable },
-                callable: true,
-                errorClass: TOOL_CALL_ERROR_CLASS,
-              },
-              {
-                global: 'rlm_workflow',
-                functions: { __call__: rlmWorkflowCallable },
-                callable: true,
-                errorClass: TOOL_CALL_ERROR_CLASS,
-              },
-              {
-                global: 'rlm_ralph',
-                functions: { __call__: rlmRalphCallable },
-                callable: true,
-                errorClass: TOOL_CALL_ERROR_CLASS,
-              },
-              {
-                global: 'refine',
-                functions: { __call__: refineCallable },
-                callable: true,
-                errorClass: TOOL_CALL_ERROR_CLASS,
-              },
-              {
-                global: 'compact',
-                functions: { __call__: compactCallable },
-                callable: true,
+                global: 'tool',
+                functions: {
+                  ...toolFunctions,
+                  send_message: sendMessageCallable,
+                  refine: refineCallable,
+                  compact: compactCallable,
+                },
                 errorClass: TOOL_CALL_ERROR_CLASS,
               },
             ],
@@ -1417,12 +1208,19 @@ export function createRunCellTool(registry: ToolRuntime, options: RunCellBridgeO
             // kernel inherits the daemon's cwd (the pre-fix leak, retained
             // only for the no-session edge).
             ...exec.agent ? { cwd: exec.agent.session.header.cwd } : {},
+            // Per-run budget override: a cell may self-declare a longer or
+            // shorter wall budget (seconds → ms). Absent → the runtime default.
+            ...(typeof args.timeout === 'number' && Number.isFinite(args.timeout) && args.timeout > 0)
+              ? { timeoutMs: Math.max(1, Math.floor(args.timeout * 1000)) }
+              : {},
+            // reset=true abandons the persistent namespace (fresh, empty kernel).
+            ...(args.reset === true ? { reset: true } : {}),
           })
         } finally {
           // Abort sub-dispatches and drain every in-flight dispatch before
           // closing the turn (queued-unstarted ones are abandoned unlogged).
           // Binding failures remain observable through their individual promises.
-          runController.abort(`${IPYTHON_NAME} settled`)
+          runController.abort(`${EVAL_NAME} settled`)
           await drainDispatches()
         }
 
@@ -1457,31 +1255,31 @@ export function createRunCellTool(registry: ToolRuntime, options: RunCellBridgeO
  * public projection APIs: `schemas(scope)` for the model-facing view (scoped
  * tools join, restrictions apply), `get(name, scope)` for the canonical
  * output schema, snapshotted so a live definition cannot mutate under the
- * render. `ipython` itself is excluded — it is the transport, not a
+ * render. `eval` itself is excluded — it is the transport, not a
  * binding. Masked names are excluded HERE (ADR-0002: the catalog text is
  * one of the two presentation points DASHR owns; the registry is never
- * touched), and `glob` is renamed to `file_glob` (the single rename, Q13)
- * so the catalog teaches exactly the name the kernel binds.
+ * touched). The catalog teaches exactly the `tool.*` member names the
+ * kernel binds.
  */
 export function collectSdkSchemas(registry: ToolRuntime, scope?: ScopeKey): DASHRSdkSchema[] {
   const collected: DASHRSdkSchema[] = []
   for (const schema of registry.schemas(scope)) {
-    if (schema.name === IPYTHON_NAME) continue
+    if (schema.name === EVAL_NAME) continue
     if (MASKED_TOOL_NAMES.has(schema.name)) continue
     const definition = registry.get(schema.name, scope)
     if (definition === undefined) continue
     const output = snapshotJsonValue(definition.output.schema) as JsonSchemaNode | undefined
     if (output === undefined) continue
-    collected.push({ name: TOOL_NAME_RENAMES.get(schema.name) ?? schema.name, description: schema.description, parameters: schema.parameters, output })
+    collected.push({ name: schema.name, description: schema.description, parameters: schema.parameters, output })
   }
   return collected
 }
 
 /**
  * Declare the DASHR cell presentation for every agent this composition
- * covers: the `ipython` transport tool, the `dashr:tool-catalog` prompt
+ * covers: the `eval` transport tool, the `dashr:tool-catalog` prompt
  * section, the model-direct collapse guard, and the assembly filter that
- * leaves `ipython` the only contributed tool schema.
+ * leaves `eval` the only contributed tool schema.
  *
  * Mount through a preset's standing scope (`agent.cordis.yml` include row);
  * mounting unscoped is legal for a whole-process DASHR deployment and gives
@@ -1494,6 +1292,7 @@ const RUNTIME_CONFIG_KEYS = [
   'python', 'cwd', 'startupTimeoutMs', 'runTimeoutMs', 'interruptGraceMs',
   'interruptConfirmMs', 'disposeTimeoutMs', 'snapshotTimeoutMs',
   'maxOutputBytes', 'snapshotDir', 'snapshotSizeCapBytes', 'username',
+  'kernelEnvDir', 'kernelPythonVersion', 'kernelAutoInstall',
 ] as const
 /** The runtime slice of the merged config — the keys `DashrRuntime` owns. */
 function pickRuntimeConfig(config: Config): RuntimeConfig {
@@ -1503,12 +1302,12 @@ function pickRuntimeConfig(config: Config): RuntimeConfig {
 }
 
 export function apply(ctx: Context, config: Config): void {
-  // Mount the stateful kernel runtime FIRST: it provides `ctx.rlmRuntime` in
-  // this row's scope (the preset's entry-local `rlmRuntime` realm), which the
+  // Mount the stateful kernel runtime FIRST: it provides `ctx.replRuntime` in
+  // this row's scope (the preset's entry-local `replRuntime` realm), which the
   // presentation inject below resolves. Both halves were separate plugin rows
   // before the merge; one row now owns the whole lifecycle.
   ctx.plugin(DashrRuntime, pickRuntimeConfig(config))
-  const logger = ctx.logger('dsh-rlm-mode')
+  const logger = ctx.logger('dashr-repl')
   const maxParallel = resolveMaxParallelSubCalls(config.maxParallelSubCalls)
   const harnessDir = resolveHarnessDir(config.harnessDir)
   const refineModel = resolveRefineModel(config.refineModel)
@@ -1521,29 +1320,29 @@ export function apply(ctx: Context, config: Config): void {
   // and the engine's selector needs an absolute tail to price.
   if (recencyWindowTokens !== undefined) {
     if (compactModel === undefined) {
-      throw new Error('dsh-rlm-mode: recencyWindowTokens requires compactModel — the recency engine summarizes with it and mounts before any agent exists to inherit a route from')
+      throw new Error('dashr-repl: recencyWindowTokens requires compactModel — the recency engine summarizes with it and mounts before any agent exists to inherit a route from')
     }
     if (!compactModel.includes('/')) {
-      throw new Error(`dsh-rlm-mode: recencyWindowTokens requires the full "provider/model" compactModel form (bare model ids pair with the first calling agent, which does not exist at eager mount); got ${JSON.stringify(compactModel)}`)
+      throw new Error(`dashr-repl: recencyWindowTokens requires the full "provider/model" compactModel form (bare model ids pair with the first calling agent, which does not exist at eager mount); got ${JSON.stringify(compactModel)}`)
     }
     if (retainTokens === undefined) {
-      throw new Error('dsh-rlm-mode: recencyWindowTokens requires retainTokens — the recency selector prices a concrete post-compaction tail')
+      throw new Error('dashr-repl: recencyWindowTokens requires retainTokens — the recency selector prices a concrete post-compaction tail')
     }
   }
 
-  // The wait is the loud failure: a preset row still pending on `rlmRuntime`
+  // The wait is the loud failure: a preset row still pending on `replRuntime`
   // is what the preset mount audit reports as an unusable row, naming this
   // plugin. Use-time reads below stay authoritative at execution.
-  ctx.inject(['rlmRuntime'], (runtimeCtx: Context) => {
-    const requireRuntime = (): RlmRuntimeSurface => {
+  ctx.inject(['replRuntime'], (runtimeCtx: Context) => {
+    const requireRuntime = (): ReplRuntimeSurface => {
       // Structural read (see runtime-surface.ts): the Context merge the
       // sibling runtime package declares is deliberately not imported here.
-      const runtime = runtimeCtx.get('rlmRuntime') as RlmRuntimeSurface | undefined
+      const runtime = runtimeCtx.get('replRuntime') as ReplRuntimeSurface | undefined
       if (!runtime) {
-        throw new Error('dsh-rlm-mode: ipython requires an rlmRuntime service — load a ctx.rlmRuntime implementation in this composition (dsh-rlm-mode mounts one at apply)')
+        throw new Error('dashr-repl: eval requires an replRuntime service — load a ctx.replRuntime implementation in this composition (dashr-repl mounts one at apply)')
       }
       if (runtime.language !== 'python') {
-        throw new Error(`dsh-rlm-mode: no cell SDK for runtime language ${JSON.stringify(runtime.language)} (dsh-rlm-mode presents Python only; got a ${JSON.stringify(runtime.language)} runtime under ctx.rlmRuntime)`)
+        throw new Error(`dashr-repl: no cell SDK for runtime language ${JSON.stringify(runtime.language)} (dashr-repl presents Python only; got a ${JSON.stringify(runtime.language)} runtime under ctx.replRuntime)`)
       }
       return runtime
     }
@@ -1557,7 +1356,7 @@ export function apply(ctx: Context, config: Config): void {
     // this plugin's `inject = ['tools']` wait.
     const systemPrompt = runtimeCtx.get('systemPrompt')
     if (!systemPrompt) {
-      throw new Error('dsh-rlm-mode: ctx.systemPrompt is required beside ctx.tools (the tools service itself depends on it) — this composition mounted tools without a system prompt registry')
+      throw new Error('dashr-repl: ctx.systemPrompt is required beside ctx.tools (the tools service itself depends on it) — this composition mounted tools without a system prompt registry')
     }
 
     // The consumer-side stand-in for the registry-private shapeDispatchLog
@@ -1573,12 +1372,12 @@ export function apply(ctx: Context, config: Config): void {
           () => Promise.resolve(dispatch.content),
         )
       } catch (error: unknown) {
-        logger.warn(`dsh-rlm-mode: code-dispatch-log listener failed for ${dispatch.name}: ${error instanceof Error ? error.message : String(error)}; logging the original settled content`)
+        logger.warn(`dashr-repl: code-dispatch-log listener failed for ${dispatch.name}: ${error instanceof Error ? error.message : String(error)}; logging the original settled content`)
         return dispatch.content
       }
     }
 
-    // The Continual Harness store (M4-B), shared by every ipython call AND
+    // The Continual Harness store (M4-B), shared by every eval call AND
     // the dashr:harness prompt section in this composition. `agent/disposed`
     // drops one agent's in-memory cache only — with a harnessDir configured
     // the FILE persists by design, so the agent's next session restores its
@@ -1643,10 +1442,10 @@ export function apply(ctx: Context, config: Config): void {
           if (engine === undefined) {
             return { error: 'recencyWindowTokens is set but the recency engine did not become available: the host composition must provide llm, tokenMeter, and sessions for it to load' }
           }
-          logger.info('dsh-rlm-mode: recency engine mounted (ceiling %d tokens, tail %d tokens, summarizer %s/%s)', recencyWindowTokens, retainTokens, provider, model)
+          logger.info('dashr-repl: recency engine mounted (ceiling %d tokens, tail %d tokens, summarizer %s/%s)', recencyWindowTokens, retainTokens, provider, model)
           return { engine, target: { provider, model } }
         } catch (error: unknown) {
-          return { error: `recencyWindowTokens is set but the recency engine could not be mounted: ${error instanceof Error ? error.message : String(error)} (is the optional peer @deepseek-ai/dsh-compaction-basic installed next to dsh-rlm-mode?)` }
+          return { error: `recencyWindowTokens is set but the recency engine could not be mounted: ${error instanceof Error ? error.message : String(error)} (is the optional peer @deepseek-ai/dsh-compaction-basic installed next to dashr-repl?)` }
         }
       })().then((outcome) => {
         if ('error' in outcome) logger.warn(outcome.error)
@@ -1693,7 +1492,7 @@ export function apply(ctx: Context, config: Config): void {
             }
             return { engine, target: { provider, model } }
           } catch (error: unknown) {
-            return { error: `compactModel is set but the DASHR-scoped compaction engine could not be mounted: ${error instanceof Error ? error.message : String(error)} (is the optional peer @deepseek-ai/dsh-compaction-basic installed next to dsh-rlm-mode?)` }
+            return { error: `compactModel is set but the DASHR-scoped compaction engine could not be mounted: ${error instanceof Error ? error.message : String(error)} (is the optional peer @deepseek-ai/dsh-compaction-basic installed next to dashr-repl?)` }
           }
         })()
         return engineMount
@@ -1718,7 +1517,7 @@ export function apply(ctx: Context, config: Config): void {
     systemPrompt.section({
       name: 'dashr:control-prompt',
       order: CONTROL_SECTION_ORDER,
-      text: DASHR_CONTROL_PROMPT,
+      text: CONTROL_PROMPT_TEXT,
     })
 
     // ② The Tool Catalog prompt section (plan Q4/Q7; the pre-0.1.5 name
@@ -1727,7 +1526,7 @@ export function apply(ctx: Context, config: Config): void {
     // an assembly for a different scope renders its own view, never ours).
     // The bridge tools are fed into the SAME renderer as registry tools
     // (BRIDGE_TOOL_SCHEMAS), so the catalog is one flat surface: every tool —
-    // registry tool or bridge tool — is `await name(args)`.
+    // registry tool or bridge tool — is `await tool.name(args)`.
     systemPrompt.section({
       name: 'dashr:tool-catalog',
       order: SDK_SECTION_ORDER,
@@ -1748,42 +1547,10 @@ export function apply(ctx: Context, config: Config): void {
       text: context => renderHarnessSection(harness.list(String(context.agent?.id ?? ''))),
     })
 
-    // ③ Schema collapse: keep only ipython in the tools the model may call
-    // directly, and drop the masked `report` tool's child-scoped guidance
-    // section. The assembly waterfall's returned value is authoritative
-    // (dsh-tools README), and this listener is scoped to the mounting
-    // composition — an assembly for any other scope never reaches it, so a
-    // PTC preset in the same process keeps its full native schema set.
-    runtimeCtx.on('system-prompt/assemble', async (_assembly, _context, next) => {
-      const assembly = await next()
-      return {
-        ...assembly,
-        tools: assembly.tools.filter(tool => tool.name === IPYTHON_NAME),
-        // `tool:report` is the upstream report tool's own guidance, installed
-        // into every continuable child by the host's subagent-report package.
-        // agent_message({"receiver": "parent"}) covers that uplink and the tool itself
-        // is masked above, so the section would otherwise instruct a child to
-        // call a function it can no longer reach.
-        sections: assembly.sections.filter(section => section.name !== 'tool:report'),
-      }
-    }, { prepend: true })
-
-    // ④ Model-direct collapse guard: with the schema surface collapsed to
-    // ipython, a model-direct call naming anything else must fail with the
-    // route back into a cell — a bare "unknown tool" for a tool the SDK just
-    // declared would read as a broken deployment. Nested sub-dispatches (a
-    // `parent` token set — exactly what the bridge above mints) and
-    // ipython itself pass.
-    runtimeCtx.tools.guard(exec => {
-      if (exec.parent === undefined && exec.name !== IPYTHON_NAME) {
-        return `only \`${IPYTHON_NAME}\` is callable directly — call \`${exec.name}\` from inside an \`${IPYTHON_NAME}\` cell instead`
-      }
-      return undefined
-    })
   })
 }
 
 export default { name, inject, Config, apply }
 
-export { DashrRuntime, RLMRuntime } from './runtime.ts'
+export { DashrRuntime, ReplRuntime } from './runtime.ts'
 export type { Config as RuntimeConfig } from './runtime.ts'

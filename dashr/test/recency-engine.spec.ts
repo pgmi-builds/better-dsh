@@ -382,10 +382,10 @@ describe('recency config at the apply() boundary', () => {
     session.events = []
     const looping = agent.agent as unknown as { runMaintenance?: () => never }
     looping.runMaintenance = (): never => { throw new Error('agent "dashr-agent" already has active work') }
-    const runtime = ctx.get('rlmRuntime') as FakeCellRuntime
+    const runtime = ctx.get('replRuntime') as FakeCellRuntime
     runtime.behavior = async (request) => {
-      const compact = request.bindings.find(binding => binding.global === 'compact')!
-      return { logs: [], value: await compact.functions['__call__']!({ args: [], kwargs: {} }) }
+      const tool = request.bindings.find(binding => binding.global === 'tool')!
+      return { logs: [], value: await tool.functions['compact']!({}) }
     }
     // Give the eager mount a tick to complete (dynamic import + fiber).
     await new Promise(resolve => setTimeout(resolve, 50))

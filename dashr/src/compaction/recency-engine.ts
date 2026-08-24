@@ -30,7 +30,7 @@
  * through the dynamic import in `index.ts` (the same discipline as design
  * A): deployments that never configure `recencyWindowTokens` never load
  * the package.
- * @module dsh-rlm-mode/compaction/recency-engine
+ * @module dashr-repl/compaction/recency-engine
  */
 
 import { BasicCompactionEngine } from '@deepseek-ai/dsh-compaction-basic'
@@ -91,10 +91,10 @@ export class RecencyAwareCompactionEngine extends BasicCompactionEngine {
     // invariant upstream machine-checks between retainTokens and its own
     // thresholdTokens.
     if (this.config.retainTokens === undefined) {
-      throw new Error(`dsh-rlm-mode: recencyWindowTokens (${recencyWindowTokens}) requires an absolute retainTokens config (the post-compaction tail the selector prices)`)
+      throw new Error(`dashr-repl: recencyWindowTokens (${recencyWindowTokens}) requires an absolute retainTokens config (the post-compaction tail the selector prices)`)
     }
     if (this.config.retainTokens >= recencyWindowTokens) {
-      throw new Error(`dsh-rlm-mode: retainTokens (${this.config.retainTokens}) must be less than recencyWindowTokens (${recencyWindowTokens})`)
+      throw new Error(`dashr-repl: retainTokens (${this.config.retainTokens}) must be less than recencyWindowTokens (${recencyWindowTokens})`)
     }
   }
 

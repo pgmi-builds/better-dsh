@@ -180,12 +180,12 @@ def _dashr_make_callable(global_name, function_name, error_class_name, member_pr
     # tools: 'callable: true' on the namespace) instead of an object
     # holder. The one-object form is the single convention: every callable
     # takes exactly one positional arguments object (e.g.
-    # rlm({'mode': 'spawn', ...})), and keyword / multi-positional forms are
+    # send_message({'receiver': 'child', ...})), and keyword / multi-positional forms are
     # rejected HERE, at the Python call boundary, so the introspectable
     # signature tells the truth and a TypeError names the binding global
     # (read(...) got an unexpected keyword argument ...). The wire envelope
     # keeps the historical {'args': [...], 'kwargs': {}} shape so the host's
-    # parseRlmCall / flatToolArgs / flatBridgeToolArgs validation layers stay
+    # parseReplCall / flatToolArgs / flatBridgeToolArgs validation layers stay
     # authoritative and unchanged. The single functions-entry name is
     # transport-only: the program never sees it, and a typed rejection
     # carries the GLOBAL name as its member (for a flat tool binding the

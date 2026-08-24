@@ -1,17 +1,19 @@
 #!/usr/bin/env bash
 # DASHR one-click installer.
 #
-# Installs (or reuses) the DeepSeek Harness (dsh), installs the DASHR
-# plugin (`dsh-rlm-mode`, from the npm registry; source build as fallback),
-# localizes the `rlm-mode` agent preset (include path + kernel Python baked
-# in), and makes sure the kernel Python environment has `ipykernel`.
+# Installs (or reuses) the DeepSeek Harness (dsh), installs the DASHR plugin
+# (`dashr`, from the npm registry; source build as fallback), and makes sure
+# the kernel Python environment has `ipykernel`. The plugin's cordis.patch.yml
+# mounts the `eval` REPL tool on the host plane, so it is available in every
+# agent preset — there is no preset-localization step.
 #
 # Env knobs:
-#   DSH_PROFILE     dsh profile to install into            (default: web)
-#   DSH_HOME        dsh harness home                       (default: ~/.dsh)
-#   DASHR_VERSION   repo ref (tag or branch) to fetch      (default: v0.1.0)
-#   DASHR_REPO      repo origin                            (default: github.com/pgmi-builds/dashr)
-#   DASHR_SRC       existing source dir for the offline fallback  (default: unset)
+#   DSH_PROFILE         dsh profile to install into            (default: web)
+#   DSH_HOME            dsh harness home                       (default: ~/.dsh)
+#   DASHR_VERSION       repo ref (tag or branch) to fetch      (default: main)
+#   DASHR_REPO          repo origin                            (default: github.com/pgmi-builds/dashr)
+#   DASHR_SRC           existing source dir for offline fallback  (default: unset)
+#   DASHR_KERNEL_PYTHON Python interpreter with ipykernel      (default: host python3; set if using a venv)
 set -euo pipefail
 
 DSH_PROFILE="${DSH_PROFILE:-web}"
@@ -28,7 +30,7 @@ TMP_ROOT="$(mktemp -d)"
 trap 'rm -rf "$TMP_ROOT"' EXIT
 
 # ---------------------------------------------------------------- 1. env scan
-step "1/5 scanning environment"
+step "1/4 scanning environment"
 command -v node    >/dev/null || die "node not found — install Node.js >= 20 first"
 command -v npm     >/dev/null || die "npm not found"
 NODE_MAJOR="$(node -p 'process.versions.node.split(".")[0]')"
@@ -42,7 +44,7 @@ command -v pnpm   >/dev/null 2>&1 || { step "pnpm not found — installing (requ
 if command -v dsh >/dev/null 2>&1; then
   info "dsh found at $(command -v dsh)"
 else
-  step "2/5 dsh not found — installing latest via npm (large install: ~60 packages + a native addon; expect 2-5 minutes, do not interrupt)"
+  step "2/4 dsh not found — installing latest via npm (large install: ~60 packages + a native addon; expect 2-5 minutes, do not interrupt)"
   if npm install -g @deepseek-ai/dsh@latest; then
     info "dsh installed globally"
   else
@@ -54,37 +56,27 @@ else
 fi
 DSH="$(command -v dsh)" || die "dsh installed but not on PATH; add <npm-prefix>/bin to PATH and re-run"
 
-# Resolve the installed dsh's standard agent composition (the preset include
-# target). npm layout: <prefix>/bin/dsh -> <prefix>/lib/node_modules/@deepseek-ai/dsh/lib/bin.js
-DSH_REAL="$(readlink -f "$DSH")"
-STD_PRESET=""
-for cand in \
-  "$(dirname "$DSH_REAL")/../config/agent-presets/standard/agent.cordis.yml" \
-  "$(dirname "$DSH_REAL")/config/agent-presets/standard/agent.cordis.yml"; do
-  if [ -f "$cand" ]; then STD_PRESET="$cand"; break; fi
-done
-[ -n "$STD_PRESET" ] || die "cannot locate dsh's standard preset (looked next to $DSH_REAL)"
-info "standard preset: $STD_PRESET"
-
-# ------------------------------------------- 3. kernel Python (ipykernel)
-step "3/5 ensuring the kernel Python has ipykernel"
-KERNEL_PY=""
-if python3 -c "import ipykernel" >/dev/null 2>&1; then
-  KERNEL_PY="$(command -v python3)"
-  info "host python3 already has ipykernel ($KERNEL_PY)"
-else
-  KERNEL_VENV="$DSH_HOME_DIR/dashr-kernel-venv"
-  info "host python3 lacks ipykernel — creating $KERNEL_VENV"
-  python3 -m venv "$KERNEL_VENV" \
-    || die "python3 -m venv failed (install the python3-venv package and re-run)"
-  "$KERNEL_VENV/bin/pip" install --quiet --disable-pip-version-check ipykernel \
-    || die "pip install ipykernel failed"
-  KERNEL_PY="$KERNEL_VENV/bin/python"
-  info "kernel python: $KERNEL_PY"
+# --------------------------------- 3. kernel Python (ipykernel + dill)
+step "3/4 ensuring the kernel Python has ipykernel + dill"
+KERNEL_PY="${DASHR_KERNEL_PYTHON:-}"
+if [ -z "$KERNEL_PY" ]; then
+  if python3 -c "import ipykernel, dill" >/dev/null 2>&1; then
+    KERNEL_PY="$(command -v python3)"
+    info "host python3 already has ipykernel + dill ($KERNEL_PY)"
+  else
+    # The runtime OWNS the kernel environment: on first use it provisions a
+    # managed venv under the dashr package (ipykernel + dill). Leave the
+    # hint unset so it does, rather than pinning a half-configured python3.
+    info "host python3 lacks ipykernel or dill — the runtime will provision a managed venv under the package on first use"
+    KERNEL_PY=""
+  fi
+fi
+if [ -n "$KERNEL_PY" ]; then
+  export DASHR_KERNEL_PYTHON="$KERNEL_PY"
 fi
 
 # ---------------------------------------------------- 4. plugin install
-step "4/5 installing the dsh-rlm-mode plugin"
+step "4/4 installing the dashr plugin"
 # Pre-seed the profile's pnpm policy BEFORE `dsh plugin add` forwards to pnpm:
 #   - allowBuilds.zeromq: false — zeromq ships prebuilt binaries, its build
 #     script is an optional source-compile fallback. pnpm v10+ ignoring it is
@@ -105,10 +97,8 @@ fi
 # version instead of a cached older one (pnpm's own cache TTL can lag a fresh
 # publish by minutes-to-hours).
 rm -rf "${XDG_CACHE_HOME:-$HOME/.cache}/pnpm" 2>/dev/null || true
-PRESET_SRC=""
-if "$DSH" plugin --profile "$DSH_PROFILE" add --config.auto-install-peers=false dsh-rlm-mode@latest; then
-  info "installed dsh-rlm-mode from the npm registry"
-  PRESET_SRC="$DSH_HOME_DIR/profiles/$DSH_PROFILE/node_modules/dsh-rlm-mode/preset/rlm-mode"
+if "$DSH" plugin --profile "$DSH_PROFILE" add --config.auto-install-peers=false @pgmi-builds/dashr@latest; then
+  info "installed dashr from the npm registry"
 else
   # Offline / registry-blocked fallback: build the pinned release from source.
   info "registry install failed — falling back to building $DASHR_VERSION from source"
@@ -130,37 +120,24 @@ else
     SRC="$TMP_ROOT/src"
   fi
   if [ ! -d "$SRC/dashr/lib" ]; then
-    info "building dsh-rlm-mode (lib/ missing, 1-2 minutes)"
+    info "building dashr (lib/ missing, 1-2 minutes)"
     (cd "$SRC/dashr" && npm install --no-audit --no-fund && npm run build)
   fi
   (cd "$SRC/dashr" && npm pack --pack-destination "$TMP_ROOT" >/dev/null)
   "$DSH" plugin --profile "$DSH_PROFILE" add --config.auto-install-peers=false \
-    "$TMP_ROOT/dsh-rlm-mode-"*.tgz
-  PRESET_SRC="$SRC/dashr/preset/rlm-mode"
+    "$TMP_ROOT/dashr-"*.tgz
 fi
-[ -f "$PRESET_SRC/agent.cordis.yml" ] || die "preset files not found under $PRESET_SRC"
-
-# ---------------------------------------------------- 5. preset localization
-step "5/5 localizing the rlm-mode agent preset"
-# --config.auto-install-peers=false is MANDATORY on the add above: the
-# profile already resolves @deepseek-ai/* peers through the harness install;
-# letting the package manager auto-install them would add a second
-# (divergent) copy of cordis and friends.
-PRESET_DIR="$DSH_HOME_DIR/.agent-presets/rlm-mode"
-mkdir -p "$PRESET_DIR"
-# Bake in the machine-specific include target (the include row is a group
-# entry, so it cannot use an env expression) and the resolved kernel Python.
-sed -e "s|DASHR_PLACEHOLDER_standard_preset_path_install_script_required|$STD_PRESET|" \
-    -e "s|python: !!js process.env.DASHR_KERNEL_PYTHON ?? 'python3'|python: $KERNEL_PY|" \
-    "$PRESET_SRC/agent.cordis.yml" > "$PRESET_DIR/agent.cordis.yml"
-cp "$PRESET_SRC/preset.yml" "$PRESET_DIR/preset.yml"
-info "preset localized at $PRESET_DIR"
 
 # ------------------------------------------------------------- restart note
 if pgrep -f "[d]sh .* --port\|[d]sh web" >/dev/null 2>&1 || systemctl --user is-active --quiet dsh.service 2>/dev/null; then
-  step "a running dsh instance was detected — restart it to load the new plugins"
+  step "a running dsh instance was detected — restart it to load the dashr bundle"
   step "  systemd:  systemctl --user restart dsh.service"
   step "  manual:   kill the dsh process, then relaunch with your usual flags"
 fi
 
-info "done. Create a new session with agent preset 'rlm-mode' (RLM Mode) in the dsh web UI."
+info "done. The DASHR REPL (`eval`) is available in every agent preset."
+if [ -n "$KERNEL_PY" ] && [ "$KERNEL_PY" != "$(command -v python3)" ]; then
+  info "kernel python: $KERNEL_PY — persist DASHR_KERNEL_PYTHON=$KERNEL_PY in your shell profile or dsh service env."
+elif [ -z "$KERNEL_PY" ]; then
+  info "kernel python: managed by the runtime (a venv under the dashr package, provisioned on first use)"
+fi

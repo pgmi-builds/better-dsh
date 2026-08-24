@@ -10,11 +10,11 @@ const venvPython = fileURLToPath(new URL('../.venv-kernel/bin/python', import.me
 /** Interpreter for real-kernel tests: explicit override, package venv, then PATH. */
 export const KERNEL_PYTHON = process.env.DASHR_TEST_PYTHON ?? (existsSync(venvPython) ? venvPython : 'python3')
 
-/** Boot a fresh context with the ipython provider mounted, worker-thread test style. */
+/** Boot a fresh context with the eval provider mounted, worker-thread test style. */
 export async function setupRuntime(config: Config = {}): Promise<{ fiber: Awaited<ReturnType<Context['plugin']>>, runtime: DashrRuntime }> {
   const ctx = new Context()
   const fiber = await ctx.plugin(DashrRuntime, { python: KERNEL_PYTHON, ...config })
-  const runtime = ctx.rlmRuntime as DashrRuntime
+  const runtime = ctx.replRuntime as DashrRuntime
   // Dispose even when a spec forgets to: kernel children are not killed with
   // the worker process, so an undisposed fiber leaks an idle ipykernel
   // subprocess forever (208 leaked orphans were found mid-project). Double
@@ -31,16 +31,16 @@ import { createScope } from '@deepseek-ai/dsh-scope'
 import type { Scope } from '@deepseek-ai/dsh-scope'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import { SessionId } from '@deepseek-ai/dsh-session'
-import { RLMRuntime } from '../src/vendored/rlm-runtime.ts'
+import { ReplRuntime } from '../src/vendored/rlm-runtime.ts'
 import type { CodeRunRequest, CodeRunResult } from '../src/vendored/rlm-runtime.ts'
 import Presentation from '../src/index.ts'
 
 /**
- * A scriptable in-repo `rlmRuntime`: each test sets `behavior` to drive the
+ * A scriptable in-repo `replRuntime`: each test sets `behavior` to drive the
  * cell bridge without a kernel. Language reports `'python'` — the only
  * language this presentation ships an SDK for.
  */
-export class FakeCellRuntime extends RLMRuntime {
+export class FakeCellRuntime extends ReplRuntime {
   readonly language = 'python'
   readonly isolation = 'fake'
   behavior: (request: CodeRunRequest) => Promise<CodeRunResult> = () => Promise.resolve({ logs: [] })
@@ -141,7 +141,7 @@ export function fakeAgent(): { agent: Agent; events: { type: string; data: unkno
 
 /**
  * Boot the same composition with the REAL kernel provider (M1's
- * `DashrRuntime` from `dsh-rlm-mode`). One kernel boots
+ * `DashrRuntime` from `dashr-repl`). One kernel boots
  * per test; the fiber's registered disposer shuts it down
  * (`onTestFinished`), and the acceptance gate asserts no orphan
  * `ipykernel_launcher` processes remain (blueprint §10.9).
@@ -246,7 +246,7 @@ export async function fakeSubagentsService(
 
 const toolSignal = new AbortController().signal
 
-/** Dispatch a model-direct `ipython` call through the registry pipeline, as the loop would. */
+/** Dispatch a model-direct `eval` call through the registry pipeline, as the loop would. */
 export async function runCell(
   ctx: Context,
   cell: string,
@@ -255,7 +255,7 @@ export async function runCell(
   return ctx.tools.execute({
     signal: toolSignal,
     callId: CallId('call-1'),
-    name: 'ipython',
+    name: 'eval',
     arguments: { cell, description: extras.description ?? 'Run the test cell' },
     ...extras.agent ? { agent: extras.agent } : {},
     ...extras.signal ? { signal: extras.signal } : {},
