@@ -1,0 +1,25 @@
+export type Hasher = {
+    h32(input: string, seed?: number): number;
+    h64ToString(input: string, seed?: bigint): string;
+};
+export declare function getH(): Hasher;
+export declare function initHasher(): Promise<Hasher>;
+export declare function xxh32(input: string, seed?: number): number;
+export declare function contentChecksum(content: string): string;
+export declare const HASH_LEN = 3;
+export declare const ALPH = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+export declare const ALPH_RE: RegExp;
+export declare const HASH_CLASS: string;
+export declare const HASH_RE: RegExp;
+export declare const ANCHOR_LEN = 3;
+export declare const HASH_SEP = "\u2502";
+export declare const HASH_SPACE: number;
+export declare const MAX_HASH_LINES: number;
+export declare const HASH_PROBE_STRIDE: number;
+export declare const HL_PREFIX_PLUS_RE: RegExp;
+export declare const HL_PREFIX_MINUS_RE: RegExp;
+export declare const HL_BARE_PREFIX_RE: RegExp;
+export declare const CANON_VERSION = 2;
+export declare function canon(line: string): string;
+export declare function lineHashesPure(content: string): string[];
+export declare function mapStableHashes(oldContent: string, oldHashes: string[], newContent: string, removedHashes?: Set<string>): string[];

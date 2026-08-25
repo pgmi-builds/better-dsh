@@ -1,0 +1,13 @@
+export declare function isRec(value: unknown): value is Record<string, unknown>;
+export declare function normalizeFilePath(record: Record<string, unknown>): void;
+export declare function splitLines(text: string): string[];
+export declare function visLines(text: string): string[];
+export declare function rejectUnknownFields(obj: Record<string, unknown>, allowed: Set<string>, label: string, hint?: string): void;
+export declare function cntDiff(diff: string, marker: "+" | "-"): number;
+export declare function abortIf(signal?: AbortSignal): void;
+export declare function errCode(error: unknown): string | undefined;
+export declare function lastNonEmptyIndex(lines: string[]): number;
+export declare function firstNonEmptyIndex(lines: string[]): number;
+export declare function lastNonEmpty(lines: string[]): string | undefined;
+export declare function firstNonEmpty(lines: string[]): string | undefined;
+export declare function clipLine(line: string, maxLen?: number): string;

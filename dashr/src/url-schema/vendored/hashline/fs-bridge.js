@@ -1,0 +1,154 @@
+/**
+ * IO seam for the hashline tool layer. The tools resolve, read, and write
+ * through this bridge so they honor the deployment's `ctx.fs` backend — a
+ * sandboxed or remote filesystem — instead of reaching around it.
+ *
+ * The bridge also participates in dsh's `fs/*` event gate exactly like the
+ * built-in tools: writes dispatch `fs/write-intent` (so the observation policy
+ * derives its create/replace guard and stale-version checks) and every
+ * successful read/mutation emits `fs/observed` with the resulting version. A
+ * hashline tool that silently skipped those events would leave the policy's
+ * observed state stale, and the next built-in `write` on the same file would
+ * fail with `FS_NOT_OBSERVED` / `FS_STALE_VERSION`.
+ *
+ * The local implementation exists for tests and pure-pipeline verification.
+ * @module dsh-better-edit/fs-bridge
+ */
+import { readFile } from "node:fs/promises";
+import { writeAtomic } from "./fs-write.js";
+import { fileSnap } from "./file-reader.js";
+import { resolveTarget, toCwd } from "./paths.js";
+/**
+ * Map an `ctx.fs` failure onto the hashline model-facing vocabulary so the
+ * model sees the same structured error codes as the pure pipeline.
+ * @param error - the thrown FsError or any error.
+ * @param displayPath - the path as the model wrote it.
+ * @returns the mapped error, rethrown.
+ */
+export function mapFsError(error, displayPath) {
+    if (error instanceof Error &&
+        typeof error.code === "string") {
+        const code = error.code;
+        if (code === "FS_NOT_FOUND") {
+            throw new Error(`[E_NOT_FOUND] File not found: ${displayPath}`);
+        }
+        if (code === "FS_PERMISSION_DENIED") {
+            throw new Error(`[E_ACCESS] Cannot access file: ${displayPath}`);
+        }
+        if (code === "FS_NOT_TEXT" || code === "FS_NOT_REGULAR_FILE") {
+            throw new Error(`[E_NOT_TEXT] Path is not a readable UTF-8 text file: ${displayPath}. Hashline editing only supports text files.`);
+        }
+        if (code === "FS_STALE_VERSION") {
+            throw new Error(`[E_RANGE_STALE] The file changed on disk since it was read (version guard rejected the write). Call read() to get fresh anchors, then retry.`);
+        }
+        if (code === "FS_NOT_OBSERVED") {
+            throw new Error(`[E_NOT_OBSERVED] The file has not been observed in this session (read-before-write policy). Call read() first, then retry the edit.`);
+        }
+        if (code === "FS_ABORTED") {
+            throw new Error("Operation aborted");
+        }
+    }
+    throw error;
+}
+/** FileIO over the deployment's `ctx.fs` service. */
+export function ctxFsIO(fs, ctx) {
+    return {
+        async resolve(path, cwd, signal) {
+            const target = await fs.resolve(path, {
+                ...(cwd !== undefined ? { cwd } : {}),
+                ...(signal !== undefined ? { signal } : {}),
+            });
+            return fs.processPath(target);
+        },
+        async readText(absolutePath, signal) {
+            try {
+                const target = await fs.resolve(absolutePath, {
+                    ...(signal !== undefined ? { signal } : {}),
+                });
+                return await fs.readText(target, signal);
+            }
+            catch (error) {
+                return mapFsError(error, absolutePath);
+            }
+        },
+        async writeText(absolutePath, content, signal, exec, sandboxPolicy) {
+            try {
+                const target = await fs.resolve(absolutePath, {
+                    ...(signal !== undefined ? { signal } : {}),
+                });
+                // Single-slot decision: the observation policy produces
+                // createIfAbsent / replaceIfVersion; the bare default is
+                // undefined (unconditional) when no policy is mounted.
+                const intent = await ctx.waterfall("fs/write-intent", target, exec, () => undefined);
+                // The sandbox policy (session workspace root + mode) is what a
+                // confined backend checks: without it the backend falls back to
+                // the deployment default root and denies writes inside the
+                // session workspace under workspace-write.
+                const outcome = await fs.writeText(target, content, intent, signal, sandboxPolicy);
+                // Record the present observation (a no-op when no policy
+                // plugin listens), so later built-in tools see the new version.
+                ctx.emit("fs/observed", target, { kind: "present", version: outcome.version }, exec);
+            }
+            catch (error) {
+                // FS_SANDBOX_DENIED passes through raw; the tool layer maps it
+                // to the shared [sandbox: …] marker + escalation hint via its
+                // sandbox controller.
+                return mapFsError(error, absolutePath);
+            }
+        },
+        async emitObserved(absolutePath, exec, signal) {
+            try {
+                const target = await fs.resolve(absolutePath, {
+                    ...(signal !== undefined ? { signal } : {}),
+                });
+                const info = await fs.stat(target, signal);
+                if (info !== undefined) {
+                    ctx.emit("fs/observed", target, { kind: "present", version: info.version }, exec);
+                }
+            }
+            catch (error) {
+                // A failed observation must not fail the read that preceded it.
+                console.error(`dsh-better-edit: fs/observed emission failed for ${absolutePath}: ${error instanceof Error ? error.message : String(error)}`);
+            }
+        },
+        async statVersion(absolutePath, signal) {
+            try {
+                const target = await fs.resolve(absolutePath, {
+                    ...(signal !== undefined ? { signal } : {}),
+                });
+                const info = await fs.stat(target, signal);
+                return info?.version ?? undefined;
+            }
+            catch {
+                return undefined;
+            }
+        },
+    };
+}
+/** FileIO over the host filesystem directly (tests, previews, fallback). */
+export function localIO() {
+    return {
+        async resolve(path, cwd) {
+            return resolveTarget(toCwd(path, cwd ?? process.cwd()));
+        },
+        async readText(absolutePath, signal) {
+            signal?.throwIfAborted();
+            return readFile(absolutePath, "utf-8");
+        },
+        async writeText(absolutePath, content, signal, _exec, _sandboxPolicy) {
+            signal?.throwIfAborted();
+            await writeAtomic(absolutePath, content);
+        },
+        async emitObserved() {
+            // No policy event gate on the host filesystem; nothing to record.
+        },
+        async statVersion(absolutePath) {
+            try {
+                return (await fileSnap(absolutePath)).snapshotId;
+            }
+            catch {
+                return undefined;
+            }
+        },
+    };
+}

@@ -88,6 +88,17 @@ export interface ReplRunResult {
   error?: ReplRunFailure
 }
 
+/** How one user-namespace variable query resolved. */
+export type ReplVarQuery =
+  /** The value crossed the lossless-JSON boundary; `text` is its JSON text. */
+  | { kind: 'json', text: string }
+  /** The value is not JSON-serializable; `text` is its `repr` text (annotate it as repr). */
+  | { kind: 'repr', text: string }
+  /** A bare/empty name: `names` lists the user-namespace variable names. */
+  | { kind: 'names', names: string[] }
+  /** No such variable in the namespace (or no live kernel holds state). */
+  | { kind: 'missing' }
+
 /**
  * The `ctx.replRuntime` service as this plugin reads it. The language check
  * belongs to the presentation: only `'python'` has an SDK renderer here.
@@ -97,4 +108,20 @@ export interface ReplRuntimeSurface {
   readonly language: string
   /** Execute one program against the request's bindings and capture what it emitted. */
   run(request: ReplRunRequest): Promise<ReplRunResult>
+  /**
+   * Read one user-namespace variable by name on the session's kernel. A
+   * bare/empty `name` lists the namespace's variable names; a JSON-serializable
+   * value resolves to its JSON text, any other value to its `repr` text, and a
+   * missing name to `{ kind: 'missing' }`. `principal` selects the session
+   * kernel (absent → the shared default), mirroring {@link ReplRunRequest.principal}.
+   * Optional so a third-party `ctx.replRuntime` provider without this DASHR
+   * channel stays structurally valid.
+   */
+  queryVar?(name: string, principal?: string): Promise<ReplVarQuery>
+  /**
+   * Assign one lossless-JSON value into the user namespace under `name` on the
+   * session's kernel. `name` must be a usable identifier; `value` must be
+   * lossless JSON. Optional for the same reason as {@link queryVar}.
+   */
+  setVar?(name: string, value: unknown, principal?: string): Promise<void>
 }

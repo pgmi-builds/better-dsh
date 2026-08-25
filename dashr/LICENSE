@@ -1,6 +1,9 @@
 MIT License
 
-Copyright (c) 2026 DASHR contributors
+Copyright (c) 2026 RimuruW and Yugimob (original pi-hashline-edit / pi-hashline-edit-pro)
+Copyright (c) 2026 pi-hashline-edit-lsz contributors (pi port, hashline core)
+Copyright (c) 2026 dsh-better-edit contributors (dsh port)
+Copyright (c) 2026 DASHR contributors (dsh-url-schema vendoring)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

@@ -204,8 +204,7 @@ the host runtime's business, not the REPL's).
 ## Install
 
 The canonical path is the repo-root one-click installer (`install.sh`): it
-installs the plugin from the npm registry, writes the `dashr` agent preset
-(include path localized to the installed dsh), and notes the restart. The
+installs the plugin from the npm registry and notes the restart. The
 equivalent manual steps, for reference:
 
 ```sh
@@ -215,13 +214,7 @@ equivalent manual steps, for reference:
 rm -rf ~/.cache/pnpm
 dsh plugin --profile web add --config.auto-install-peers=false @pgmi-builds/dashr@latest
 
-# 2. preset localization (the dashr bundle patch points agent-presets at it):
-STD_PRESET="$(dirname "$(dirname "$(readlink -f "$(command -v dsh)")")")/config/agent-presets/standard/agent.cordis.yml"
-mkdir -p ~/.dsh/.agent-presets/dashr
-sed "s|THE_INCLUDE_PATH|$STD_PRESET|" preset/dashr/agent.cordis.yml.in \
-  > ~/.dsh/.agent-presets/dashr/agent.cordis.yml
-
-# 3. restart the running instance:  systemctl --user restart dsh
+# 2. restart the running instance:  systemctl --user restart dsh
 ```
 
 Notes: `--config.auto-install-peers=false` is MANDATORY — the profile
@@ -229,63 +222,13 @@ already resolves `@deepseek-ai/*` peers through the harness install; letting
 the package manager auto-install them adds a second, divergent copy of
 cordis and friends. The version is deliberately unpinned (`@latest`).
 
-## The `dashr` preset
-
-The distro ships a local preset (`~/.dsh/.agent-presets/dashr/`, written by
-`install.sh`) that includes the harness's SHIPPED `standard` preset and
-patches exactly one thing — the compaction group:
-
-- the default-config `compaction-basic` row is **disabled**;
-- the `dashr-compaction` row (`@pgmi-builds/dashr/compaction`, this
-  package's subpath export) is **inserted into the same group**, so the
-  group's isolate realm, `/compact`, and the tool-result pruner stay
-  exactly as upstream ships them.
-
-The inserted row mounts the upstream `BasicCompactionEngine` with `auto:
-true` (the passive pre-step pressure path) under DASHR's tuned defaults —
-threshold `0.5`, retain `0.05`, DeepSeek V4 Flash summarizer — read from
-the `dashr-compaction` settings section (see below). Include-based stacking
-means upstream gains/removes/reconfigures rows and this preset follows
-automatically; only the include path is machine-specific (rewritten by
-every `install.sh` run; re-point by hand after a dsh reinstall).
-
-The dashr bundle patch (`cordis.patch.yml`) sets the agent-presets
-`default` to `dashr`, so every NEW session gets the tuned engine. Sessions
-that already produced content keep their original composition
-(agent-preset-locked) — pick `dashr` for new sessions if the default was
-overridden.
-
-## Compaction tuning (v0.1.8b compaction rework)
-
-DASHR no longer ships its own compaction engine. The upstream
-`BasicCompactionEngine` already runs per-agent inside the standard preset;
-the only thing missing was a CONFIGURATION, so the rework deleted the
-`RecencyAwareCompactionEngine` and its absolute-ceiling keys
-(`recencyWindowTokens` / `retainTokens` / `compactModel`) and replaced them
-with a settings section driving the upstream engine:
-
-| Settings key | Default | Meaning |
-| --- | --- | --- |
-| `thresholdRatio` | `0.5` | Compaction trigger: fraction of the routed model's ACTUAL context window (0.5 = half the window; on a 1M-context model that is ~500K). |
-| `retainRatio` | `0.05` | Retained tail after compaction, same-window fraction. Must stay below `thresholdRatio` (the engine machine-checks this; a bad edit is rejected at save time). |
-| `summarizationProvider` | `deepseek-official` | Summarizer provider route; empty = inherit the conversation's own model. |
-| `summarizationModel` | `deepseek-v4-flash` | Summarizer model id; empty = inherit. |
-
-Flow: the host-plane `dashr-repl` row registers the section once (base =
-defaults, `applies: 'restart'`); each agent's `dashr-compaction` realm row
-reads the resolved value at mount and constructs its engine with it. The
-engine freezes its config at construction, so an edit lands on the next
-agent mount (the settings UI marks the section restart-only) — never
-mid-session. A composition without a settings provider falls back to the
-row config and then the shared defaults.
-
 ## Coexistence with a PTC Code-Mode session
 
 `eval` is our own transport name (the registry reserves `run_code`), so a
 Code-Mode preset (`@deepseek-ai/dsh-agent-tool-presentation` with
 `mode: code` over the host-plane worker-thread `codeRuntime`) composes
-beside the `dashr` preset in one process: the PTC agent's assembly shows
-`run_code` plus the TS `tools:sdk` section, the dashr agent's shows `eval`
+beside a DASHR session in one process: the PTC agent's assembly shows
+`run_code` plus the TS `tools:sdk` section, the DASHR agent's shows `eval`
 plus the Python `dashr:tool-catalog`, and neither execution path touches
 the other's runtime.
 
@@ -348,9 +291,8 @@ see `test/helpers.ts`.
 ## Relationship to upstream
 
 Structure mirrors `@deepseek-ai/dsh-agent-tool-presentation` and the Code
-Mode half of `@deepseek-ai/dsh-tools` (0.1.0-rc.6), re-pointed at the
+Mode half of `@deepseek-ai/dsh-tools` (0.1.1-rc.2), re-pointed at the
 vendored `replRuntime` Service Definition. See the module docs in
 `src/index.ts` for the deliberate deltas (`eval` vs `run_code`, ordinary
 scoped registration, guard-based collapse, mirrored `tools/code-dispatch-log`
-waterfall), `src/compaction.ts` for the realm engine row, and
-`src/compaction-shared.ts` for the settings contract.
+waterfall).

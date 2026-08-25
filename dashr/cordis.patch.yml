@@ -16,13 +16,14 @@
       config:
         python: !!js process.env.DASHR_KERNEL_PYTHON ?? 'python3'
 
-# v0.1.8b compaction rework: point NEW sessions at the `dashr` preset, which
-# includes the shipped `standard` preset and swaps its default-config
-# compaction engine for the settings-driven one (threshold 0.5, retain 0.05,
-# DeepSeek V4 Flash summarizer). Patch applied last in bundle order, so it
-# overrides dsh-web-app's `default: standard` wholesale. The preset itself is
-# written by install.sh (its include path is the installed dsh location);
-# sessions already created stay preset-locked and keep their composition.
-- id: agent-presets
-  config:
-    default: dashr
+# Native compaction at the host plane: the base bundle ships the engine, the
+# `/compact` command, and the tool-result pruner as host rows; dsh-web-app
+# disables them to move compaction behind per-session presets. DASHR is
+# host-plane, so re-enable them here (upstream defaults: threshold 0.8, retain
+# 0.16). Applied last in bundle order, overriding dsh-web-app's disable.
+- id: compaction-basic
+  disabled: false
+- id: command-compact
+  disabled: false
+- id: tool-result-pruner
+  disabled: false

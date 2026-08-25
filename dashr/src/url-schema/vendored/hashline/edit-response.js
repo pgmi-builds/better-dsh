@@ -1,0 +1,180 @@
+import { genDiff } from "./edit-diff.js";
+import { visLines, clipLine } from "./utils.js";
+export function buildMetrics(args) {
+    const metrics = {
+        edits_attempted: args.editsAttempted,
+        edits_noop: args.noopEditsCount,
+        warnings: args.warningsCount,
+        classification: args.classification,
+    };
+    if (args.classification === "applied" &&
+        args.firstChangedLine !== undefined &&
+        args.lastChangedLine !== undefined) {
+        metrics.changed_lines = {
+            first: args.firstChangedLine,
+            last: args.lastChangedLine,
+        };
+    }
+    if (args.addedLines !== undefined)
+        metrics.added_lines = args.addedLines;
+    if (args.removedLines !== undefined)
+        metrics.removed_lines = args.removedLines;
+    return metrics;
+}
+export function finalizeResult(input) {
+    const base = input.diff + warnBlock(input.warnings);
+    return base + driftBlock(input.driftNotice);
+}
+export function finalizeToolResult(details) {
+    const text = finalizeResult({
+        diff: details.diff,
+        warnings: details.warnings,
+        driftNotice: details.driftNotice,
+    });
+    return { content: [{ type: "text", text }], servedRows: details.servedRows };
+}
+function warnBlock(warnings) {
+    return warnings?.length ? `\n\n${warnings.join("\n")}` : "";
+}
+function driftBlock(driftNotice) {
+    return driftNotice ? `\n\n${driftNotice}` : "";
+}
+export function buildNoop(input) {
+    const { path, noopEdit, snapshotId, editMeta, warnings, driftNotice } = input;
+    const noopDetailsText = noopEdit
+        ? `Edit for ${noopEdit.loc} is identical to current content:\n  ${noopEdit.loc}: ${clipLine(noopEdit.currentContent)}`
+        : "The edit produced identical content.";
+    const noticeBlock = driftBlock(driftNotice);
+    const text = `No changes made to ${path}\nClassification: noop\n${noopDetailsText}${warnBlock(warnings)}${noticeBlock}`;
+    const metrics = buildMetrics({
+        classification: "noop",
+        editsAttempted: editMeta.editsAttempted,
+        noopEditsCount: editMeta.noopEditsCount,
+        warningsCount: warnings?.length ?? 0,
+    });
+    return {
+        content: [{ type: "text", text }],
+        details: {
+            diff: "",
+            firstChangedLine: undefined,
+            snapshotId,
+            classification: "noop",
+            metrics,
+            ...(warnings !== undefined && warnings.length > 0 ? { warnings } : {}),
+            ...(driftNotice === undefined ? {} : { driftNotice }),
+        },
+    };
+}
+export function buildChanged(input) {
+    const { path, result, warnings, snapshotId, originalNormalized, originalHashes, editMeta, resultHashes, driftNotice, } = input;
+    const resultLines = visLines(result);
+    const diffResult = genDiff(originalNormalized, result, 1, resultHashes, originalHashes);
+    const addedLines = editMeta.addedLines;
+    const removedLines = editMeta.removedLines;
+    const warningsBlock = warnBlock(warnings);
+    const successPrefix = `Successfully edited in ${path}.`;
+    const lineSummary = addedLines > 0 || removedLines > 0
+        ? ` Added ${addedLines} line(s), removed ${removedLines} line(s).`
+        : "";
+    const noticeBlock = driftBlock(driftNotice);
+    const text = resultLines.length === 0
+        ? "File is empty. Use edit to insert content." + noticeBlock
+        : warningsBlock
+            ? `${successPrefix}${lineSummary}${warningsBlock}${noticeBlock}`
+            : `${successPrefix}${lineSummary}${noticeBlock}`;
+    const metrics = buildMetrics({
+        classification: "applied",
+        editsAttempted: editMeta.editsAttempted,
+        noopEditsCount: editMeta.noopEditsCount,
+        warningsCount: warnings?.length ?? 0,
+        firstChangedLine: editMeta.firstChangedLine,
+        lastChangedLine: editMeta.lastChangedLine,
+        addedLines,
+        removedLines,
+    });
+    const denseServedRows = [];
+    for (let i = 0; i < resultHashes.length; i++) {
+        denseServedRows.push({ position: i, hash: resultHashes[i] });
+    }
+    return {
+        content: [{ type: "text", text }],
+        details: {
+            diff: diffResult.diff,
+            firstChangedLine: editMeta.firstChangedLine ?? diffResult.firstChangedLine,
+            snapshotId,
+            metrics,
+            ...(warnings !== undefined && warnings.length > 0 ? { warnings } : {}),
+            servedRows: denseServedRows,
+            ...(driftNotice === undefined ? {} : { driftNotice }),
+        },
+    };
+}
+export function buildBatchResult(sections) {
+    const totalEdits = sections.reduce((n, s) => n + s.appliedCount + s.noopCount, 0);
+    const appliedFiles = sections.filter((s) => s.appliedCount > 0);
+    const appliedTotal = appliedFiles.reduce((n, s) => n + s.appliedCount, 0);
+    const noopTotal = sections.reduce((n, s) => n + s.noopCount, 0);
+    const addedLines = sections.reduce((n, s) => n + s.totalAddedLines, 0);
+    const removedLines = sections.reduce((n, s) => n + s.totalRemovedLines, 0);
+    const allNoop = appliedTotal === 0;
+    const warnings = sections.flatMap((s) => s.warnings ?? []);
+    const driftNotice = sections
+        .map((s) => s.driftNotice)
+        .filter((d) => d !== undefined)
+        .join("\n\n");
+    if (allNoop) {
+        const text = `No changes made. All ${totalEdits} edit(s) in the batch produced identical content.\nClassification: noop${warnBlock(warnings)}${driftBlock(driftNotice)}`;
+        return {
+            content: [{ type: "text", text }],
+            details: {
+                diff: "",
+                classification: "noop",
+                metrics: buildMetrics({
+                    classification: "noop",
+                    editsAttempted: totalEdits,
+                    noopEditsCount: noopTotal,
+                    warningsCount: warnings.length,
+                }),
+                ...(warnings.length > 0 ? { warnings } : {}),
+                ...(driftNotice === undefined ? {} : { driftNotice }),
+            },
+        };
+    }
+    const servedByPath = [];
+    const diffParts = [];
+    for (const s of appliedFiles) {
+        const diffResult = genDiff(s.originalNormalized, s.result, 1, s.resultHashes, s.originalHashes);
+        diffParts.push(`--- ${s.path} ---\n${diffResult.diff}`);
+        const denseRows = [];
+        for (let i = 0; i < s.resultHashes.length; i++) {
+            denseRows.push({ position: i, hash: s.resultHashes[i] });
+        }
+        if (denseRows.length > 0) {
+            servedByPath.push({ path: s.path, servedRows: denseRows });
+        }
+    }
+    const diff = diffParts.join("\n\n");
+    const lineSummary = addedLines > 0 || removedLines > 0
+        ? ` Added ${addedLines} line(s), removed ${removedLines} line(s).`
+        : "";
+    const summary = `Successfully edited ${appliedFiles.length} file(s) — ${appliedTotal} of ${totalEdits} edit(s) applied${noopTotal > 0 ? ` (${noopTotal} noop)` : ""}.${lineSummary}`;
+    const text = `${summary}${warnBlock(warnings)}${driftBlock(driftNotice)}`;
+    return {
+        content: [{ type: "text", text }],
+        details: {
+            diff,
+            metrics: buildMetrics({
+                classification: "applied",
+                editsAttempted: totalEdits,
+                noopEditsCount: noopTotal,
+                warningsCount: warnings.length,
+                addedLines,
+                removedLines,
+            }),
+            ...(warnings.length > 0 ? { warnings } : {}),
+            servedRows: servedByPath.flatMap((e) => e.servedRows),
+            servedByPath,
+            ...(driftNotice === undefined ? {} : { driftNotice }),
+        },
+    };
+}

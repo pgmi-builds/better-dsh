@@ -50,12 +50,13 @@ import type {
   CodeRunResult,
 } from './vendored/rlm-runtime.ts'
 import { IpyKernelBridge } from './kernel.ts'
-import type { CellOutcome, HostRequestOutcome, SnapshotSpec } from './kernel.ts'
+import type { CellOutcome, HostRequestOutcome, QueryVarOutcome, SetVarOutcome, SnapshotSpec } from './kernel.ts'
 import { buildRunCell } from './python.ts'
 import type { NamespaceSpecs } from './python.ts'
 import { MIN_OUTPUT_BYTES, extractStream, finalizeOutput, plainTraceback } from './output.ts'
 import { resolveKernelEnv } from './kernel-env.ts'
 import type { KernelEnv } from './kernel-env.ts'
+import type { ReplVarQuery } from './runtime-surface.ts'
 
 /** Plugin config: every tunable, changeable from `cordis.yml` (no hardcoded tunables). */
 export interface Config {
@@ -375,6 +376,76 @@ export class DashrRuntime extends ReplRuntime {
       }
     }
     return result
+  }
+
+  /**
+   * Read one user-namespace variable by name on the session's kernel. A
+   * bare/empty name lists the namespace's user-variable names; a
+   * JSON-serializable value resolves to its JSON text, any other value to its
+   * `repr` text, and a missing name to `{ kind: 'missing' }`. When no live
+   * kernel holds state for the key the namespace is empty (no spawn — this
+   * channel never creates a kernel). Pure additive: the run/execute/snapshot
+   * lifecycle is untouched.
+   * @param name - the variable name, or empty to list namespace names.
+   * @param principal - the session key (absent → the shared default).
+   */
+  async queryVar(name: string, principal?: string): Promise<ReplVarQuery> {
+    if (this.disposed) throw new Error('dashr-repl: queryVar() after disposal')
+    const key = principal && principal.length > 0 ? principal : AGENTLESS_KEY
+    const bridge = this.kernels.get(key)?.bridge
+    if (!bridge || !bridge.isRunning) {
+      return name.trim().length === 0 ? { kind: 'names', names: [] } : { kind: 'missing' }
+    }
+    const outcome: QueryVarOutcome = await bridge.queryVar(name.trim().length === 0 ? null : name)
+    switch (outcome.kind) {
+      case 'json':
+        return { kind: 'json', text: outcome.text }
+      case 'repr':
+        return { kind: 'repr', text: outcome.text }
+      case 'names':
+        return { kind: 'names', names: outcome.names }
+      case 'missing':
+        return { kind: 'missing' }
+      case 'failed':
+        throw new Error(`dashr-repl: queryVar(${JSON.stringify(name)}) failed: ${outcome.reason}`)
+    }
+  }
+
+  /**
+   * Assign one lossless-JSON value into the user namespace under `name` on
+   * the session's kernel. `name` must be a usable identifier (and not a
+   * kernel-shim name); `value` must be lossless JSON. Requires a live kernel
+   * for the key — the channel never spawns one, so a session that has not yet
+   * run a cell must `run` first. Pure additive to the existing lifecycle.
+   * @param name - the identifier to assign under.
+   * @param value - the lossless-JSON value to bind.
+   * @param principal - the session key (absent → the shared default).
+   */
+  async setVar(name: string, value: unknown, principal?: string): Promise<void> {
+    if (this.disposed) throw new Error('dashr-repl: setVar() after disposal')
+    const trimmed = name.trim()
+    if (trimmed.length === 0) {
+      throw new Error('dashr-repl: setVar() requires a non-empty variable name')
+    }
+    if (!IDENTIFIER.test(trimmed)) {
+      throw new Error(`dashr-repl: setVar() name ${JSON.stringify(trimmed)} is not a usable identifier`)
+    }
+    if (KERNEL_OWNED_NAME.test(trimmed)) {
+      throw new Error(`dashr-repl: setVar() name ${JSON.stringify(trimmed)} is reserved by the kernel`)
+    }
+    const jsonValue = snapshotJsonValue(value)
+    if (jsonValue === undefined) {
+      throw new Error('dashr-repl: setVar() value must be lossless JSON')
+    }
+    const key = principal && principal.length > 0 ? principal : AGENTLESS_KEY
+    const bridge = this.kernels.get(key)?.bridge
+    if (!bridge || !bridge.isRunning) {
+      throw new Error('dashr-repl: setVar() requires a live kernel for this session — run a cell first')
+    }
+    const outcome: SetVarOutcome = await bridge.setVar(trimmed, JSON.stringify(jsonValue))
+    if (outcome.kind === 'failed') {
+      throw new Error(`dashr-repl: setVar(${JSON.stringify(trimmed)}) failed: ${outcome.reason}`)
+    }
   }
 
   /** Map one cell outcome onto the seam's result shape under the output ledger. */

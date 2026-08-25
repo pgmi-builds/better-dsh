@@ -19,7 +19,7 @@ import { join } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { Dealer, Subscriber } from 'zeromq'
 import { HOST_COMM_TARGET, KERNEL_BOOTSTRAP } from './bootstrap.ts'
-import { buildRestoreCell, buildSnapshotCell } from './python.ts'
+import { buildQueryVarCell, buildRestoreCell, buildSetVarCell, buildSnapshotCell } from './python.ts'
 import type { SnapshotSpec } from './python.ts'
 import { extractStream } from './output.ts'
 
@@ -57,6 +57,19 @@ export type SnapshotOutcome =
 export type RestoreStateOutcome =
   | { kind: 'restored', count: number }
   | { kind: 'degraded', reason: string }
+
+/** One user-namespace variable query, parsed from the cell envelope. */
+export type QueryVarOutcome =
+  | { kind: 'json', text: string }
+  | { kind: 'repr', text: string }
+  | { kind: 'names', names: string[] }
+  | { kind: 'missing' }
+  | { kind: 'failed', reason: string }
+
+/** One user-namespace variable assignment, parsed from the cell envelope. */
+export type SetVarOutcome =
+  | { kind: 'ok' }
+  | { kind: 'failed', reason: string }
 
 
 /** One host-request resolution: ok carries the reply payload, not-ok a message. */
@@ -767,6 +780,84 @@ export class IpyKernelBridge {
       return { kind: 'restored', count: typeof record.restored === 'number' ? record.restored : 0 }
     }
     return { kind: 'degraded', reason: typeof record.reason === 'string' ? record.reason : 'snapshot not replayable' }
+  }
+
+  /**
+   * Read one user-namespace variable by name (or list the namespace's user
+   * names when `name` is `null`) via an internal cell. JSON-serializable
+   * values cross as `kind: 'json'` text; anything else falls back to `repr`
+   * text (`kind: 'repr'`) so a non-JSON variable is still readable. A missing
+   * name reports `kind: 'missing'` rather than failing the cell.
+   * @param name - the exact variable name, or `null` to list namespace names.
+   */
+  async queryVar(name: string | null): Promise<QueryVarOutcome> {
+    if (!this.isRunning) return { kind: 'failed', reason: 'kernel is not running' }
+    const sentinel = `__dashr_query_${randomBytes(9).toString('hex')}__`
+    const outcome = await this.executeCell(buildQueryVarCell(name, sentinel), {
+      timeoutMs: this.options.snapshotTimeoutMs,
+      interruptGraceMs: 1_000,
+      interruptConfirmMs: Math.min(this.options.interruptConfirmMs, 500),
+    })
+    if (outcome.outcome !== 'completed' || outcome.status !== 'ok') {
+      return { kind: 'failed', reason: 'query cell failed' }
+    }
+    const capture = extractStream(outcome.streamText, sentinel)
+    if (capture.envelope === undefined) return { kind: 'failed', reason: 'query cell produced no envelope' }
+    let envelope: unknown
+    try {
+      envelope = JSON.parse(capture.envelope)
+    } catch {
+      return { kind: 'failed', reason: 'query envelope was not valid JSON' }
+    }
+    if (!isRecord(envelope)) return { kind: 'failed', reason: 'query envelope was not an object' }
+    if (envelope.ok !== true) {
+      return { kind: 'failed', reason: typeof envelope.reason === 'string' ? envelope.reason : 'query failed' }
+    }
+    const kind = envelope.kind
+    if (kind === 'names') {
+      const names = Array.isArray(envelope.names) ? envelope.names.filter((name): name is string => typeof name === 'string') : []
+      return { kind: 'names', names }
+    }
+    if (kind === 'missing') return { kind: 'missing' }
+    if (kind === 'json' || kind === 'repr') {
+      return typeof envelope.text === 'string'
+        ? { kind, text: envelope.text }
+        : { kind: 'failed', reason: 'query envelope carried no text' }
+    }
+    return { kind: 'failed', reason: `unknown query kind ${JSON.stringify(kind)}` }
+  }
+
+  /**
+   * Assign one pre-serialized JSON value into the user namespace under
+   * `name` via an internal cell. The host already validated the name and the
+   * value; the cell only decodes and binds. Uses the same busy guard and
+   * internal-cell budget as the snapshot cells.
+   * @param name - the validated identifier to assign under.
+   * @param valueJson - the lossless-JSON text to decode and bind.
+   */
+  async setVar(name: string, valueJson: string): Promise<SetVarOutcome> {
+    if (!this.isRunning) return { kind: 'failed', reason: 'kernel is not running' }
+    const sentinel = `__dashr_set_${randomBytes(9).toString('hex')}__`
+    const outcome = await this.executeCell(buildSetVarCell(name, valueJson, sentinel), {
+      timeoutMs: this.options.snapshotTimeoutMs,
+      interruptGraceMs: 1_000,
+      interruptConfirmMs: Math.min(this.options.interruptConfirmMs, 500),
+    })
+    if (outcome.outcome !== 'completed' || outcome.status !== 'ok') {
+      return { kind: 'failed', reason: 'set cell failed' }
+    }
+    const capture = extractStream(outcome.streamText, sentinel)
+    if (capture.envelope === undefined) return { kind: 'failed', reason: 'set cell produced no envelope' }
+    let envelope: unknown
+    try {
+      envelope = JSON.parse(capture.envelope)
+    } catch {
+      return { kind: 'failed', reason: 'set envelope was not valid JSON' }
+    }
+    if (!isRecord(envelope) || envelope.ok !== true) {
+      return { kind: 'failed', reason: isRecord(envelope) && typeof envelope.reason === 'string' ? envelope.reason : 'set failed' }
+    }
+    return { kind: 'ok' }
   }
 
   private onKernelDeath(): void {

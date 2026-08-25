@@ -1,4 +1,0 @@
-# Display metadata for the dashr preset. The id is the directory name
-# (`dashr`); this file carries display text ONLY.
-name: DASHR (调优压缩)
-description: 'DASHR 默认预设：官方 standard 之上启用调优被动压缩（阈值 0.5 / 保留 0.05 / DeepSeek V4 Flash 摘要），参数在 settings 的 dashr-compaction 节可调（重启生效）。'

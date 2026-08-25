@@ -264,3 +264,83 @@ export function buildRestoreCell(payloadPath: string, manifestPath: string, sent
     `    _dashr_state['executing'] = False`,
   ].join('\n')
 }
+
+/**
+ * Build the internal cell that reads ONE user-namespace variable by name, or
+ * — when `name` is `null` — lists the namespace's user-variable names. The
+ * same exclusion the snapshot applies on the way out (any `_dashr`/`__dashr`
+ * spelling plus IPython's `user_ns_hidden`) defines what "user variable"
+ * means here, so `ctx://` sees exactly the namespace a revive would restore.
+ *
+ * Serialization boundary (design.md D4): a value that survives
+ * `json.dumps(…, allow_nan=False)` crosses as `kind: 'json'` text; anything
+ * else falls back to `repr` text (`kind: 'repr'`) so a non-JSON variable
+ * (the reason the snapshot uses dill at all) is still readable as text. The
+ * host keeps the `kind` so the presentation can annotate a repr as "this is
+ * repr text, not a JSON value".
+ * @param name - the exact variable name, or `null` to list namespace names.
+ * @param sentinel - per-cell nonce prefix for the outcome envelope.
+ * @returns the complete cell source.
+ */
+export function buildQueryVarCell(name: string | null, sentinel: string): string {
+  const lines = [
+    `_dashr_state['executing'] = True`,
+    `try:`,
+    `    import json as _dashr_json`,
+    `    _dashr_shell = globals().get('get_ipython', lambda: None)()`,
+    `    _dashr_hidden = getattr(_dashr_shell, 'user_ns_hidden', None) or {}`,
+    `    _dashr_user_ns = {`,
+    `        _name: _value`,
+    `        for _name, _value in globals().items()`,
+    `        if not _name.lower().startswith(('_dashr', '__dashr'))`,
+    `        and (_name not in _dashr_hidden or _dashr_hidden[_name] is not _value)`,
+    `    }`,
+  ]
+  if (name === null) {
+    lines.push(
+      `    print(${JSON.stringify(sentinel)} + _dashr_json.dumps({'ok': True, 'kind': 'names', 'names': sorted(_dashr_user_ns)}))`,
+    )
+  } else {
+    lines.push(
+      `    _dashr_name = ${JSON.stringify(name)}`,
+      `    if _dashr_name not in _dashr_user_ns:`,
+      `        print(${JSON.stringify(sentinel)} + _dashr_json.dumps({'ok': True, 'kind': 'missing'}))`,
+      `    else:`,
+      `        _dashr_value = _dashr_user_ns[_dashr_name]`,
+      `        try:`,
+      `            _dashr_text = _dashr_json.dumps(_dashr_value, allow_nan=False)`,
+      `            print(${JSON.stringify(sentinel)} + _dashr_json.dumps({'ok': True, 'kind': 'json', 'text': _dashr_text}))`,
+      `        except (TypeError, ValueError, OverflowError):`,
+      `            print(${JSON.stringify(sentinel)} + _dashr_json.dumps({'ok': True, 'kind': 'repr', 'text': repr(_dashr_value)}))`,
+    )
+  }
+  lines.push(
+    `finally:`,
+    `    _dashr_state['executing'] = False`,
+  )
+  return lines.join('\n')
+}
+
+/**
+ * Build the internal cell that assigns one JSON value into the user
+ * namespace under `name`. The value is carried as pre-serialized JSON text
+ * (the host validated it as lossless JSON and the name as a usable
+ * identifier), so the cell only decodes and binds — no arbitrary object can
+ * cross the wire. Bracketed by the same SIGALRM busy guard as a run cell.
+ * @param name - the validated identifier to assign under.
+ * @param valueJson - the lossless-JSON text to decode and bind.
+ * @param sentinel - per-cell nonce prefix for the outcome envelope.
+ * @returns the complete cell source.
+ */
+export function buildSetVarCell(name: string, valueJson: string, sentinel: string): string {
+  return [
+    `_dashr_state['executing'] = True`,
+    `try:`,
+    `    import json as _dashr_json`,
+    `    _dashr_value = _dashr_json.loads(${JSON.stringify(valueJson)})`,
+    `    globals()[${JSON.stringify(name)}] = _dashr_value`,
+    `    print(${JSON.stringify(sentinel)} + _dashr_json.dumps({'ok': True}))`,
+    `finally:`,
+    `    _dashr_state['executing'] = False`,
+  ].join('\n')
+}

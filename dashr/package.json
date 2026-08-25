@@ -1,7 +1,7 @@
 {
 "name": "@pgmi-builds/dashr",
 "description": "DASHR: a persistent Python-kernel REPL for DeepSeek Harness (dsh) — the `eval` tool with `tool.*` bindings, sub-agents, and snapshots",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -13,10 +13,6 @@
     "./py-sdk": {
       "types": "./lib/py-sdk.d.ts",
       "default": "./lib/py-sdk.js"
-    },
-    "./compaction": {
-      "types": "./lib/compaction.d.ts",
-      "default": "./lib/compaction.js"
     },
     "./cordis.patch.yml": "./cordis.patch.yml",
     "./package.json": "./package.json"
@@ -44,17 +40,16 @@
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.1",
-    "@deepseek-ai/dsh-compaction-basic": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-llm": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-scope": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-tools": "^0.1.0-rc.6",
-    "@deepseek-ai/dsh-settings": "^0.1.0-rc.6"
+    "@deepseek-ai/dsh-settings": "^0.1.0-rc.6",
+    "@deepseek-ai/dsh-fs": "^0.1.0-rc.6",
+    "@deepseek-ai/dsh-home-paths": "^0.1.0-rc.6",
+    "@deepseek-ai/dsh-sandbox": "^0.1.0-rc.6"
   },
   "peerDependenciesMeta": {
     "@deepseek-ai/cordis": {
-      "optional": true
-    },
-    "@deepseek-ai/dsh-compaction-basic": {
       "optional": true
     },
     "@deepseek-ai/dsh-llm": {
@@ -66,39 +61,48 @@
     "@deepseek-ai/dsh-settings": {
       "optional": true
     },
+    "@deepseek-ai/dsh-fs": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-home-paths": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-sandbox": {
+      "optional": true
+    },
     "@deepseek-ai/dsh-tools": {
       "optional": true
     }
   },
   "dependencies": {
     "@deepseek-ai/schemastery": "^3.18.1",
+    "diff": "^8.0.2",
+    "file-type": "^21.3.0",
+    "xxhash-wasm": "^1.1.0",
     "zeromq": "^6.6.0"
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "^4.0.1",
     "@deepseek-ai/cordis-plugin-include": "^1.0.6",
     "@deepseek-ai/cordis-plugin-loader": "^1.0.2",
-    "@deepseek-ai/dsh": "0.1.0-rc.6",
-    "@deepseek-ai/dsh-agent": "0.1.0-rc.6",
+    "@deepseek-ai/dsh": ">=0.1.1-rc.2",
+    "@deepseek-ai/dsh-agent": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-agent-instructions": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-agent-loop": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-agent-presets": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-agent-tool-presentation": "^0.1.0-rc.6",
-    "@deepseek-ai/dsh-code-runtime": "0.1.0-rc.6",
+    "@deepseek-ai/dsh-code-runtime": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-code-runtime-worker-thread": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-command-compact": "^0.1.0-rc.6",
-    "@deepseek-ai/dsh-compaction": "^0.1.0-rc.6",
-    "@deepseek-ai/dsh-compaction-basic": "^0.1.0-rc.6",
-    "@deepseek-ai/dsh-compaction-tool-result-pruner": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-fs-local": "^0.1.0-rc.6",
-    "@deepseek-ai/dsh-invariants": "0.1.0-rc.6",
-    "@deepseek-ai/dsh-llm": "0.1.0-rc.6",
+    "@deepseek-ai/dsh-invariants": "^0.1.0-rc.6",
+    "@deepseek-ai/dsh-llm": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-persona": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-plan-mode": "^0.1.0-rc.6",
-    "@deepseek-ai/dsh-scope": "0.1.0-rc.6",
-    "@deepseek-ai/dsh-session": "0.1.0-rc.6",
+    "@deepseek-ai/dsh-scope": "^0.1.0-rc.6",
+    "@deepseek-ai/dsh-session": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-skill-filesystem": "^0.1.0-rc.6",
-    "@deepseek-ai/dsh-system-prompt": "0.1.0-rc.6",
+    "@deepseek-ai/dsh-system-prompt": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-tool-ask-user": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-tool-bash": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-tool-fs": "^0.1.0-rc.6",
@@ -113,12 +117,11 @@
     "@deepseek-ai/dsh-tool-todo": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-tool-web": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-tool-workflow": "^0.1.0-rc.6",
-    "@deepseek-ai/dsh-tools": "0.1.0-rc.6",
-    "@deepseek-ai/dsh-user-approval": "0.1.0-rc.6",
+    "@deepseek-ai/dsh-tools": "^0.1.0-rc.6",
+    "@deepseek-ai/dsh-user-approval": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-workflow-worker-thread": "^0.1.0-rc.6",
     "@deepseek-ai/schemastery": "^3.18.1",
     "@types/node": "^22.10.5",
-    "dashr-code-runtime-ipython": "file:../dashr",
     "node-addon-require-builtin": "^0.1.5",
     "tsdown": "^0.15.7",
     "typescript": "^5.9.3",

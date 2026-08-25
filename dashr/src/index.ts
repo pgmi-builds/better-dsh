@@ -20,12 +20,6 @@
  * were removed in v0.1.8b — harness/refine became third-party territory, and
  * context compaction is the host runtime's business, not the REPL's.
  *
- * The one thing this row still owns on the compaction front is the
- * `dashr-compaction` SETTINGS section: it registers the tuned
- * passive-compaction knobs (threshold 0.5, retain 0.05, DeepSeek V4 Flash
- * summarizer) on the host plane, and the preset-local `./compaction` row
- * reads them when it mounts the upstream `BasicCompactionEngine` per agent.
- *
  * The presentation row registers against the harness tool registry the way
  * any dsh tool row must (shape-mirroring `dsh-agent-tool-presentation` and
  * the code-mode half of `dsh-tools`, 0.1.0-rc.6), but it re-points execution
@@ -72,6 +66,7 @@
 import { Context } from '@deepseek-ai/cordis'
 import { DashrRuntime } from './runtime.ts'
 import type { Config as RuntimeConfig } from './runtime.ts'
+import DshUrlSchema from './url-schema/index.ts'
 import z from '@deepseek-ai/schemastery'
 import { defineTool, TOOL_RUNTIME_SCHEDULER } from '@deepseek-ai/dsh-tools'
 import type {
@@ -107,8 +102,6 @@ import type { DASHRSdkSchema } from './py-sdk.ts'
 import { snapshotJsonValue } from './snapshot-json.ts'
 import type { JsonValue } from './snapshot-json.ts'
 import type { DASHRSubagentsSurface } from './subagents-surface.ts'
-import { DASHR_COMPACTION_DEFAULTS, DASHR_COMPACTION_NS, DASHR_COMPACTION_SCHEMA, resolveCompactionConfig } from './compaction-shared.ts'
-import type { DashrCompactionConfig } from './compaction-shared.ts'
 import { readFileSync } from 'node:fs'
 
 /** The control prompt text, loaded at module time from the sibling markdown file (editable without touching TS). */
@@ -161,6 +154,7 @@ export const EVAL_NAME = 'eval'
 export const MASKED_TOOL_NAMES: ReadonlySet<string> = new Set([
   'send_message',
   'report',
+  'skill',
 ])
 
 
@@ -946,25 +940,9 @@ export function apply(ctx: Context, config: Config): void {
   // presentation inject below resolves. Both halves were separate plugin rows
   // before the merge; one row now owns the whole lifecycle.
   ctx.plugin(DashrRuntime, pickRuntimeConfig(config))
+  ctx.plugin(DshUrlSchema, config)
   const logger = ctx.logger('dashr-repl')
   const maxParallel = resolveMaxParallelSubCalls(config.maxParallelSubCalls)
-  // The `dashr-compaction` settings section (v0.1.8b compaction rework):
-  // registered ONCE here at the host plane, read by the preset-local
-  // `./compaction` rows that mount the upstream engine per agent. `applies:
-  // 'restart'` matches the engine's freeze-at-construction config — an edit
-  // lands on the next agent mount, never mid-session. A composition without
-  // a settings provider never registers; the realm rows then fall back to
-  // their row config and the shared defaults.
-  ctx.inject(['settings'], (settingsCtx: Context) => {
-    const settings = settingsCtx.get('settings') as {
-      register(ns: string, schema: unknown, options: { base?: unknown, applies?: string, validate?: (value: unknown) => void }): unknown
-    }
-    settings.register(DASHR_COMPACTION_NS, DASHR_COMPACTION_SCHEMA, {
-      base: DASHR_COMPACTION_DEFAULTS,
-      applies: 'restart',
-      validate: value => resolveCompactionConfig(undefined, value as DashrCompactionConfig),
-    })
-  })
 
   // The wait is the loud failure: a preset row still pending on `replRuntime`
   // is what the preset mount audit reports as an unusable row, naming this
