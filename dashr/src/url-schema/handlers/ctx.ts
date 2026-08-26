@@ -1,113 +1,113 @@
 /**
- * `ctx://` scheme handler — the kernel user-namespace read/write channel.
+ * `ctx://` scheme handler — a curated read-only snapshot of the calling
+ * agent's environment.
  *
  * URL shapes:
- *   - `ctx://`          → list the namespace's variable names, one per line.
- *   - `ctx://<var>`     → the variable's value as text: a JSON-serializable
- *                         value renders as its JSON text; any other value as
- *                         its `repr` text; a missing name raises a structured
- *                         error.
+ *   - `ctx://`          → the snapshot key names, one per line. The listing is
+ *                         static and works without an agent in the env.
+ *   - `ctx://session`   → JSON: `{id, status, origin, delegationDepth}` — the
+ *                         agent identity and session lineage. Undefined
+ *                         optional header fields are omitted.
+ *   - `ctx://model`     → JSON: `{provider, model, maxTokens}` — the agent's
+ *                         request options. Undefined option fields are omitted.
+ *   - `ctx://cwd`       → the session's creation working directory as a bare
+ *                         string (not JSON); `''` when the header has none.
+ *   - `ctx://<other>`   → structured `CTX_UNKNOWN_KEY` error listing the keys.
  *
  * The handler returns the FULL text of the resource; the resolver applies any
  * explicit selector (`:raw` / `:N-M` / `:path/…` / `?q=`) uniformly, so there
  * is no default line truncation here.
  *
- * Dependencies (captured once by `createCtxHandler(deps)`):
- *   - `deps.replRuntime` — the `ctx.replRuntime` seam (structural
- *     {@link ReplRuntimeSurface}), the kernel query/set channel
- *     (`queryVar`/`setVar`). The wiring step supplies it from
- *     `ctx.get('replRuntime')` (or inside a `ctx.inject(['replRuntime'])`
- *     callback), exactly as the `eval` transport reads it at use time.
+ * The snapshot reads the live agent from the resolver env (`env.agent`,
+ * supplied by the tool layer); an env without one raises `CTX_NO_AGENT` on
+ * every value read. The scheme is strictly read-only — there is no write
+ * channel.
  *
- * `writeCtxVar(deps, name, value)` is the write tool's URL-branch entry
- * point: it assigns one lossless-JSON `value` into the namespace under
- * `name` via `setVar`.
+ * Roadmap: later dev phases may add snapshot keys (e.g. `preset`); none are
+ * implemented yet.
  */
 
-import type { ReplRuntimeSurface, ReplVarQuery } from '../../runtime-surface.ts'
 import { UrlSchemaError } from '../selector.ts'
 import type { ResolverEnv, SchemeHandler } from '../resolver.ts'
 
-/** Dependencies captured by the `ctx://` handler. */
-export interface CtxHandlerDeps {
-  /** The `ctx.replRuntime` seam — the kernel query/set channel. */
-  readonly replRuntime: ReplRuntimeSurface
-}
-
 /**
- * Call the runtime's optional `queryVar` channel as a method on the runtime
- * (so `this` stays the runtime), or raise an actionable structured error when
- * a third-party `ctx.replRuntime` provider does not expose namespace reads.
+ * Structural mirror of the upstream `Agent` — only the snapshot fields this
+ * handler reads (`id`, `status`, `options`, `session.header`). The real agent
+ * stays structurally assignable to this looser shape.
  */
-function query(runtime: ReplRuntimeSurface, name: string): Promise<ReplVarQuery> {
-  if (!runtime.queryVar) {
-    throw new UrlSchemaError(
-      'CTX_NO_QUERY_CHANNEL',
-      'ctx:// requires a ctx.replRuntime with the queryVar channel (this runtime does not expose namespace reads)',
-    )
+export interface CtxAgent {
+  /** The single identity shared with the session. */
+  readonly id: string
+  /** The lifecycle state (`'idle' | 'running'` upstream). */
+  readonly status: string
+  /** The provider route and model this agent's requests use. */
+  readonly options: {
+    readonly provider?: string
+    readonly model?: string
+    readonly maxTokens?: number
   }
-  return runtime.queryVar(name)
-}
-
-/** Render the namespace listing: one variable name per line. */
-async function listNames(runtime: ReplRuntimeSurface): Promise<string> {
-  const result = await query(runtime, '')
-  if (result.kind === 'names') return result.names.join('\n')
-  // A provider that resolves an empty name as missing/json/repr (instead of
-  // the contract's `names`) is treated as an empty namespace.
-  return ''
-}
-
-/** Read one variable as text, or raise a structured error when absent. */
-async function readVar(runtime: ReplRuntimeSurface, name: string): Promise<string> {
-  const result = await query(runtime, name)
-  switch (result.kind) {
-    case 'json':
-    case 'repr':
-      return result.text
-    case 'missing':
-      throw new UrlSchemaError(
-        'CTX_VAR_MISSING',
-        `ctx://${name}: no such variable in the kernel namespace`,
-      )
-    case 'names':
-      // Degenerate for a non-empty name; treat as absent.
-      throw new UrlSchemaError(
-        'CTX_VAR_MISSING',
-        `ctx://${name}: no such variable in the kernel namespace`,
-      )
+  /** The live session; only its durable header is read. */
+  readonly session: {
+    readonly header: {
+      readonly cwd?: string
+      readonly origin?: string
+      readonly delegationDepth?: number
+    }
   }
 }
 
-/** Build the `ctx://` scheme handler over the runtime seam. */
-export function createCtxHandler(deps: CtxHandlerDeps): SchemeHandler {
-  const { replRuntime } = deps
+/** The `env` subset this handler reads: the live agent, when there is one. */
+export interface CtxEnv extends ResolverEnv {
+  readonly agent?: CtxAgent
+}
+
+/** The snapshot keys, in listing order. */
+const KEYS = ['session', 'model', 'cwd'] as const
+
+/** Build the `ctx://` scheme handler over the resolver env. */
+export function createCtxHandler(): SchemeHandler {
   return {
-    async resolve(_env: ResolverEnv, path: string): Promise<string> {
-      const name = path.replace(/^\/+/, '').trim()
-      if (name === '') return listNames(replRuntime)
-      return readVar(replRuntime, name)
+    async resolve(env: ResolverEnv, path: string): Promise<string> {
+      const key = path.replace(/^\/+/, '').trim()
+      if (key === '') return KEYS.join('\n')
+      const { agent } = env as CtxEnv
+      if (agent === undefined) {
+        throw new UrlSchemaError(
+          'CTX_NO_AGENT',
+          'ctx:// requires a live agent in the resolver env (this context has none)',
+        )
+      }
+      switch (key) {
+        case 'session':
+          // JSON.stringify drops the undefined optional fields for free.
+          return JSON.stringify(
+            {
+              id: agent.id,
+              status: agent.status,
+              origin: agent.session.header.origin,
+              delegationDepth: agent.session.header.delegationDepth,
+            },
+            null,
+            2,
+          )
+        case 'model':
+          return JSON.stringify(
+            {
+              provider: agent.options.provider,
+              model: agent.options.model,
+              maxTokens: agent.options.maxTokens,
+            },
+            null,
+            2,
+          )
+        case 'cwd':
+          return agent.session.header.cwd ?? ''
+        default:
+          throw new UrlSchemaError(
+            'CTX_UNKNOWN_KEY',
+            `ctx://${key}: unknown snapshot key (known: ${KEYS.join(', ')})`,
+          )
+      }
     },
   }
-}
-
-/**
- * Write one lossless-JSON `value` into the kernel namespace under `name` via
- * `setVar`. Called by the write tool's URL branch for `ctx://<var>` targets;
- * `name` is the URL path (the variable identifier) and `value` is the
- * lossless-JSON value to bind.
- */
-export async function writeCtxVar(deps: CtxHandlerDeps, name: string, value: unknown): Promise<void> {
-  const { replRuntime } = deps
-  if (!replRuntime.setVar) {
-    throw new UrlSchemaError(
-      'CTX_NO_SET_CHANNEL',
-      'ctx:// write requires a ctx.replRuntime with the setVar channel (this runtime does not expose namespace writes)',
-    )
-  }
-  const target = name.replace(/^\/+/, '').trim()
-  if (target === '') {
-    throw new UrlSchemaError('CTX_EMPTY_NAME', 'ctx:// write requires a variable name (ctx://<var>)')
-  }
-  await replRuntime.setVar(target, value)
 }

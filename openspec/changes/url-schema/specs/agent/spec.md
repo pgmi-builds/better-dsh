@@ -1,40 +1,52 @@
 ## Purpose
 
-让模型通过 agent:// URL 统一寻址 agent 名册、输出 artifact 与完整 transcript，取代上游 history://。
+Let the model address the agent roster, output artifacts, and full transcripts via `agent://` URLs — the single home for what upstream split across roster tools and a separate `history://` scheme.
 
 ## ADDED Requirements
 
-### Requirement: agent 名册寻址
-系统 SHALL 让裸 agent:// 返回 agent 名册（id、status、kind、parent、last activity）。
+### Requirement: Agent roster addressing
+The system SHALL let bare `agent://` return the roster of every live session, oldest first, as a five-column table: `id`, `status`, `kind`, `parent`, `last activity`. `status` comes from the live agent registry (`idle`/`running`; `-` when the session has no live agent); `kind` is the session header's `origin` (default `main`); `parent` is the delegating parent session id (`-` at top level); `last activity` is the last session event's time in ISO 8601 (`-` when the session has no events).
 
-#### Scenario: 列出全部 agent
-- **WHEN** 模型读取裸 agent://
-- **THEN** 系统返回 agent 名册表，含每个 agent 的 id/status/kind/parent/last activity
+#### Scenario: Listing all agents
+- **WHEN** the model reads bare `agent://`
+- **THEN** the system returns one row per live session with all five columns, e.g. `id  status  kind  parent  last activity`
 
-### Requirement: agent 输出寻址
-系统 SHALL 让 agent://<id> 返回该 agent 的输出 artifact。
+#### Scenario: Session without a live agent
+- **WHEN** a roster row's session has no entry in the live agent registry
+- **THEN** its `status` column renders `-`
 
-#### Scenario: 读取已完成 agent 输出
-- **WHEN** 模型读取 agent://<已完成 agent id>
-- **THEN** 系统返回该 agent 的 schema-validated 输出对象
+### Requirement: Agent output addressing
+The system SHALL let `agent://<id>` return that agent's output artifact: the rendered content of its last non-empty assistant message (matching `SubagentResult.output` semantics), or empty text when the agent produced no non-empty assistant output. Unknown ids return `AGENT_UNKNOWN_ID`.
 
-### Requirement: agent transcript 寻址
-系统 SHALL 让 agent://<id>/transcript 返回该 agent 的完整会话 transcript（含 live/parked/released）。
+#### Scenario: Reading a completed agent's output
+- **WHEN** the model reads `agent://<finished agent id>`
+- **THEN** the system returns the rendered text of that agent's last non-empty assistant message
 
-#### Scenario: 读取 agent 会话历史
-- **WHEN** 模型读取 agent://<id>/transcript
-- **THEN** 系统返回该 agent 的完整 transcript
+#### Scenario: Reading an unknown agent
+- **WHEN** the model reads `agent://<unknown id>`
+- **THEN** the system returns the structured `AGENT_UNKNOWN_ID` error
 
-### Requirement: 嵌套输出寻址
-系统 SHALL 让 agent://<id>/<child> 返回该 agent 的嵌套子 agent 输出。
+### Requirement: Agent transcript addressing
+The system SHALL let `agent://<id>/transcript` return the agent's full derived message history in order, each message headed by its role (`assistant`, `user`, `tool result`, `system`), with tool calls rendered as `[tool: name] arguments` and errors as `[tool error] …`.
 
-#### Scenario: 读取嵌套子 agent 输出
-- **WHEN** 模型读取 agent://<id>/<child id>
-- **THEN** 系统返回该子 agent 的输出
+#### Scenario: Reading an agent's session history
+- **WHEN** the model reads `agent://<id>/transcript`
+- **THEN** the system returns every message of that session in order, role-headed
 
-### Requirement: history 语义并入
-系统 SHALL 将 history:// 的语义并入 agent://，不再提供独立的 history scheme。
+### Requirement: Nested output addressing
+The system SHALL let `agent://<id>/<child>` return a direct child's output artifact, resolving the child only through the parent's enumerated children. Unknown children, or children not live in the session store, return `AGENT_UNKNOWN_ID`. Paths with more than two segments return `AGENT_BAD_PATH`.
 
-#### Scenario: history scheme 不可用
-- **WHEN** 模型尝试读取 history://
-- **THEN** 系统提示 history 语义已并入 agent://（或按未注册 scheme 处理）
+#### Scenario: Reading a nested child output
+- **WHEN** the model reads `agent://<parent id>/<child id>` and the child is a direct child of that parent
+- **THEN** the system returns the child's output artifact
+
+#### Scenario: Child not enumerable from the parent
+- **WHEN** the model reads `agent://<id>/<non-child id>`
+- **THEN** the system returns the structured `AGENT_UNKNOWN_ID` error
+
+### Requirement: history has no scheme of its own
+The system SHALL provide transcript history only under `agent://<id>/transcript`. There is no `history://` handler and no special-case error for it: `history://` produces the generic `URL_UNREGISTERED_SCHEME` error like any other unregistered scheme.
+
+#### Scenario: history scheme is unregistered
+- **WHEN** the model reads `history://<id>`
+- **THEN** the system returns the structured `URL_UNREGISTERED_SCHEME` error listing the registered schemes (history not among them)

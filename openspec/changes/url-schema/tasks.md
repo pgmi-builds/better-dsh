@@ -1,39 +1,55 @@
-## 1. Spike：vendor 机制定案
+## 1. Spike: vendor mechanism (resolved)
 
-- [ ] 1.1 定 vendor 范围（源码直拷进 `src/vendored/`：dsh-better-edit 整包——`hashline/`、`fs-bridge.js`、`tool-read.js`、`tool-edit.js`、`tool-batch-edit.js`、`tool-undo.js`、`edit-engine.js`、`hash-store.js`、`anchor-pipeline.js` 等）+ 移除外部 BetterEdit 插件挂载（cordis.patch.yml 那行），结论写回 design.md D2。验证：确认 dsh-better-edit 完整文件清单与 LICENSE 署名条款，书面化 vendor 文件清单 + 署名清单。
+- [x] 1.1 Fix the vendor scope (direct copy into `src/vendored/hashline/` of dsh-better-edit's published `lib/` — compiled JS + `.d.ts`, no TS source in the package; runtime deps `diff`, `file-type`, `xxhash-wasm` carried by DASHR) + remove the external BetterEdit plugin mount (the `cordis.patch.yml` line). Conclusion recorded in design.md D2. Verified: vendor compiles, attribution files carry the 4-layer copyright chain.
 
-## 2. URL resolver 基础设施
+## 2. URL resolver infrastructure
 
-- [ ] 2.1 新建 dsh-url-schema 插件行（cordis.patch.yml host-plane 挂载 + 骨架），验证：插件挂载成功、无 inject 缺失错误、所有 preset（标准/编程模式）均加载。
-- [ ] 2.2 实现 scheme→handler 注册表与统一 selector 解析，验证：单元测试覆盖 :N-M / :raw / /path / ?q= 及未注册 scheme 结构化报错。
-- [ ] 2.3 vendor BetterEdit hashline 源码直拷进 `src/`，署名 LICENSE/README（Rianico / dsh-better-edit + pi-hashline-edit-lsz），验证：vendor 代码可编译、署名文件含三版权并列。
-- [ ] 2.4 实现 DASHR `read` 工具（一个实现两条分支：`scheme://` → resolver；普通文件 → vendored hashline），验证：read skill://foo 返回解析内容、read 普通文件返回 hashline 锚点、沙箱/审批对两条分支均生效。
-- [ ] 2.5 实现 write/grep/glob 的 URL 路由（URL → resolver；非 URL → 原生，无 hashline 冲突），验证：write ctx://<var> 生效、grep/glob scheme 资源返回匹配、普通路径无回归。
+- [x] 2.1 Create the `dsh-url-schema` plugin row (mounted by `dashr-repl` via `ctx.plugin()`), inject `['tools','fs','skills','subagents','sessions','settings','agents']`. Verified: plugin mounts, wiring spec asserts the shape (incl. `agents` present, `replRuntime` absent).
+- [x] 2.2 Implement the scheme→handler registry + unified selector parsing (`selector.ts`, `resolver.ts`). Verified: unit tests cover `:N-M` / `:raw` / `:path/` / `?q=` and the structured `URL_NO_SCHEME` / `URL_UNREGISTERED_SCHEME` / `URL_BAD_SELECTOR` errors.
+- [x] 2.3 Vendor the BetterEdit hashline into `src/vendored/hashline/` with LICENSE/README attribution (Rianico / dsh-better-edit + pi-hashline-edit-lsz). Verified: vendored code compiles; attribution carries the layered copyrights.
+- [x] 2.4 Implement the DASHR `read` tool (one implementation, two branches: `scheme://` → resolver; ordinary file → vendored hashline via `ctxFsIO`). Verified: read `skill://…` returns resolved content, plain files return hashline anchors, the fs policy gate covers both branches. (v0.1.8d: URL branch additionally hands the resolver env `{agent, cwd, rawUrl}`.)
+- [x] 2.5 Implement URL routing for write/grep/glob. Landed shape (v0.1.8d, superseding the v0.1.8c self-implementation): delegation shells over the captured native definitions — non-URL inputs call `native.execute(args, exec)` verbatim; URL inputs take the scheme branch. Verified: `tools-delegation.spec.ts` (native passthrough, scheme dispatch, temp materialization, capture-before-register ordering); see also 9.1–9.3.
 
 ## 3. skill://
 
-- [ ] 3.1 实现 skill:// handler（ctx.skills → 正文/内部资源，完整分页），验证：read skill://<name> 返回正文、skill://<name>/<path> 返回资源、未注册名结构化报错。
-- [ ] 3.2 mask 上游 skill 工具，验证：工具目录不含 skill，skill:// 仍可寻址 skill 内容。
+- [x] 3.1 Implement the `skill://` handler (`ctx.skills` → body/resources, full text, no default truncation; sandboxed resource reads; escape guard). Verified: body + resource reads, `URL_SKILL_NOT_FOUND` / `URL_SKILL_NO_RESOURCE_BASE` / `URL_SKILL_RESOURCE_ESCAPE` structured errors.
+- [x] 3.2 Mask the upstream `skill` tool. Verified per the corrected v0.1.8d acceptance wording: `'skill'` is in `MASKED_TOOL_NAMES`, so it disappears from the REPL `tool.*` binding surface and the dashr tool-catalog section ONLY — the host-layer native `skill` tool stays registered/executable, `<available_skills>` is retained (presentation-only, ADR-0002), and `skill://` addressing works.
 
 ## 4. agent://
 
-- [ ] 4.1 实现 agent:// 四形态（roster / output / transcript / child），验证：裸 agent:// 返回名册、agent://<id> 返回输出、/transcript 返回历史、/child 返回嵌套输出。
-- [ ] 4.2 history:// 语义并入 agent://，验证：history:// 不再可用（或提示已并入）。
+- [x] 4.1 Implement the four `agent://` shapes (roster / output / `/transcript` / `/<child>`). Verified: bare `agent://` returns the roster, `<id>` the output artifact (last non-empty assistant message), `/transcript` the full history, `/<child>` the nested output; `AGENT_UNKNOWN_ID` / `AGENT_BAD_PATH` structured errors. (v0.1.8d: roster fixed at five columns with live status — see 9.7.)
+- [x] 4.2 Fold `history://` semantics into `agent://`. Verified in the landed form (v0.1.8d): the `history://` special case was deleted — `history://` hits the generic `URL_UNREGISTERED_SCHEME` error; transcripts are read via `agent://<id>/transcript`.
 
 ## 5. dsh://
 
-- [ ] 5.1 实现 dsh://docs（静态文档映射），验证：dsh://docs 返回清单、dsh://docs/<doc> 返回内容。
-- [ ] 5.2 实现 dsh://config（resolved settings + 白名单挡 secret），验证：dsh://config 返回生效配置且不含 API key 等 secret。
+- [x] 5.1 Implement `dsh://docs` (static docs mapping, traversal guard). Verified: `dsh://docs` lists docs as JSON, `dsh://docs/<doc>` returns content, `URL_DOCS_UNAVAILABLE` / `URL_DOC_NOT_FOUND` structured errors. (v0.1.8d packaging fix — see 9.9.)
+- [x] 5.2 Implement `dsh://config` (resolved settings, namespaced, secrets blocked). Verified: `dsh://config` returns redacted resolved config, `dsh://config/<ns>` one namespace; `role('secret')` redaction plus the key-name denylist; `URL_SETTINGS_UNAVAILABLE` / `URL_UNKNOWN_SETTINGS_NAMESPACE` / `URL_UNKNOWN_RESOURCE` structured errors.
 
-## 6. ctx://
+## 6. ctx:// (superseded by 9.4)
 
-- [ ] 6.1 给内核新增 query/set 通道（协议消息类型），验证：运行时能按名查/设 user_ns 变量。
-- [ ] 6.2 实现 ctx:// handler（JSON-safe→JSON、否则 repr 标注；裸 ctx:// 列命名空间），验证：read ctx://<var> 返回变量值、非 JSON 变量返回 repr 并标注、write ctx://<var> 写入后 read 返回新值。
+- [x] 6.1 Add the kernel query/set channel (protocol message types). Verified in v0.1.8c: variables could be queried/set by name. Status (v0.1.8d): the channel remains as optional runtime-layer infrastructure (`runtime-surface.ts` `queryVar`/`setVar`) but is no longer wired to `ctx://`.
+- [x] 6.2 Implement the v0.1.8c `ctx://` variable handler (JSON-safe→JSON else repr; bare listing; write-through). Verified in v0.1.8c. **Superseded in v0.1.8d by the curated read-only snapshot (9.4)** — the kernel-variable semantics were reversed; see design.md D4 for the rationale.
 
-## 7. xd://（空 scheme）
+## 7. Device scheme (renamed)
 
-- [ ] 7.1 实现 xd:// 空 handler（裸 = no devices mounted，xd://<device> = unknown device，write = 无设备可调度报错），验证：read xd:// 与 xd://<name> 返回结构化占位结果。
+- [x] 7.1 Implement the empty device handler. Landed as `dvc://` (renamed from `xd://` in v0.1.8d): bare = `no devices mounted`, `<device>` = `unknown device: <name>` placeholder text, write = structured `DVC_NO_DEVICE`. Verified: `wiring.spec.ts` resolves both read shapes; write dispatch covered in the delegation spec.
 
-## 8. 集成验证
+## 8. Integration verification (v0.1.8c wave)
 
-- [ ] 8.1 全量复测：read/write/grep/glob 普通路径无回归 + 5 个 scheme 端到端，验证：npm test 全绿（含新增 spec 对应测试）+ 手动 smoke read skill://、agent://、dsh://config、ctx://、xd:// 均返回预期，且 hashline 锚点与沙箱/审批对 URL 解析与文件读取均生效。
+- [x] 8.1 Full retest: plain-path read/write/grep/glob without regression + all schemes end-to-end; hashline anchors and sandbox/approval effective on both branches. Verified for the v0.1.8c wave (suite green at the time); re-run for v0.1.8d in 9.12.
+
+## 9. v0.1.8d patch (all landed)
+
+- [x] 9.1 Delegation architecture: `native-capture.ts` captures the native `write`/`grep`/`glob` definitions via `ctx.tools.get(name, agent)` at `agent/session-start`, BEFORE the wrappers register (WeakMap per agent); non-URL inputs call `native.execute(args, exec)` verbatim, preserving the native write-intent policy gate and ripgrep. Verified: capture-before-register ordering asserted in `wiring.spec.ts`; passthrough tests in `tools-delegation.spec.ts`.
+- [x] 9.2 grep/glob URL branch: path-backed schemes (handler `resolvePath`; `skill://` today) translate the URL to a disk path and delegate to native; content-backed schemes (agent/ctx/`dsh://config`/http) materialize the resolved text into a temp dir and clean it up in a `finally` (`tools/materialize.ts`). Verified: materialization + cleanup tests in `tools-delegation.spec.ts`; `resolvePath` tests in `skill.spec.ts`.
+- [x] 9.3 `http://`/`https://` handler: GET-only, 20 s timeout, 2 MiB cap (Content-Length precheck + streaming accounting), text whitelist (`text/*` + the application allowlist), structured codes (`URL_HTTP_TIMEOUT` / `URL_HTTP_FETCH_FAILED` / `URL_HTTP_STATUS` / `URL_HTTP_TOO_LARGE` / `URL_HTTP_UNSUPPORTED_MEDIA` / `URL_INVALID`), whole-URL strict parse from `env.rawUrl`, disclaimer first line. Verified: `http.spec.ts`.
+- [x] 9.4 `ctx://` semantics reversal: curated read-only snapshot (`session`/`model`/`cwd`; bare lists keys); `CTX_NO_AGENT` / `CTX_UNKNOWN_KEY`; writes rejected `URL_READ_ONLY`; kernel-variable mapping removed (`queryVar`/`setVar` stay runtime-layer, unwired). Verified: `ctx.spec.ts`.
+- [x] 9.5 Global rename `xd://` → `dvc://` (scheme key, handler module, `DVC_NO_DEVICE` code; no `xd` residue). Verified: wiring + delegation specs use `dvc://` exclusively.
+- [x] 9.6 Delete the `history://` special case — unregistered schemes (history included) get the generic `URL_UNREGISTERED_SCHEME` error. Verified: no history special-casing remains in the source.
+- [x] 9.7 `agent://` roster fixed at five columns: `id` / `status` (live registry state via `ctx.agents`, `-` when not live) / `kind` (`header.origin`, default `main`) / `parent` (`header.parentSession`, `-` at top) / `last activity` (last session event, ISO 8601, `-` when empty). Verified: roster rendering in the agent handler tests.
+- [x] 9.8 `skill://` cwd fix: every registry lookup passes `{cwd: agent.session.header.cwd}` (same source as `dsh-tool-skill`'s `<available_skills>`), so `skill://` sees exactly the advertised skills. Verified: cwd-sensitivity tests in `skill.spec.ts`.
+- [x] 9.9 `dsh://docs` packaging fix: `package.json` `prebuild` copies `../docs` → `docs/`, the `files` array ships it, and docs-dir resolution moved to `docs-dir.ts` (nearest-first walk-up covering source/lib/installed layouts). Verified: `resolveDocsDir` walk-up behavior; packaged layout includes docs.
+- [x] 9.10 Mask acceptance wording corrected: the mask is presentation-only and scoped to the REPL `tool.*` binding surface + dashr tool-catalog section (ADR-0002); the host native `skill` tool and `<available_skills>` stay. Verified: `MASKED_TOOL_NAMES` contains `'skill'`; presentation spec covers binding/catalog exclusion only.
+- [x] 9.11 Write D2-restore: non-URL writes delegate to the captured native `write` (write-intent policy gate back on the ordinary path); URL writes all rejected per scheme (`DVC_NO_DEVICE` / `URL_READ_ONLY` / `URL_WRITE_UNSUPPORTED` / `URL_UNREGISTERED_SCHEME`). Verified: delegation spec covers native passthrough and every rejection code.
+- [x] 9.12 Full suite re-run for v0.1.8d: 239/239 tests green (vitest), covering plain-path non-regression and every scheme end-to-end.
+- [x] 9.13 Post-verifier fixes: (a) `parseUrl` selector exemption for `http`/`https` (`SELECTOR_EXEMPT` in `selector.ts`) — port URLs no longer throw `URL_BAD_SELECTOR` and query strings are no longer applied as the `?q=` line filter (regression tests go through the real `UrlResolver`, the hole the original handler-direct tests missed); (b) the 20 s deadline now covers the WHOLE GET (headers + body streaming) and a mid-stream abort maps to `URL_HTTP_TIMEOUT` instead of a bare AbortError; (c) skill lookups pass the calling agent as `scope` alongside `cwd`, matching `dsh-tool-skill`'s lookup exactly. Verified: `http.spec.ts` 35/35 (3 new resolver-path regressions), `skill.spec.ts` scope-aware assertions, full suite 242/242.

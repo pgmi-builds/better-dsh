@@ -1,49 +1,72 @@
 /**
- * `grep` tool — URL-aware content search.
+ * `grep` tool — URL-aware content search (delegation architecture).
  *
- * Two branches, mirroring the read tool:
- * - `scheme://` URL in `path` → resolve the URL to full text through the
- *   {@link UrlResolver}, then run the regex `pattern` over the resolved text.
- *   A scheme URL addresses one resource, so `include` is ignored and line
- *   numbers are relative to the resolved text.
- * - ordinary path → native ripgrep search via `deps.nativeGrep`. Upstream
- *   `@deepseek-ai/dsh-tool-fs-search` is a Cordis plugin (its `applyGrepTool`
- *   registers onto a `Context` and its `runRipgrep` needs `ctx.subprocess`),
- *   so the integration step supplies the native behavior as a function —
- *   delegation, not reimplementation.
- *
- * Services required (for the integration/wiring step):
- * - `resolver` — `UrlResolver` (resolves the scheme URL's text).
- * - `nativeGrep` — wraps `ctx.subprocess` + ripgrep (upstream grep behavior).
+ * Two branches:
+ * - ordinary path → the captured NATIVE `grep` {@link ToolDefinition},
+ *   forwarded verbatim (`nativeGrep.execute(args, exec)`): the native
+ *   ripgrep invocation, caps, and spill behavior all stay intact. The
+ *   definition comes from `captureNativeTools` BEFORE this wrapper registers
+ *   on the agent's own scope layer — a later capture would resolve back to
+ *   this wrapper (infinite recursion). Without a native delegate every call
+ *   reports the structured `NATIVE_GREP_UNAVAILABLE` error instead of
+ *   reimplementing a simplified search.
+ * - `scheme://` URL in `path` → still the native engine, over translated
+ *   input:
+ *   - **path-backed** schemes (`skill://`, `dsh://docs`) implement the
+ *     handler's optional `resolvePath`, so the URL is translated to its real
+ *     disk path and only `args.path` is rewritten before delegating.
+ *   - **content-backed** schemes (agent, ctx, `dsh://config`, http, …) have
+ *     no disk location: the URL is resolved to full text, materialized into
+ *     a fresh temp directory, the search is pointed at the temp file, and
+ *     the directory is removed afterwards whatever the outcome.
  */
 
+import { join } from 'node:path'
+
+import type { Agent } from '@deepseek-ai/dsh-agent'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { ToolDefinition, ToolRunContext } from '@deepseek-ai/dsh-tools'
 
-import type { UrlResolver } from '../resolver.ts'
+import type { ResolverEnv, UrlResolver } from '../resolver.ts'
 import { parseUrl, UrlSchemaError } from '../selector.ts'
+import { withTempMaterialization } from './materialize.ts'
 
-/** One matched line, with its 1-based line number in the searched text. */
+/**
+ * One matched line (native ripgrep result shape: `path`, 1-based
+ * `lineNumber`, matched `line` text — so a delegated native return value
+ * validates against this tool's declared output schema unchanged).
+ */
 export interface GrepMatch {
   path: string
-  line: number
-  text: string
+  lineNumber: number
+  line: string
 }
 
-/** Canonical grep result: flat matches in output order. */
+/** Canonical grep result: flat matches in output order (native shape). */
 export interface GrepResult {
   matches: GrepMatch[]
 }
 
 /** Dependencies captured by the grep tool. */
 export interface GrepToolDeps {
-  /** Resolves a `scheme://` URL to full text for the URL branch. */
+  /** Resolves and path-translates a `scheme://` URL for the URL branch. */
   resolver: UrlResolver
-  /** Native ripgrep search for non-URL paths (integration wraps `ctx.subprocess`). */
-  nativeGrep: (
-    input: { pattern: string; path?: string; include?: string },
-    exec: ToolRunContext,
-  ) => Promise<GrepResult>
+  /** Native ripgrep search definition captured before this wrapper registered. */
+  nativeGrep?: ToolDefinition
+}
+
+/** The env the tool layer hands the resolver: the calling agent, its cwd, and
+ * the raw URL (the `http(s)://` handler needs the complete input — its
+ * scheme-stripped path has lost the host). */
+type ToolResolverEnv = ResolverEnv & {
+  readonly agent?: Agent
+  readonly cwd?: string
+  readonly rawUrl?: string
+}
+
+/** Build the resolver env from one tool execution (agent + session cwd + raw URL). */
+function execEnv(exec: ToolRunContext, rawUrl: string): ToolResolverEnv {
+  return { agent: exec.agent, cwd: exec.agent?.session.header.cwd, rawUrl }
 }
 
 /** Detects a `scheme://` prefix with the resolver layer's own parser. */
@@ -57,32 +80,26 @@ function isSchemeUrl(raw: string): boolean {
   }
 }
 
-/** Run a regex over already-resolved text, yielding one match per hit line. */
-function grepText(text: string, pattern: string, path: string): GrepMatch[] {
-  let re: RegExp
-  try {
-    re = new RegExp(pattern)
-  } catch (error) {
-    throw new UrlSchemaError(
-      'GREP_INVALID_PATTERN',
-      `invalid grep pattern "${pattern}": ${error instanceof Error ? error.message : String(error)}`,
-    )
-  }
-  return text.split('\n').flatMap((lineText, index) => {
-    return re.test(lineText) ? [{ path, line: index + 1, text: lineText }] : []
-  })
+/** Structured error for calls that cannot run without the native delegate. */
+function nativeUnavailable(): UrlSchemaError {
+  return new UrlSchemaError(
+    'NATIVE_GREP_UNAVAILABLE',
+    'the host did not deploy a native grep tool — URL-aware grep cannot delegate searches',
+  )
 }
 
 /**
- * Build the `grep` {@link ToolDefinition}: a `scheme://` `path` searches the
- * resolved resource text, an ordinary path delegates to native ripgrep.
+ * Build the `grep` {@link ToolDefinition}: a `scheme://` `path` translates
+ * (path-backed) or materializes (content-backed) the resource and delegates
+ * to native ripgrep; an ordinary path delegates with args and exec passed
+ * through untouched.
  */
 export function createGrepTool(deps: GrepToolDeps): ToolDefinition {
   const { resolver, nativeGrep } = deps
   return defineTool({
     name: 'grep',
     description:
-      'Search file contents with a regular expression. When `path` is a scheme:// URL, search the resolved resource text instead.',
+      'Search file contents with a regular expression. When `path` is a scheme:// URL, search the resolved resource: path-backed schemes search their real disk location, content-backed schemes search the resolved text.',
     parameters: {
       pattern: {
         type: 'string',
@@ -95,7 +112,7 @@ export function createGrepTool(deps: GrepToolDeps): ToolDefinition {
       },
       include: {
         type: 'string',
-        description: 'Optional file-glob filter (ignored for scheme:// URLs).',
+        description: 'Optional file-glob filter.',
       },
     },
     output: {
@@ -111,8 +128,8 @@ export function createGrepTool(deps: GrepToolDeps): ToolDefinition {
               additionalProperties: false,
               properties: {
                 path: { type: 'string', required: true },
-                line: { type: 'integer', required: true },
-                text: { type: 'string', required: true },
+                lineNumber: { type: 'integer', required: true },
+                line: { type: 'string', required: true },
               },
             },
           },
@@ -121,16 +138,28 @@ export function createGrepTool(deps: GrepToolDeps): ToolDefinition {
       render: (_args, value) => {
         const count = value.matches.length
         const header = `${count} match${count === 1 ? '' : 'es'}`
-        const body = value.matches.map((m) => `${m.path}:${m.line}: ${m.text}`).join('\n')
+        const body = value.matches.map((m) => `${m.path}:${m.lineNumber}: ${m.line}`).join('\n')
         return [{ type: 'text', text: body.length > 0 ? `${header}\n${body}` : header }]
       },
     },
     async execute(args, exec): Promise<GrepResult> {
+      if (nativeGrep === undefined) throw nativeUnavailable()
+
       if (args.path !== undefined && isSchemeUrl(args.path)) {
-        const text = await resolver.resolve({}, args.path)
-        return { matches: grepText(text, args.pattern, args.path) }
+        const env = execEnv(exec, args.path)
+        // Path-backed scheme: translate the URL to its real disk path.
+        const diskPath = await resolver.resolvePath(env, args.path)
+        if (diskPath !== undefined) {
+          return nativeGrep.execute({ ...args, path: diskPath }, exec) as Promise<GrepResult>
+        }
+        // Content-backed scheme: resolve the text, search its temp copy.
+        const text = await resolver.resolve(env, args.path)
+        return withTempMaterialization(text, (tempDir) =>
+          nativeGrep.execute({ ...args, path: join(tempDir, 'content.txt') }, exec) as Promise<GrepResult>,
+        )
       }
-      return nativeGrep(args, exec)
+
+      return nativeGrep.execute(args, exec) as Promise<GrepResult>
     },
   })
 }

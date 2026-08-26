@@ -1,37 +1,41 @@
 ## Why
 
-DASHR 目前只有「工具面」（flat `tool.*` + `eval`），没有「资源层」：模型要读 skill 正文、子 agent 输出、harness 配置或运行时上下文，只能走一次性动作（action）——`skill({name})` 工具调用，或伸手进 `eval` 的 kernel 里 `print()` 变量。上游 OMP 已证明另一条路：把资源放进 URL 空间、用 `read`/`write` 统一寻址，工具面保持扁平、模型零额外学习成本（它本来就认识 read）。这是「Better Dash」从插件走向完整 App 的基础设施层，对应 distro-blueprint §2.1 的「URL Schema 基础设施层」。
+DASHR started with only a "tool plane" (flat `tool.*` + `eval`) and no resource layer: to read a skill body, a subagent output, harness docs, or runtime context, the model had to fire one-shot actions — a `skill({name})` tool call, or reaching into the `eval` kernel to `print()` variables. Upstream OMP proved the alternative: put resources into a URL space and address them with `read`/`write` uniformly, keeping the tool plane flat and the model's learning cost zero (it already knows `read`). This is the infrastructure layer that takes DASHR "from plugin to complete App" (distro-blueprint §2.1, "URL Schema infrastructure layer").
 
 ## What Changes
 
-- 引入统一 URL resolver 基础设施：`read`/`write`/`grep`/`glob` 接受 `scheme://` URL，按 scheme 路由到 handler，共享同一套 selector 语法（`:50-100`、`:raw`、`/path`、`?q=`）。
-- 新增 5 个 scheme（各成一个 capability）：
-  - `skill://` —— skill 正文 + skill 内部资源寻址。
-  - `agent://` —— 合并 agent 名册（roster）、输出 artifact、`/transcript`（吸收上游 `history://`）。
-  - `dsh://` —— harness 文档 + app-level 生效配置/环境（静态自描述）。
-  - `ctx://` —— 运行时状态 + context-as-variable（内核变量读写）。
-  - `xd://` —— 设备执行面占位（空 scheme，暂不挂载任何 device，handler 返回「no devices mounted / unknown device」）。
-- **BREAKING**：mask 上游 `skill` 工具，skill 寻址改走 `skill://`（本地 filesystem provider 覆盖；remote/embedded provider 列为已知缺口）。
-- **BREAKING**：`history://` 语义并入 `agent://`，不再单开 history scheme。
-- 不做（记录为边界）：`local://`（丢弃——直接传文件路径零摩擦，边际收益极小）、`artifact://`（留 hook——spill locator 已是可读路径，涉云时再上 scheme）、`vault://`（Work 模式）、`rule://` / `issue://` / `pr://`。
+- A unified URL resolver: `read`/`write`/`grep`/`glob` accept `scheme://` URLs, route by scheme to a handler, and share one selector syntax (`:50-100`, `:raw`, `:path/…`, `?q=`) applied uniformly by the resolver layer.
+- Registered schemes (one capability each, except http/https which share one handler):
+  - `skill://` — skill body + internal skill resources (workspace-cwd-sensitive discovery).
+  - `agent://` — merged agent roster, output artifact, `/transcript` (absorbs upstream `history://`).
+  - `dsh://` — harness docs + resolved effective config/env (static self-description).
+  - `ctx://` — a curated read-only snapshot of the calling agent's environment (`session`, `model`, `cwd`).
+  - `dvc://` — device I/O placeholder (renamed from the earlier `xd://`; no device mounted, structured `DVC_NO_DEVICE` write error).
+  - `http://` / `https://` — curl-style plain-text HTTP GET with a strict budget (20 s, 2 MiB, text-only media whitelist) and a first-line disclaimer.
+- Delegation architecture for the shadowing tools: `write`/`grep`/`glob` capture the NATIVE tool definitions before the wrappers register (`ctx.tools.get(name, agent)`, cached per agent) and forward non-URL inputs verbatim (`native.execute(args, exec)`), preserving the native write-intent policy gate and ripgrep. `read` keeps its own file branch: the vendored hashline pipeline (DASHR-introduced capability, not delegated).
+- **BREAKING**: the upstream `skill` tool is masked — presentation-only (ADR-0002), on the REPL `tool.*` binding surface and the dashr tool-catalog section. The host-layer native `skill` tool stays registered/executable, and the `<available_skills>` discovery catalog is retained; skill content addressing moves to `skill://`.
+- **BREAKING**: `history://` semantics live under `agent://` only. There is no history special case: `history://` hits the generic `URL_UNREGISTERED_SCHEME` error like any other unregistered scheme.
+- Writes: non-URL paths delegate to the native `write` (write-intent policy gate restored — the v0.1.8c all-rejected behavior was rolled back); every `scheme://` write is rejected with a scheme-specific structured error.
+- Not done (recorded as boundaries): `local://` (dropped — plain file paths are zero-friction, marginal benefit), `artifact://` (hook kept — the spill locator is already a readable path; revisit when cloud storage lands), `vault://` (Work mode), `rule://` / `issue://` / `pr://`.
 
 ## Capabilities
 
 ### New Capabilities
-- `url-schema`: 统一 URL resolver 基础设施（scheme 路由 + read/write/grep/glob 注入 + selector 语法）。
-- `skill`: `skill://` 资源寻址。
-- `agent`: `agent://` 名册 / 输出 / transcript 合并寻址。
-- `dsh`: `dsh://` 文档 + 配置/环境自描述。
-- `ctx`: `ctx://` 运行时上下文 + context-as-variable。
-- `xd`: `xd://` 设备执行面（空，占位）。
+- `url-schema`: unified URL resolver infrastructure (scheme routing + delegation-shell read/write/grep/glob + selector syntax).
+- `skill`: `skill://` resource addressing.
+- `agent`: `agent://` roster / output / transcript addressing.
+- `dsh`: `dsh://` docs + config/env self-description.
+- `ctx`: `ctx://` curated read-only environment snapshot.
+- `dvc`: `dvc://` device I/O placeholder.
+- `http-read`: `http(s)://` plain-text GET read.
 
 ### Modified Capabilities
 
-（无 —— 本仓库首个 openspec change，无既有 specs。）
+(None — this repository's first openspec change; no prior specs exist.)
 
 ## Impact
 
-- 新增插件层 URL resolver（落点与 `dashr-repl` 的关系在 design.md 定）。
-- vendor BetterEdit hashline 进 DASHR 包（`src/vendored/`，署名 Rianico/dsh-better-edit + pi-hashline-edit-lsz），DASHR `read` 工具合一为「URL 路由 + hashline」一个实现两条分支；write/grep/glob 走 URL 路由（无 hashline 冲突）。
-- mask 上游 `skill` 工具（presentation 层，复用 DASHR 已有 masking 机制）。
-- 依赖：`ctx.skills`（skill 解析）、`dsh-subagent`/session（agent 名册与输出）、`dsh-settings`/`dsh-launch-environment`（`dsh://` 配置）、内核 query/set 通道（`ctx://` 变量读写，需内核协议新增消息类型）。
+- New plugin layer `dsh-url-schema` (mounted by `dashr-repl` via `ctx.plugin()`), owning the resolver, the four URL-aware tools, the vendored hashline, all scheme handlers, and the skill mask entry.
+- BetterEdit hashline vendored into the DASHR package (`src/vendored/hashline/`, attributed to Rianico/dsh-better-edit + pi-hashline-edit-lsz); DASHR's `read` is one tool with two branches — URL routing and hashline file reads. `write`/`grep`/`glob` are delegation shells over the captured native definitions (no hashline conflict).
+- Mask of the upstream `skill` tool is presentation-only and scoped to the REPL surface (ADR-0002).
+- Dependencies: `ctx.skills` + `ctx.fs` (skill), `ctx.sessions`/`ctx.subagents`/`ctx.agents` (agent roster/output), `ctx.settings` (dsh config), and no kernel channel for `ctx://` — the ctx handler reads the calling agent out of the resolver env (the v0.1.8c kernel-variable mapping was removed; `queryVar`/`setVar` remain runtime-layer infrastructure, unwired).

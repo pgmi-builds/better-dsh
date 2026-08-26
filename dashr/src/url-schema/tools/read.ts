@@ -4,7 +4,7 @@
  * `read` has two branches, forked on the `path` argument:
  *
  * - **URL branch** — `path` starts with a `scheme://` prefix (e.g.
- *   `skill://name`, `agent://id/transcript`, `dsh://docs`, `xd://device`).
+ *   `skill://name`, `agent://id/transcript`, `dsh://docs`, `dvc://device`).
  *   The URL is resolved end-to-end by the {@link UrlResolver} (dispatch to the
  *   registered scheme handler, then uniform selector application), and the
  *   resolved text is returned verbatim.
@@ -22,11 +22,12 @@
  */
 
 import type { Context } from '@deepseek-ai/cordis'
+import type { Agent } from '@deepseek-ai/dsh-agent'
 import type { FileSystem } from '@deepseek-ai/dsh-fs'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
 
-import type { UrlResolver } from '../resolver.ts'
+import type { ResolverEnv, UrlResolver } from '../resolver.ts'
 import {
   normalizeRequest as normReq,
   assertReadRequest,
@@ -45,14 +46,25 @@ export interface ReadToolDeps {
   ctx: Context
 }
 
+/**
+ * The env the URL branch hands the resolver: the calling agent, its session
+ * cwd (consumed by `skill://` discovery), and the raw input URL (`http(s)://`
+ * needs the complete URL — its scheme-stripped path has lost the host).
+ */
+type ToolResolverEnv = ResolverEnv & {
+  readonly agent?: Agent
+  readonly cwd?: string
+  readonly rawUrl?: string
+}
+
 /** Mirrors `parseUrl`'s scheme prefix so the fork matches the resolver exactly. */
 const SCHEME_URL_RE = /^[a-z][a-z0-9]*:\/\//
 
 /**
  * Build the URL-aware `read` tool.
  *
- * The `env` handed to `resolver.resolve` is empty in this wave — scheme
- * handlers capture their providers via their own constructor closures.
+ * The URL branch builds the resolver env per call (agent + cwd + rawUrl); the
+ * scheme handlers read whichever fields they need off it.
  */
 export function createReadTool(deps: ReadToolDeps): ToolDefinition {
   const { resolver, fs, ctx } = deps
@@ -65,14 +77,14 @@ export function createReadTool(deps: ReadToolDeps): ToolDefinition {
     description:
       'Read a text file (each line returned as `HASH│content` with a 3-char ' +
       'hash anchor for later edit calls) or resolve a `scheme://` URL ' +
-      '(skill/agent/dsh/xd) to its selected text. File reads page with ' +
+      '(skill/agent/dsh/dvc/http) to its selected text. File reads page with ' +
       'offset/limit; URL reads resolve end-to-end and ignore offset/limit.',
     parameters: {
       path: {
         type: 'string',
         description:
           'File path (hashline-anchored read), or a `scheme://` URL to resolve ' +
-          '(e.g. skill://name/path, agent://id/transcript, dsh://docs/doc, xd://device).',
+          '(e.g. skill://name/path, agent://id/transcript, dsh://docs/doc, dvc://device, https://host/path).',
       },
       offset: {
         type: 'number',
@@ -92,9 +104,14 @@ export function createReadTool(deps: ReadToolDeps): ToolDefinition {
       assertReadRequest(canonical)
       const rawPath = canonical.path
 
-      // URL branch: resolve end-to-end via the scheme registry.
+      // URL branch: resolve end-to-end via the scheme registry, handing the
+      // handlers the calling agent, its cwd, and the raw input URL.
       if (SCHEME_URL_RE.test(rawPath)) {
-        return resolver.resolve({}, rawPath)
+        const cwd = exec.agent?.session.header.cwd
+        const env: ToolResolverEnv = cwd === undefined
+          ? { agent: exec.agent, rawUrl: rawPath }
+          : { agent: exec.agent, cwd, rawUrl: rawPath }
+        return resolver.resolve(env, rawPath)
       }
 
       // File branch: vendored hashline read-and-serve, wrapped in the session

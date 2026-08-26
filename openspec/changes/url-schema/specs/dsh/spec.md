@@ -1,30 +1,45 @@
 ## Purpose
 
-让模型通过 dsh:// URL 读取 harness 文档与生效配置，实现运行时自描述。
+Let the model read the harness's own documentation and its effective configuration via `dsh://` URLs — runtime self-description, shipped with the package so it resolves in source, built, and installed layouts alike.
 
 ## ADDED Requirements
 
-### Requirement: 文档寻址
-系统 SHALL 让 dsh://docs 返回 harness 文档（列表或指定文档内容）。
+### Requirement: Documentation addressing
+The system SHALL let `dsh://docs` return the sorted recursive listing of readable harness docs as JSON, and `dsh://docs/<doc>` return that document's content. A missing docs tree returns `URL_DOCS_UNAVAILABLE`; a missing document, a path escaping the docs directory, or a non-file target returns `URL_DOC_NOT_FOUND`. Any other root resource returns `URL_UNKNOWN_RESOURCE`.
 
-#### Scenario: 浏览文档列表
-- **WHEN** 模型读取 dsh://docs
-- **THEN** 系统返回可用文档清单
+#### Scenario: Browsing the doc listing
+- **WHEN** the model reads `dsh://docs`
+- **THEN** the system returns the JSON array of doc paths relative to the docs root
 
-#### Scenario: 读取指定文档
-- **WHEN** 模型读取 dsh://docs/<doc>
-- **THEN** 系统返回该文档内容
+#### Scenario: Reading a specific document
+- **WHEN** the model reads `dsh://docs/<doc>`
+- **THEN** the system returns that document's content
 
-### Requirement: 生效配置寻址
-系统 SHALL 让 dsh://config 返回当前 resolved 生效配置（模型/provider/工具配置等）。
+#### Scenario: Path traversal is rejected
+- **WHEN** the model reads `dsh://docs/../secrets`
+- **THEN** the system returns the structured `URL_DOC_NOT_FOUND` error (path escapes the docs directory) and reads nothing
 
-#### Scenario: 读取生效配置
-- **WHEN** 模型读取 dsh://config
-- **THEN** 系统返回当前生效配置（resolved，非文档默认值）
+### Requirement: Docs tree resolves in every layout
+The system SHALL locate the docs tree by a nearest-first walk-up from the module's own location (`docs-dir.ts`), and the package SHALL ship the docs (`prebuild` copies the repo `docs/` into the package; the `files` array includes it) so source-tree, bundled-lib, and installed-`node_modules` layouts all resolve the package's own docs first.
 
-### Requirement: 配置不泄密
-系统 SHALL 确保 dsh://config 不暴露 credentials/env secrets。
+#### Scenario: Installed package resolves its own docs
+- **WHEN** the plugin runs from `node_modules/<dashr>/lib/index.js`
+- **THEN** `dsh://docs` serves the docs shipped inside that package, not an ancestor directory's
 
-#### Scenario: 配置隐藏密钥
-- **WHEN** 模型读取 dsh://config
-- **THEN** 返回内容不包含 API key 等 secret 字段
+### Requirement: Effective config addressing
+The system SHALL let `dsh://config` return the current resolved settings as JSON keyed by namespace, and `dsh://config/<ns>` return one namespace. A missing settings service returns `URL_SETTINGS_UNAVAILABLE`; an unknown namespace returns `URL_UNKNOWN_SETTINGS_NAMESPACE`.
+
+#### Scenario: Reading the effective config
+- **WHEN** the model reads `dsh://config`
+- **THEN** the system returns the resolved (not documented-default) configuration, namespace by namespace
+
+#### Scenario: Reading one namespace
+- **WHEN** the model reads `dsh://config/<known namespace>`
+- **THEN** the system returns that namespace's resolved value as JSON
+
+### Requirement: Config never leaks secrets
+The system SHALL strip secrets from every config response: schema-declared `role('secret')` redaction plus a defensive key-name denylist matched against normalized key names (credential/env/API-key material), applied recursively.
+
+#### Scenario: Config hides keys
+- **WHEN** the model reads `dsh://config` or `dsh://config/<ns>` and a resolved field is an API key or other secret-named field
+- **THEN** the returned JSON does not contain the secret value

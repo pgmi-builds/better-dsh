@@ -1,102 +1,139 @@
 ## Context
 
-动机见 proposal.md - Why。本设计只讲「怎么做」。
+Motivation: proposal.md - Why. This document covers only the "how".
 
-关键现状与约束：
+Key constraints and starting state:
 
-- dsh 工具执行流水线（`dsh-agent-loop` README）：`tools/pre-execute`（deny/ask）→ `tools/execute` → `tools/post-execute`（result decisions）→ `tools/result`。**`pre-execute` 只能拒绝/询问，不能返回内容；`post-execute` 才能替换结果；`execute` 不可扩展。**
-- `read`/`write` 在 `dsh-tool-fs`，`grep`/`glob` 在 `dsh-tool-fs-search`，都是上游，DASHR 不能 patch（distro 原则：rebranding §5.4）。BetterEdit shadow `read`/`edit`/`batch_edit`/`undo_last_edit`；**不替换 `write`**（`write` 保留原生，只挂 write-hook 装饰结果），grep/glob 也不受影响。
-- BetterEdit 证明了一件事：**agent-scope 工具 shadow 可行**——它在 agent 自己的 scope 层注册同名 `read`/`edit`，全量自实现（走 `ctxFsIO`，不委托原生），「nearest layer wins」。
-- DASHR 已有 presentation-layer masking 机制（mask 过 `send_message`/`report`）。
-- dsh 侧现成底座：`ctx.skills`（skill 注册表）、`dsh-subagent`/session（agent 名册与输出）、`dsh-settings`/`dsh-launch-environment`（配置）、DASHR 的持久内核（`ctx://` 的变量来源）。
+- The dsh tool pipeline (`dsh-agent-loop` README): `tools/pre-execute` (deny/ask) → `tools/execute` → `tools/post-execute` (result decisions) → `tools/result`. **`pre-execute` can only deny/ask, never return content; `post-execute` can only replace results; `execute` is not extensible.** So the only extension point that can both see URLs and produce content is a same-name tool registered nearer in scope.
+- `read`/`write` live in `dsh-tool-fs`, `grep`/`glob` in `dsh-tool-fs-search` — all upstream, which DASHR must not patch (distro principle: rebranding §5.4). BetterEdit shadowed `read`/`edit`/`batch_edit`/`undo_last_edit`; it never replaced `write`/`grep`/`glob`.
+- BetterEdit proved agent-scope same-name shadowing works: register on the agent's own scope layer, nearest layer wins, unwind on dispose.
+- DASHR already had a presentation-layer masking mechanism (masked `send_message`/`report`).
+- dsh services available: `ctx.skills` (skill registry), `ctx.sessions`/`ctx.subagents` (agent roster and outputs), `ctx.settings` (resolved settings), `ctx.agents` (live agent registry), `ctx.fs` (sandboxed filesystem).
 
 ## Goals / Non-Goals
 
 **Goals:**
-- 让 `read`/`write`/`grep`/`glob` 接受 `scheme://` URL，5 个 scheme（skill/agent/dsh/ctx/xd）各自一个 handler，统一 selector 语法。
-- DASHR 的 `read` 工具统一提供 URL 路由 + hashline（hashline vendor 进 DASHR，不再依赖 BetterEdit shadow），无两个 read 竞争。
-- 工具面保持扁平：不新增任何模型可见工具，`skill` 工具反而被 mask。
+- `read`/`write`/`grep`/`glob` accept `scheme://` URLs; one handler per scheme (skill/agent/dsh/ctx/dvc, plus one shared http/https handler), one selector syntax applied uniformly by the resolver.
+- DASHR's `read` provides URL routing + hashline in one tool (hashline vendored into DASHR, no external BetterEdit mount), with no competing second read.
+- Keep the tool plane flat: no new model-visible tools; `skill` is masked on the REPL surface only.
+- Non-URL behavior byte-identical to native: `write`/`grep`/`glob` delegate to the captured native definitions instead of reimplementing them.
 
 **Non-Goals:**
-- 不做 `local://`、`artifact://`、`vault://`、`rule://`、`issue://`、`pr://`（见 proposal - What Changes）。
-- 不做 remote/embedded skill provider（`skill://` 只覆盖 filesystem provider，远程 skill 列为缺口）。
-- 不改上游 `dsh-tool-fs` 源码。
+- No `local://`, `artifact://`, `vault://`, `rule://`, `issue://`, `pr://` (see proposal).
+- No remote/embedded skill provider (`skill://` covers the filesystem provider; remote skills are a known gap).
+- No patching of upstream `dsh-tool-fs`/`dsh-tool-fs-search` source.
+- No write channels: every `scheme://` write is rejected this wave.
 
 ## Decisions
 
-### D1. URL resolver 是独立插件层服务，不并入 `dashr-repl` 内核
+### D1. The URL resolver is a standalone plugin-layer service, not part of the `dashr-repl` kernel
 
-**决策**：新建 `dsh-url-schema`（或等价插件行），持有 scheme→handler 注册表，暴露 `resolve(schemeUrl) → text/JSON 视图`。`dashr-repl` 只作为 `ctx://` 的变量来源（内核 query/set 通道），不承担路由。
+**Decision**: `dsh-url-schema` is its own plugin row (mounted by `dashr-repl` via `ctx.plugin()`), holding the scheme→handler registry and exposing `resolve(url) → selected text` plus `resolvePath(url) → disk path | undefined`. `dashr-repl` contributes only the `'skill'` mask entry.
 
-**理由**：URL schema 是基础设施层（blueprint §2.1），面向所有模式；`dashr-repl` 是 REPL 能力。解耦后 `ctx://` 依赖内核、`skill://` 依赖 `ctx.skills`、`dsh://` 依赖 settings，各自独立演化。
+**Rationale**: URL schema is infrastructure (blueprint §2.1) shared by all modes; `dashr-repl` is REPL capability. After v0.1.8d removed the kernel-variable mapping, `ctx://` needs no REPL service at all — the plugin's `inject` no longer lists `replRuntime`; the ctx handler reads the calling agent out of the resolver env.
 
-**备选**：并入 `dashr-repl`。否决——会让 REPL 插件背上与 REPL 无关的路由职责，且 `ctx://` 之外四个 scheme 与内核无关。
+**Alternative rejected**: merging into `dashr-repl` — it would saddle the REPL plugin with routing duties unrelated to REPL, and only one of the schemes ever touched the kernel.
 
-### D2. read 工具合一：URL 路由 + hashline（vendor + 署名）
+### D2. One `read` with two branches: URL routing + vendored hashline; `write`/`grep`/`glob` delegate
 
-**决策（定稿）**：DASHR 自己的 `read` 工具是「一个实现、两条分支」——`scheme://` → URL resolver，普通文件 → hashline。hashline 通过 **vendor BetterEdit 源码直拷进 `src/`** 成为 DASHR 一等公民（仿 OMP `@oh-my-pi/hashline` 先例），并按 OMP 模式**署名**：LICENSE/README 并列 dsh-better-edit（Rianico）与上游 pi-hashline-edit-lsz（Prime Intellect）。
+**Decision**: DASHR's `read` tool is one implementation with two branches — `scheme://` → resolver; ordinary file → the vendored hashline read pipeline (`readAndServe` over the `ctxFsIO` bridge, preserving the `HASH│content` anchors and snapshot store the vendored `edit` tool depends on). The hashline code was vendored by direct source copy into `src/vendored/hashline/` (published compiled JS + `.d.ts` from dsh-better-edit's `lib/`), attributed in LICENSE/README as a 4-layer chain: pi-hashline-edit / pi-hashline-edit-pro (RimuruW + Yugimob) → pi-hashline-edit-lsz (Prime Intellect) → dsh-better-edit (Rianico) → DASHR. The external BetterEdit mount in `cordis.patch.yml` was removed; DASHR owns the whole hashline toolchain (the OMP model).
 
-**消解「closest wins / 两个 read 竞争」**：只有 DASHR 一个 read，URL 路由与 hashline 在同一工具内按路径类型分流（OMP `read.ts` 的 `resolveFileDisplayMode` 模式）。无 shadow、无 pre-execute、REPL 无第二份 read。
+**v0.1.8d correction — write delegation restored (D2-restore)**: v0.1.8c briefly made the URL-aware `write` reject-or-handle everything itself, which dropped the native write-intent policy gate from ordinary writes. v0.1.8d restored the correct split: `write` is a delegation shell — non-URL paths forward verbatim to the captured native `write` definition (policy gate, sandbox resolution, observation events intact), URL paths go to the structured scheme dispatch (all rejected this wave). See D7.
 
-**REPL 侧**：REPL 的 `read` = `tool.read` = 桥 → 这个 host read。无独立 prelude read 实现。
+**Why `read` does NOT delegate**: the read file branch is not "the native read" — it is the vendored hashline pipeline, a DASHR-introduced capability (anchors + snapshot store consumed by the vendored `edit`/`batch_edit`/`undo_last_edit`). There is no native definition to capture that would produce hashline output; capturing would silently downgrade file reads to un-anchored native reads and break the edit chain. So `read` captures nothing and owns both branches.
 
-**守卫不逃逸**：vendor 的 hashline 逻辑仍走 `ctx.fs`（沙箱 fs）；read 用 `defineTool` 注册走正常 dispatch——沙箱/审批/审计照常生效。
+**REPL side**: the REPL's `read` is `tool.read` = bridge → this host read. No independent prelude read implementation. Guards don't escape: the hashline branch goes through `ctx.fs` and the fs policy gate (`fs/write-intent` + `fs/observed`).
 
-**署名链（4 层，据 LICENSE 实测）**：pi-hashline-edit / pi-hashline-edit-pro（RimuruW + Yugimob，原始）→ pi-hashline-edit-lsz（pi port / hashline core）→ dsh-better-edit（dsh port，Rianico/dsh-better-edit）→ DASHR。LICENSE（MIT）已含前 3 条版权并列，DASHR 加第 4 条。
+### D3. Scheme handler contract (landed v0.1.8d)
 
-**spike #1 已定**：vendor 形态 = **源码直拷进 `src/vendored/`**。BetterEdit 工具面 = `read`/`edit`/`batch_edit`/`undo_last_edit` 四工具，hashline 锚点由 read 产出、edit/undo 消费，耦合一体，故 **vendor = 整包吸收**（不只 read）；不替换 `write`——write/grep/glob 的 URL 路由无 BetterEdit 冲突。**外部 BetterEdit 插件挂载（cordis.patch.yml 那行）随之移除**，DASHR 全盘接手 hashline 工具链（OMP 模型）。
-
-**vendor 清单（tasks 1.1 结论）**：
-- **源码形态**：published package 只含**编译 JS + `.d.ts`**（`lib/`），**无 TS 源码**（`.ts` 在 GitHub `Rianico/dsh-better-edit`）。DASHR 是 TS 项目 → 倾向从 GitHub 取 TS 源码集成；回退方案直拷编译 JS + types（node_modules 即可，需带 3 个运行时依赖）。
-- **文件**：`lib/` 整目录——35+ 顶层 `.js` + `types/`（38 个 `.d.ts`）+ `hashline/`（11 个）+ `guidance/`（4 个）+ `LICENSE`。
-- **运行时依赖（3）**：`diff`、`file-type`、`xxhash-wasm`（vendor 后 DASHR 需自带这 3 个 npm 依赖）。
-- **移除挂载**：`cordis.patch.yml` 里 `insert: id: dsh-better-edit` 那一行（即外部插件加载声明）。
-
-### D3. 5 个 scheme 的 handler 契约
-
-| scheme | handler 产出 | 依赖 | 备注 |
+| scheme | handler output | deps | notes |
 |---|---|---|---|
-| `skill://<name>` `/<path>` | skill 正文 / 内部资源文本 | `ctx.skills` | filesystem provider 覆盖；`ignoreResultLimits`（完整分页） |
-| `agent://` 裸 / `<id>` / `<id>/transcript` / `<id>/<child>` | roster 表 / 输出 artifact / transcript / 嵌套输出 | `dsh-subagent`、session | 吸收 `history://` |
-| `dsh://docs` / `dsh://config` | 静态文档 / resolved settings | docs、`dsh-settings` | config 必须挡 raw secrets |
-| `ctx://<var>` | 内核变量值 | DASHR 内核 query 通道 | 见 D4 |
-| `xd://` 裸 / `<device>` | 设备清单 / 设备文档；write = dispatch | （无，占位） | 先空；handler 返回「no devices mounted / unknown device」，确立 write 分发路径 |
+| `skill://<name>` `/<path>` | skill body / internal resource text (full text) | `ctx.skills`, `ctx.fs` | discovery is workspace-cwd-sensitive (see D8); path-backed (`resolvePath`) |
+| `agent://`, `agent://<id>`, `<id>/transcript`, `<id>/<child>` | roster table / output artifact / transcript / nested output | `ctx.sessions`, `ctx.subagents`, `ctx.agents` | roster has five columns: id, status, kind, parent, last activity; `status` from the live agent registry (`-` when not live), `kind` = `header.origin` (default `main`), `parent` = `header.parentSession` (`-` at top level), last activity = last session event time (ISO 8601, `-` when empty); output = last non-empty assistant message (`SubagentResult.output` semantics) |
+| `dsh://docs[/<doc>]`, `dsh://config[/<ns>]` | docs listing/content; resolved settings (namespaced, secrets stripped) | docs dir, `ctx.settings` | config redacts `role('secret')` fields AND a defensive key-name denylist; docs dir resolved by nearest-first walk-up (`docs-dir.ts`) so source/lib/installed layouts all work |
+| `ctx://` | curated read-only snapshot: `session` `{id,status,origin,delegationDepth}`, `model` `{provider,model,maxTokens}`, `cwd` (bare string); bare `ctx://` lists the keys | resolver env (`env.agent`) | strictly read-only; `CTX_NO_AGENT` / `CTX_UNKNOWN_KEY`; see D4 |
+| `dvc://`, `dvc://<device>` | `no devices mounted` / `unknown device: <name>` placeholder text; write → `DVC_NO_DEVICE` | none | renamed from `xd://` (global rename; no `xd` remains anywhere) |
+| `http://`, `https://` | disclaimer line + blank line + fetched text body | none (stateless; one handler instance serves both schemes) | GET-only, 20 s, 2 MiB, text whitelist; see D9 |
 
-**selector 语法统一**：`:50-100`、`:raw`、`/path`、`?q=` 对所有 scheme 与普通文件一视同仁（对齐 OMP）。
+**Unified selector syntax**: `:N-M`, `:raw`, `:path/…`, `?q=` are parsed once by `parseUrl` and applied uniformly by the resolver after the handler returns full text (see D10 for the http caveat). Handlers never truncate: no default line limit; only explicit selectors page.
 
-### D4. `ctx://` 读契约：JSON-safe → JSON，否则 repr
+### D4. `ctx://` is a curated read-only environment snapshot (v0.1.8d reversal)
 
-**决策**：内核 query/set 通道按名读写 `user_ns`。变量 JSON 可序列化就返回 JSON，否则返回 `repr` 文本（或 dill round-trip）。`ctx://` 裸 = 列命名空间。
+**Decision**: `ctx://` exposes exactly three snapshot keys — `session` (JSON `{id, status, origin, delegationDepth}`, undefined fields omitted), `model` (JSON `{provider, model, maxTokens}`), `cwd` (the session header cwd as a bare string, `''` when absent) — plus a bare `ctx://` listing of the key names. It reads the calling agent from the resolver env (`env.agent`, supplied by the tool layer per call). Every write is rejected (`URL_READ_ONLY`). Errors: `CTX_NO_AGENT` (no live agent in the env) and `CTX_UNKNOWN_KEY` (listing the known keys).
 
-**理由**：内核变量不保证 JSON 可序列化（这正是快照用 dill 全命名空间的原因）。要「context as variable」在 URL 形态下可用，必须定死序列化边界。
+**Why the v0.1.8c kernel-variable mapping was wrong**: that design wired `ctx://<var>` to the persistent kernel's user namespace over a new query/set channel (JSON-safe → JSON, else `repr`). Two flaws surfaced. (1) Semantic mismatch: the kernel namespace is the model's own REPL scratchpad — program state, not environment. Calling it "ctx" promised the calling context (who am I, what model, what cwd) but delivered Python variables, most of which the model had itself just created. (2) Cost/complexity: it required a kernel protocol extension, a `replRuntime` dependency in the plugin's `inject`, and a serialization boundary (dill/`repr`) for a benefit `eval` already provides — the model can read its own variables natively. The curated snapshot is the actual "context as resource": small, static, agent-derived, and readable with zero kernel coupling. The `queryVar`/`setVar` channel itself stays in the runtime layer (`runtime-surface.ts`, optional seam methods) as retained infrastructure — just no longer wired to `ctx://`.
 
-**Rationale —— 为何 CTX 而非纯 Eval（用户定）**：功能上 Eval 图灵完备、能读写任何变量，但 Eval 是「工具之一」，模型要拿上下文变量得「伸手进 kernel 箱子」——这是二级入口；`ctx://` 是「变量直接摆在面前」的一级入口，与其他 scheme 同形，模型零额外心智成本。且模型每 turn 都有任务在身，不会主动做上下文自我维护（v0.1.8b 报告 §1.3 已证），「被动读一个变量」是零注意力操作。CTX 是所有模式共用的基底；Eval 之后可按模式/Profile 差别对待。
+**Roadmap**: later phases may add snapshot keys (e.g. `preset`); none implemented yet.
 
-### D5. mask `skill` 工具
+### D5. Mask the `skill` tool — presentation-only, REPL surface only (ADR-0002)
 
-**决策**：mask 上游 `skill` 工具（presentation-layer，复用 DASHR masking），skill 寻址改走 `skill://`。`<available_skills>` 目录消息保留（那是发现层，不是工具）。
+**Decision**: `'skill'` joins `MASKED_TOOL_NAMES` (`send_message`, `report`, `skill`). Per ADR-0002 masking is presentation-only and scoped to two surfaces: the REPL `tool.*` binding names and the dashr tool-catalog section. The host-layer native `skill` tool stays registered, executable, and dispatchable; the `<available_skills>` discovery catalog is untouched. Category (e) in masking terms: alive, just not on the REPL surface.
 
-**理由**：`skill({name})` 的正文加载功能被 `read skill://<name>` 取代，mask 后工具面再减一。remote/embedded provider 列为缺口。
+**Rationale**: `skill({name})`'s body-loading role is replaced by `read skill://<name>` on the REPL surface the model actually programs against, trimming the binding surface by one. Keeping the host tool intact preserves upstream behavior for any host-plane consumer and makes the mask trivially reversible.
 
-### D6. 不做 local/artifact/spill 的 Rationale
+### D6. No local/artifact/spill scheme
 
-**决策**：不引入本地文件系统寻址等价的 scheme（`local://`、`artifact://`、spill URI 化）。
+**Decision**: no scheme equivalent for local filesystem addressing (`local://`, `artifact://`, spill URIs).
 
-**Rationale（用户定）**：直接传文件路径（full/relative）模型零摩擦接受，多开 scheme 边际收益极小。dsh-spill 的 locator 已是可读路径（`read <path>` 即可）。**只有涉云时（云端加载 skill、S3 存储）才值得用 scheme 区分**——届时再上，现在留 hook 不写死。
+**Rationale (user-decided)**: passing file paths directly is zero-friction for the model; another scheme has marginal benefit. The dsh-spill locator is already a readable path (`read <path>` works). **Only when cloud storage enters (cloud skill loading, S3) does a scheme earn its place** — the hook stays open, nothing is hard-coded.
+
+### D7. Delegation architecture: capture-before-register (v0.1.8d)
+
+**Decision**: `write`/`grep`/`glob` are delegation shells. At `agent/session-start`, BEFORE the wrappers register on the agent's own scope layer, `captureNativeTools(ctx, agent)` snapshots the native definitions via `ctx.tools.get(name, agent)` (names `write`, `grep`, `glob`), cached in a `WeakMap` per agent. Non-URL inputs call `native.execute(args, exec)` verbatim — native write-intent policy gate, sandbox resolution, ripgrep behavior, result shapes all preserved (each wrapper's declared output schema mirrors the native shape, so delegated returns validate unchanged). URL inputs take the URL branch. A missing definition is not an error at capture time; the corresponding wrapper reports `NATIVE_WRITE_UNAVAILABLE` / `NATIVE_GREP_UNAVAILABLE` / `NATIVE_GLOB_UNAVAILABLE` only if actually invoked without a delegate.
+
+**Why capture must happen BEFORE registration**: `ctx.tools.get(name, agent)` resolves through the agent's scope layers. Once the wrapper is registered on the agent's own layer, a scoped lookup of `write` resolves to the wrapper itself — delegating would recurse infinitely. Capture-before-register is the load-bearing invariant (asserted in `wiring.spec.ts`).
+
+**Why per-agent WeakMap**: each agent's inherited surface may differ (presets, other plugins); the snapshot must reflect what THAT agent would have called. The WeakMap keeps the snapshot alive with the agent and makes repeated session starts cheap. Tools register on the agent's own layer via `agent.ctx.effect` and unwind automatically on dispose — the dsh-better-edit pattern.
+
+**Why delegate at all instead of reimplementing**: the native `write` embeds policy (write-intent gate, observation events) and the native `grep`/`glob` embeds ripgrep semantics (walk order, caps, ignore rules). Reimplementing would fork behavior silently. v0.1.8c's self-implemented write proved the point by dropping the policy gate; D2-restore fixed it.
+
+### D8. skill:// discovery is workspace-cwd-sensitive
+
+**Decision**: every `ctx.skills.get(name, …)` lookup from the skill handler passes `{ cwd }` — the explicit env cwd if the tool layer resolved one, else the calling agent's `session.header.cwd`. This is the same source `dsh-tool-skill` uses when it renders `<available_skills>`, so `skill://` can address exactly the skills the catalog advertises. Without a cwd the lookup degrades to the registry's empty default workspace and every skill reports unknown (the pre-fix failure mode).
+
+### D9. http(s):// handler: curl-style plain-text GET with a disclaimer
+
+**Decision**: one stateless handler instance registered under both `http` and `https`. Contract:
+
+- **GET only**, default redirect following, one global `fetch` with a 20 s `AbortController` deadline (`URL_HTTP_TIMEOUT`).
+- **2 MiB body cap**, enforced twice: `Content-Length` precheck, then streaming byte accounting while decoding (`URL_HTTP_TOO_LARGE`, reporting the actual byte count). A degenerate bodyless runtime falls back to buffer-then-recheck.
+- **Text-only media whitelist**: `text/*` plus `application/{json,xml,yaml,toml,xhtml+xml,javascript,plain}` (charset params ignored); a missing content-type fails the check; anything else → `URL_HTTP_UNSUPPORTED_MEDIA` — binary decoding is deliberately NOT guessed.
+- **Structured failures**: non-2xx → `URL_HTTP_STATUS` (status + statusText); network/DNS → `URL_HTTP_FETCH_FAILED` (with the nested cause message); non-http(s) protocol or unparseable URL → `URL_INVALID`. Precedence: status → size precheck → media → streamed body.
+- **No scheme-specific selector; whole-URL fetch**: the handler consumes the exact raw URL from the env (`env.rawUrl` — the scheme-stripped `path` cannot recover scheme/port/query) and strict-parses it with `new URL(raw)`, so ports and queries survive at the handler level.
+- **Disclaimer first line**: every result starts with `[url-fetch] plain-text result of a direct HTTP GET (curl-equivalent). No JS execution or interaction — use browser tools, if any, for that.` followed by a blank line and the body. Rationale: a plain fetch is not a sandbox read and not a browser — the consumer must see the semantics on line one, before any body content that might otherwise be mistaken for an interactive page dump.
+
+**Known limitation (documented, not fixed)**: the shared `parseUrl` runs before the handler on the tool-layer path. Its selector markers collide with URL syntax: `?…` in a URL is consumed as a query selector (the fetch itself still uses the full raw URL via `env.rawUrl`, so only the result filtering doubles up), and a `:port` currently fails `URL_BAD_SELECTOR` end-to-end. Port-carrying URLs work only at the handler level (as tested directly); through `read` they are rejected by the shared parser. Fixing this needs an http-aware parse exemption — deferred, not silently claimed.
+
+### D10. grep/glob over URLs: path-backed translation vs content-backed materialization
+
+**Decision**: handlers MAY implement `resolvePath(env, path) → disk path` (path-backed schemes). Today only `skill://` does (skill root or joined subpath, same escape guard, `undefined` for unknown/non-directory/escaping so callers fall back to text resolution).
+
+- **grep, URL in `path`**: path-backed → translate the URL to its disk path, rewrite only `args.path`, delegate to native grep (real ripgrep over real files). Content-backed (agent, ctx, `dsh://config`, http, …) → resolve full text, write it into a fresh temp dir as `content.txt` (`withTempMaterialization`), point the native grep at it, and remove the dir in a `finally` whatever the native call returns or throws.
+- **glob, URL in `pattern`**: path-backed → native glob with `pattern: '**/*'` rooted at the resource's disk dir. Content-backed → the resolved text IS the listing: non-empty lines returned directly as `paths` (a roster table, a key list), no native call involved.
+- **glob, URL in `path`**: path-backed → translate the root; content-backed → materialize into a temp dir, glob it, clean up in `finally`.
+
+**Rationale**: reuse native ripgrep semantics wherever a real disk location exists; never reimplement search over text. Temp materialization keeps the native tool as the only search engine while conceding that content-backed resources have no disk address. Cleanup in `finally` guarantees no temp litter on error paths.
+
+### D11. Scheme-space hygiene: `history://` gone, `xd://` renamed `dvc://`
+
+**Decision**: no special cases in the scheme registry. The v0.1.8c `history://` alias ("merged into agent://" message) was deleted — `history://` now produces the generic `URL_UNREGISTERED_SCHEME` error like any other unregistered scheme. The device scheme was globally renamed `xd://` → `dvc://` (module, scheme key, error codes `DVC_NO_DEVICE`; read-side unknown device is placeholder text, not an error). One registry, one error vocabulary.
 
 ## Risks / Trade-offs
 
-- [vendor 维护负担] → BetterEdit 上游更新需手工同步 hashline 逻辑 → 缓解：vendor 时记录来源 commit + 署名，定期对照上游 CHANGELOG 同步。
-- [`ctx://` 序列化边界] → 非 JSON 变量返回 repr，模型可能误读 → 缓解：handler 输出带类型标注，明确「这是 repr 文本」。
-- [`dsh://config` 泄密] → resolved settings 可能含 API key → 缓解：config handler 白名单字段，排除 credentials/env secret。
-- [mask `skill` 丢 remote skill] → 远程/嵌入式 skill 不再可达 → 缓解：列为已知缺口，`ctx.skills` 若后续支持 remote provider 再补。
+- [Vendor maintenance] BetterEdit upstream updates need manual sync of the hashline logic → mitigation: source commit + attribution recorded; periodically diff against upstream CHANGELOG.
+- [`dsh://config` secret leak] resolved settings may carry API keys → mitigation: `describe({redactSecrets: true})` plus a defensive key-name denylist (`isSecretKey`) as a second net.
+- [Mask `skill` loses remote skills on the REPL surface] remote/embedded providers are not reachable via `skill://` → mitigation: known gap; revisit if `ctx.skills` grows a remote provider.
+- [Delegation capture drift] if a host deploys tools late (after `agent/session-start`), the captured set may miss them → mitigation: capture errors are logged, wrappers report `NATIVE_*_UNAVAILABLE` loudly instead of silently reimplementing.
+- [http fetch surface] a GET-only fetcher still reaches the network → mitigation: hard budget (20 s / 2 MiB), text-only whitelist, disclaimer line, no selectors of its own; no JS execution by construction.
+- [Selector/URL syntax collision] `:port` fails the shared selector parse on the tool path (see D9) → mitigation: documented as a known limitation; fixing requires an http-aware parse exemption.
 
 ## Migration Plan
 
-- 无破坏性迁移：新增插件行 + mask `skill` + `history://` 语义并入 `agent://`。
-- 回滚：卸载 `dsh-url-schema` 插件、撤销 mask 即回到纯工具面。
-- 部署：DASHR `read` 工具（URL 路由 + vendored hashline）+ mask `skill` + `history://` 语义并入 `agent://`。
+- No destructive migration: one new plugin row + one mask entry + the delegation wrappers. Non-URL behavior is delegated, not forked.
+- Rollback: unmount `dsh-url-schema` and drop the `'skill'` mask → back to the pure native tool plane.
+- Deploy: DASHR `read` (URL routing + vendored hashline), delegation-shell `write`/`grep`/`glob`, 7 scheme names (skill/agent/dsh/ctx/dvc/http/https), skill mask on the REPL surface.
 
 ## Open Questions
 
-- **spike #1（vendor 机制）**：hashline vendor 的机械形态（源码直拷 vs 依赖引 dsh-better-edit）+ BetterEdit 在 distro bundle 的去留。解答不改 specs（5 个 scheme 契约不变），只改实现路径，列为首个任务而非阻塞项。
+- **spike #1 (vendor mechanism)** — RESOLVED: vendor = direct copy of the published compiled JS + `.d.ts` from dsh-better-edit's `lib/` into `src/vendored/hashline/` (no TS source exists in the package); runtime deps `diff`, `file-type`, `xxhash-wasm` carried by DASHR; external mount removed.
+- **http selector exemption** — OPEN (see D9 known limitation): whether `parseUrl` should skip selector extraction for `http`/`https` so port-carrying URLs resolve end-to-end. Answer changes only parser behavior, not the handler contract.

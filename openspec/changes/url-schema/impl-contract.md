@@ -1,31 +1,34 @@
-# DASHR URL Schema 实现契约 (v0.1.8c)
+# DASHR URL Schema implementation contract (v0.1.8d)
 
-跨任务共享契约。每个 doer 必读本文件 + `openspec/changes/url-schema/design.md` + `tasks.md`。
+Cross-task shared contract. Every doer reads this file + `openspec/changes/url-schema/design.md` + `tasks.md`.
 
-## 仓库基线
-- **仓库根** `/home/u1/workspaces/dashr/`；**包根（npm/tsc 工作目录）** = `/home/u1/workspaces/dashr/dashr/`。所有源码路径以包根为基准（`src/index.ts`、`cordis.patch.yml`、`tsconfig.json`、`node_modules/@deepseek-ai/dsh-tools/`）。
-- build: `npm run build`（tsdown，在包根 `dashr/` 下跑）；typecheck: `npm run typecheck`（tsc --noEmit）；test: `npm run test`（vitest --run）。
-- 每个 task 验收至少跑 `npm run typecheck` 通过。**不跑全量 test**（最后 8.1 统一跑）。
-- **⚠️ 工作树有未提交的用户改动（compaction 移除、package 升 0.1.9、preset 删除等）。不许 revert / checkout / clean / git reset / 改无关文件。只加新文件 + 定向编辑本任务指定的文件。**
+## Repository baseline
+- **Repo root** `/home/u1/workspaces/dashr/`; **package root (npm/tsc working dir)** = `/home/u1/workspaces/dashr/dashr/`. All source paths below are relative to the package root (`src/index.ts`, `cordis.patch.yml`, `tsconfig.json`, `node_modules/@deepseek-ai/dsh-tools/`).
+- build: `npm run build` (tsdown, from the package root); typecheck: `npm run typecheck` (tsc --noEmit); test: `npm run test` (vitest --run).
+- Every task acceptance runs at least `npm run typecheck`. Full suite runs once at integration time (8.1 / 9.12 — green at 239/239 for v0.1.8d).
 
-## 架构决策（不许偏离）
-1. 新建插件 `dsh-url-schema`，独立模块目录 `dashr/src/url-schema/`，独立挂载（新 cordis.patch.yml 行，或由 dashr-repl `ctx.plugin()` 挂载——由 2.1 定，遵循现有模式）。
-2. `dsh-url-schema` 拥有：URL resolver、URL-aware read/write/grep/glob、vendored hashline、5 个 scheme handler、skill 工具 mask。
-3. `dashr-repl`（`src/index.ts`）只改两处：(a) ctx:// 内核 query/set 通道；(b) `MASKED_TOOL_NAMES` 加 `'skill'`。
-4. read 工具 = 一个实现两条分支：`scheme://` → resolver；普通文件 → vendored hashline。
+## Architecture decisions (binding — see design.md for rationale)
+1. One plugin `dsh-url-schema`, module dir `dashr/src/url-schema/`, mounted by `dashr-repl` via `ctx.plugin()`; `inject = ['tools','fs','skills','subagents','sessions','settings','agents']` (NO `replRuntime` — nothing reads it anymore).
+2. The plugin owns: the URL resolver, the URL-aware read/write/grep/glob, the vendored hashline, all scheme handlers, the dvc write placeholder. `dashr-repl` contributes only the `'skill'` entry in `MASKED_TOOL_NAMES`.
+3. **Delegation architecture (v0.1.8d)**: at `agent/session-start`, `captureNativeTools(ctx, agent)` snapshots the native `write`/`grep`/`glob` definitions via `ctx.tools.get(name, agent)` — strictly BEFORE the wrappers register on the agent's own scope layer (a later capture would resolve to the wrapper itself: infinite recursion). Cached per agent in a `WeakMap`. Non-URL inputs delegate verbatim: `native.execute(args, exec)`. Missing definitions surface as `NATIVE_*_UNAVAILABLE` only at call time.
+4. `read` captures nothing: URL branch → resolver; file branch → vendored hashline (`readAndServe` over `ctxFsIO`, anchors + snapshot store for the vendored edit chain).
+5. `write` URL branch: every scheme write rejected this wave via the structured dispatch (`writeScheme` hook overridable when a real write channel lands).
 
-## 文件布局
+## File layout (landed)
 ```
 dashr/src/url-schema/
-  index.ts            # 插件入口 name='dsh-url-schema', inject=['tools'], apply(ctx)
-  resolver.ts         # UrlResolver
-  selector.ts         # URL 解析 + selector
-  handlers/{skill,agent,dsh,ctx,xd}.ts
+  index.ts            # plugin entry: name='dsh-url-schema', inject=[...], apply(ctx)
+  resolver.ts         # UrlResolver: register/resolve/resolvePath
+  selector.ts         # parseUrl + applySelector + UrlSchemaError
+  native-capture.ts   # captureNativeTools (capture-before-register, WeakMap<Agent>)
+  docs-dir.ts         # resolveDocsDir: nearest-first walk-up for the docs tree
+  handlers/{skill,agent,dsh,ctx,dvc,http}.ts
   tools/{read,write,grep,glob}.ts
-  vendored/hashline/  # 2.3 拷入
+  tools/materialize.ts  # withTempMaterialization for content-backed searches
+  vendored/hashline/    # vendored dsh-better-edit lib (JS + .d.ts)
 ```
 
-## Resolver 契约（2.2 产出，2.4/2.5/3-7 消费）
+## Resolver + factory signatures (as landed)
 ```ts
 // selector.ts
 export type Selector =
@@ -34,39 +37,64 @@ export type Selector =
   | { kind: 'path'; value: string }
   | { kind: 'query'; q: string }
 export interface ParsedUrl { scheme: string; path: string; selector: Selector | null }
-export function parseUrl(raw: string): ParsedUrl   // 无 scheme 抛错
+export function parseUrl(raw: string): ParsedUrl          // no scheme → URL_NO_SCHEME
 export function applySelector(text: string, sel: Selector | null): string
+export class UrlSchemaError extends Error { code: string } // structured error carrier
 
 // resolver.ts
-export interface ResolverEnv { /* ctx.skills / subagents / settings / 内核通道 等 */ }
+export interface ResolverEnv {}                            // handlers widen it (agent/cwd/rawUrl)
 export interface SchemeHandler {
-  resolve(env: ResolverEnv, path: string): Promise<string>   // 返回全文，selector 由调用方 apply
+  resolve(env: ResolverEnv, path: string): Promise<string>                    // FULL text
+  resolvePath?(env: ResolverEnv, path: string): Promise<string | undefined>   // path-backed only
 }
 export class UrlResolver {
   register(scheme: string, handler: SchemeHandler): void
-  resolve(env: ResolverEnv, url: string): Promise<string>    // parseUrl → dispatch → applySelector
+  resolve(env: ResolverEnv, url: string): Promise<string>      // parse → dispatch → applySelector
+  resolvePath(env: ResolverEnv, url: string): Promise<string | undefined>  // selectors NOT applied
 }
+
+// native-capture.ts
+export function captureNativeTools(ctx: Context, agent: Agent): NativeToolSet // {write?,grep?,glob?}
+
+// handlers
+createSkillHandler(deps: { skills: SkillRegistrySurface; fs: SkillFsSurface }): SchemeHandler   // + resolvePath
+createAgentHandler(deps: { sessions; subagents; agents? }): SchemeHandler
+createDshHandler(deps: { settings?: SettingsProvider; docsDir?: string }): SchemeHandler
+createCtxHandler(): SchemeHandler                                 // reads env.agent
+createDvcHandler(deps?: DvcHandlerDeps): SchemeHandler            // placeholder
+createHttpHandler(): SchemeHandler                                // register under HTTP_SCHEMES both
+export const HTTP_SCHEMES = ['http', 'https'] as const
+export function dispatchDvcWrite(path: string, content: string): never  // DVC_NO_DEVICE
+
+// tools (registered on the agent's own scope layer)
+createReadTool(deps: { resolver; fs: FileSystem; ctx: Context }): ToolDefinition
+createWriteTool(deps: { nativeWrite?: ToolDefinition; writeScheme?: (...) => Promise<WriteOutcome> }): ToolDefinition
+createGrepTool(deps: { resolver; nativeGrep?: ToolDefinition }): ToolDefinition
+createGlobTool(deps: { resolver; nativeGlob?: ToolDefinition }): ToolDefinition
+
+// docs-dir.ts
+export function resolveDocsDir(): string | undefined
 ```
 
-## 工具注册模式
-- `defineTool({ name, description, parameters, output, execute })` 来自 `@deepseek-ai/dsh-tools`。
-- 注册：`ctx.tools.register(toolDef)`（参考 `src/index.ts:994`）。
-- read 工具注册名 `'read'`（shadow 上游 native read + 被移除的 BetterEdit read）。
-- 参考 BetterEdit：`~/.dsh/profiles/web/node_modules/dsh-better-edit/lib/tool-read.js`。
+## Registered schemes (v0.1.8d)
+`skill`, `agent`, `dsh`, `ctx`, `dvc`, `http`, `https` (http/https share one stateless handler instance). `history://` has no special case → `URL_UNREGISTERED_SCHEME`. The device scheme is `dvc://` (the `xd` name is gone).
 
-## 5 个 scheme（详见 design.md D3）
-- `skill://<name>[/<path>]` → `ctx.skills`（filesystem provider）
-- `agent://` 四形态：裸=roster、`<id>`=output、`<id>/transcript`、`<id>/<child>`
-- `dsh://docs[/<doc>]` + `dsh://config`（config 挡 secret）
-- `ctx://<var>`（裸=列命名空间；依赖 6.1 内核通道）
-- `xd://` 空占位（裸=no devices；`<device>`=unknown；write=报错）
+## Error-code inventory (structured `UrlSchemaError.code`)
+- **Parse/routing**: `URL_NO_SCHEME`, `URL_UNREGISTERED_SCHEME`, `URL_BAD_SELECTOR`, `URL_INVALID` (http URL parse/protocol)
+- **skill**: `URL_SKILL_NOT_FOUND`, `URL_SKILL_NO_RESOURCE_BASE`, `URL_SKILL_RESOURCE_ESCAPE`
+- **agent**: `AGENT_UNKNOWN_ID` (unknown id / unknown child / child not live), `AGENT_BAD_PATH` (>2 segments)
+- **dsh**: `URL_DOCS_UNAVAILABLE`, `URL_DOC_NOT_FOUND` (missing / escape / not a file), `URL_SETTINGS_UNAVAILABLE`, `URL_UNKNOWN_SETTINGS_NAMESPACE`, `URL_UNKNOWN_RESOURCE`
+- **ctx**: `CTX_NO_AGENT`, `CTX_UNKNOWN_KEY`
+- **dvc**: `DVC_NO_DEVICE` (write dispatch)
+- **http**: `URL_HTTP_TIMEOUT`, `URL_HTTP_FETCH_FAILED`, `URL_HTTP_STATUS`, `URL_HTTP_TOO_LARGE`, `URL_HTTP_UNSUPPORTED_MEDIA`
+- **write dispatch**: `URL_READ_ONLY` (ctx), `URL_WRITE_UNSUPPORTED` (other registered schemes), plus `URL_UNREGISTERED_SCHEME`
+- **delegation**: `NATIVE_WRITE_UNAVAILABLE`, `NATIVE_GREP_UNAVAILABLE`, `NATIVE_GLOB_UNAVAILABLE`
 
-## vendored hashline（2.3）
-- 源：`~/.dsh/profiles/web/node_modules/dsh-better-edit/lib/`（编译 JS + .d.ts，无 TS 源码）。
-- 选项 A：直拷编译 JS + .d.ts；选项 B：从 GitHub `Rianico/dsh-better-edit` 取 TS 源码。
-- 运行时依赖 3 个 npm 包需自带：`diff`、`file-type`、`xxhash-wasm`。
-- 署名：LICENSE/README 加 4 层版权（见 design.md D2）。
+## vendored hashline
+- Source: dsh-better-edit's published `lib/` (compiled JS + `.d.ts`; no TS source ships in the package), copied into `src/vendored/hashline/`.
+- Runtime deps carried by DASHR: `diff`, `file-type`, `xxhash-wasm`.
+- Attribution: LICENSE/README carry the 4-layer copyright chain (see design.md D2). The external BetterEdit mount was removed from `cordis.patch.yml`.
 
-## 验收原则
-- doer 产出后由 verifier 检查：契约一致性、`npm run typecheck` 通过、行为符合 task 验收条件。
-- 最终验收由主 agent 按 task 分组进行（Task 2 = 2.1-2.5 总体验收）。
+## Acceptance principles
+- Doer output is verified by a reviewer: contract consistency, `npm run typecheck` green, behavior matching the task's acceptance line.
+- Final acceptance is run by the main agent per task group; the v0.1.8d full-suite run is 9.12 (239/239 green).

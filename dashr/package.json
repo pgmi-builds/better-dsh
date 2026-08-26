@@ -1,7 +1,7 @@
 {
-"name": "@pgmi-builds/dashr",
-"description": "DASHR: a persistent Python-kernel REPL for DeepSeek Harness (dsh) — the `eval` tool with `tool.*` bindings, sub-agents, and snapshots",
-  "version": "0.1.10",
+  "name": "@pgmi-builds/dashr",
+  "description": "DASHR: a persistent Python-kernel REPL for DeepSeek Harness (dsh) — the `eval` tool with `tool.*` bindings, sub-agents, and snapshots",
+  "version": "0.1.8-d",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -19,10 +19,12 @@
   },
   "files": [
     "lib",
+    "docs",
     "cordis.patch.yml",
     "control-prompt.md"
   ],
   "scripts": {
+    "prebuild": "node -e \"fs.cpSync('../docs','docs',{recursive:true})\"",
     "build": "tsdown",
     "typecheck": "tsc --noEmit",
     "test": "vitest --run",

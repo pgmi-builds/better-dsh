@@ -2,15 +2,13 @@
  * `UrlResolver`: the scheme→handler registry + dispatch for `dsh-url-schema`.
  *
  * One registry owns the five scheme handlers (`skill://`, `agent://`,
- * `dsh://`, `ctx://`, `xd://`) and resolves a URL end-to-end:
+ * `dsh://`, `ctx://`, `dvc://`) and resolves a URL end-to-end:
  * `parseUrl` → dispatch to the registered handler → `applySelector`.
  * Handlers return the FULL text of the resource; the selector is applied
  * uniformly by this layer, so every scheme shares one selector syntax.
  */
 
 import { applySelector, parseUrl, UrlSchemaError } from './selector.ts'
-
-import { historyAliasHint } from './handlers/agent.ts'
 
 /**
  * Minimal environment handed to every scheme handler. Intentionally empty in
@@ -21,9 +19,21 @@ import { historyAliasHint } from './handlers/agent.ts'
 export interface ResolverEnv {
 }
 
-/** One scheme handler: resolves the URL `path` to its full text. */
+/**
+ * One scheme handler: resolves the URL `path` to its full text, and — when
+ * the scheme is path-backed — optionally maps it to a real on-disk location.
+ */
 export interface SchemeHandler {
   resolve(env: ResolverEnv, path: string): Promise<string>
+  /**
+   * Optional path-backed view: the real on-disk path of the addressed
+   * resource, so the URL-aware `grep`/`glob` can translate a URL into a disk
+   * path and hand it to the native tool. Only path-backed handlers implement
+   * this (skill resources, `dsh://docs`); content-backed handlers (agent,
+   * ctx, config, http, …) omit it, and callers fall back to materializing the
+   * resolved text. `undefined` means "this path is not path-backed".
+   */
+  resolvePath?(env: ResolverEnv, path: string): Promise<string | undefined>
 }
 
 /** Scheme→handler registry that resolves `scheme://` URLs end-to-end. */
@@ -39,10 +49,6 @@ export class UrlResolver {
    * Resolve a `scheme://` URL to its selected text: parse the URL, dispatch
    * to the registered handler for the scheme, then apply the selector.
    *
-   * `history://` (deprecated, absorbed into `agent://` per design.md D3) is
-   * special-cased: instead of `URL_UNREGISTERED_SCHEME` it returns a friendly
-   * pointer to the equivalent `agent://<id>/transcript` URL.
-   *
    * Throws a structured {@link UrlSchemaError} for a scheme-less URL
    * (`URL_NO_SCHEME`, from {@link parseUrl}) or an unregistered scheme
    * (`URL_UNREGISTERED_SCHEME`).
@@ -51,9 +57,6 @@ export class UrlResolver {
     const parsed = parseUrl(url)
     const handler = this.handlers.get(parsed.scheme)
     if (handler === undefined) {
-      if (parsed.scheme === 'history') {
-        return applySelector(historyAliasHint(parsed.path), parsed.selector)
-      }
       const registered = [...this.handlers.keys()].sort().join(', ')
       throw new UrlSchemaError(
         'URL_UNREGISTERED_SCHEME',
@@ -62,5 +65,21 @@ export class UrlResolver {
     }
     const text = await handler.resolve(env, parsed.path)
     return applySelector(text, parsed.selector)
+  }
+
+  /**
+   * Resolve a `scheme://` URL to its on-disk path when its handler is
+   * path-backed: parse the URL, dispatch to the handler's optional
+   * `resolvePath`, and return the real disk location. Returns `undefined`
+   * for an unregistered scheme, a handler without `resolvePath`, or a path
+   * the handler cannot map — callers then fall back to text resolution
+   * (whose unregistered-scheme error is the structured generic one).
+   * Selectors are NOT applied: they operate on resolved text, not paths.
+   */
+  async resolvePath(env: ResolverEnv, url: string): Promise<string | undefined> {
+    const parsed = parseUrl(url)
+    const handler = this.handlers.get(parsed.scheme)
+    if (handler?.resolvePath === undefined) return undefined
+    return await handler.resolvePath(env, parsed.path)
   }
 }

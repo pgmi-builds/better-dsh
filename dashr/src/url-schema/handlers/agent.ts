@@ -2,8 +2,8 @@
  * `agent://` scheme handler — subagent roster, output artifact, transcript,
  * and nested-child output.
  *
- * Absorbs the `history://` semantics (roster + transcript) plus the output
- * artifact and nested-child lookups into one scheme, per design.md D3:
+ * Roster, transcript, output artifact, and nested-child lookups share one
+ * scheme, per design.md D3:
  *
  *   - `agent://`                → roster table (all live sessions)
  *   - `agent://<id>`            → the agent's final output artifact
@@ -17,6 +17,8 @@
  *     that is deliberately not in this package's dependency graph.
  *   - `ctx.sessions` — the event-sourced session store, for the roster
  *     (`list()`), live-session lookup (`get()`), output, and transcript.
+ *   - `ctx.agents` — the live agent registry, for the roster `status` column
+ *     (optional; a session with no live agent renders `-`).
  */
 
 import { SessionId, type Session, type SessionStore } from '@deepseek-ai/dsh-session'
@@ -44,29 +46,19 @@ export interface AgentSubagentsSurface {
   listChildren(parentSessionId: SessionId, signal?: AbortSignal): Promise<AgentChildEntry[]>
 }
 
+/** The subset of the live agent registry (`ctx.agents`) the roster reads. */
+export interface AgentRegistrySurface {
+  get(id: SessionId): { readonly status: 'idle' | 'running' } | undefined
+}
+
 /** Dependencies captured by the agent:// handler. */
 export interface AgentHandlerDeps {
   /** Live session store — roster, output, transcript reads. */
   sessions: Pick<SessionStore, 'list' | 'get'>
   /** Subagent enumeration — nested-child resolution. */
   subagents: AgentSubagentsSurface
-}
-
-/**
- * Friendly migration pointer for the deprecated `history://` scheme.
- *
- * Per design.md D3, `history://` was absorbed into `agent://` (the agent
- * handler already serves the roster and the full `<id>/transcript`). The
- * resolver routes an unregistered `history://` URL here instead of raising
- * `URL_UNREGISTERED_SCHEME`, so callers get a pointer to the equivalent
- * `agent://` URL rather than a bare "no handler" error.
- */
-export function historyAliasHint(rawPath: string): string {
-  const id = rawPath.replace(/^\/+/, '').trim()
-  if (id === '') {
-    return 'history:// 已并入 agent://：裸 agent:// 列出全部 session，agent://<id>/transcript 查看完整 transcript'
-  }
-  return `history:// 已并入 agent://，请用 agent://${id}/transcript 查看完整 transcript`
+  /** Live agent registry — roster `status`; absent renders `-` for every row. */
+  agents?: AgentRegistrySurface
 }
 
 /**
@@ -74,13 +66,13 @@ export function historyAliasHint(rawPath: string): string {
  * resource; the resolver applies any `:raw`/`:N-M`/`/path`/`?q=` selector.
  */
 export function createAgentHandler(deps: AgentHandlerDeps): SchemeHandler {
-  const { sessions, subagents } = deps
+  const { sessions, subagents, agents } = deps
   return {
     async resolve(_env: ResolverEnv, path: string): Promise<string> {
       const segments = path.replace(/^\/+/, '').split('/').filter((seg) => seg !== '')
 
       if (segments.length === 0) {
-        return renderRoster(sessions.list())
+        return renderRoster(sessions.list(), agents)
       }
 
       const [id, rest] = [segments[0]!, segments[1]]
@@ -138,17 +130,26 @@ async function nestedOutput(
   return outputArtifact(childSession)
 }
 
-/** Roster table: every live session, oldest first, one row each. */
-function renderRoster(sessions: Session[]): string {
+/**
+ * Roster table: every live session, oldest first, one row each. Columns per
+ * spec: `id`, `status` (live-registry state, `-` when not live), `kind`
+ * (`subagent` or `main`), `parent` (delegating parent session id, `-` at
+ * top level), `last activity` (last event time, ISO 8601, `-` when empty).
+ */
+function renderRoster(sessions: Session[], agents?: AgentRegistrySurface): string {
   if (sessions.length === 0) {
     return 'no agents'
   }
   const sorted = [...sessions].sort((a, b) => a.header.createdAt - b.header.createdAt)
   const rows = sorted.map((session) => {
     const header = session.header
-    return `${session.id}\t${header.origin ?? 'main'}\t${header.delegationDepth ?? 0}\t${header.cwd ?? ''}`
+    const status = agents?.get(session.id)?.status ?? '-'
+    const parent = header.parentSession ?? '-'
+    const lastEvent = session.events.at(-1)
+    const lastActivity = lastEvent === undefined ? '-' : new Date(lastEvent.time).toISOString()
+    return `${session.id}\t${status}\t${header.origin ?? 'main'}\t${parent}\t${lastActivity}`
   })
-  return ['id\torigin\tdepth\tcwd', ...rows].join('\n')
+  return ['id\tstatus\tkind\tparent\tlast activity', ...rows].join('\n')
 }
 
 /**

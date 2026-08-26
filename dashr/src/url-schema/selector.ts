@@ -1,7 +1,7 @@
 /**
  * URL scheme parsing + unified selector application for `dsh-url-schema`.
  *
- * All five schemes (`skill://`, `agent://`, `dsh://`, `ctx://`, `xd://`)
+ * All five schemes (`skill://`, `agent://`, `dsh://`, `ctx://`, `dvc://`)
  * share one URL grammar and one selector syntax (aligned with OMP):
  *
  *     scheme "://" path [ selector ]
@@ -47,24 +47,37 @@ export class UrlSchemaError extends Error {
 const SCHEME_RE = /^([a-z][a-z0-9]*):\/\/(.*)$/
 /** One line range token: `N`, `N-M`, or open `N-`. */
 const RANGE_RE = /^(\d+)(?:-(\d*))?$/
+/**
+ * Schemes whose URL syntax reserves `:` and `?` (ports, query strings): the
+ * whole remainder is the path and NO selector is parsed. The http(s) handler
+ * is documented as selector-free for exactly this reason — `:8443` is a port
+ * and `?q=` a server query, never a line range or content filter.
+ */
+const SELECTOR_EXEMPT: Record<string, true> = { http: true, https: true }
 
 /**
  * Parse a `scheme://` URL into `{ scheme, path, selector }`.
  *
  * Throws a structured {@link UrlSchemaError} (code `URL_NO_SCHEME`) when the
  * URL has no `scheme://` prefix. Any lowercase scheme is accepted here; the
- * resolver rejects schemes with no registered handler.
+ * resolver rejects schemes with no registered handler. Selector-exempt
+ * schemes ({@link SELECTOR_EXEMPT}) return the whole remainder as the path.
  */
 export function parseUrl(raw: string): ParsedUrl {
   const m = SCHEME_RE.exec(raw)
   if (m === null) {
     throw new UrlSchemaError(
       'URL_NO_SCHEME',
-      `URL "${raw}" has no scheme — expected "scheme://" (skill://, agent://, dsh://, ctx://, xd://)`,
+      `URL "${raw}" has no scheme — expected "scheme://" (skill://, agent://, dsh://, ctx://, dvc://, http://, https://)`,
     )
   }
   const scheme = m[1]!
   const rest = m[2]!
+
+  // Selector-exempt schemes: `:`/`?` belong to the URL itself (port, query).
+  if (SELECTOR_EXEMPT[scheme] === true) {
+    return { scheme, path: rest, selector: null }
+  }
 
   const colon = rest.indexOf(':')
   const question = rest.indexOf('?')

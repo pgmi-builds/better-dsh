@@ -1,46 +1,63 @@
 /**
- * `write` tool — URL-aware full-file write.
+ * `write` tool — URL-aware full-file write (delegation architecture).
  *
- * Two branches, mirroring the read tool:
- * - `scheme://` URL → scheme write dispatch (the framework). This wave wires
- *   only `xd://`, which fails with the structured `XD_NO_DEVICE` error via
- *   {@link dispatchXdWrite}; every other scheme falls back to a structured
- *   `URL_WRITE_UNSUPPORTED` error until its write channel lands (e.g. the
- *   `ctx://` kernel set channel in wave 6). The optional `writeScheme` deps
- *   hook is the extension point the integration step fills as schemes gain
- *   write handlers.
- * - ordinary path → the native write executor captured in `deps.nativeWrite`.
- *   Upstream `@deepseek-ai/dsh-tool-fs` is a Cordis plugin: its
- *   `applyWriteTool` registers onto a `Context` and is NOT exported, so the
- *   integration step supplies the native behavior as a function — delegation,
- *   not reimplementation.
- *
- * Services required (for the integration/wiring step):
- * - `nativeWrite` — wraps `ctx.fs.writeText` (upstream write behavior).
- * - `writeScheme` (optional) — per-scheme write dispatch; defaults to the
- *   xd://-error-only placeholder defined in this module.
+ * Two branches:
+ * - ordinary path → the captured NATIVE `write` {@link ToolDefinition},
+ *   forwarded verbatim (`nativeWrite.execute(args, exec)`): the native
+ *   write-intent policy gate, sandbox resolution, and observation events all
+ *   stay intact. The definition comes from `captureNativeTools` BEFORE this
+ *   wrapper registers on the agent's own scope layer — a later capture would
+ *   resolve back to this wrapper (infinite recursion). Without a native
+ *   delegate the branch reports the structured `NATIVE_WRITE_UNAVAILABLE`
+ *   error instead of silently reimplementing a write.
+ * - `scheme://` URL → structured scheme dispatch. Every write channel is
+ *   rejected this wave: `dvc://` has no device layer (`DVC_NO_DEVICE`),
+ *   `ctx://` is a curated read-only snapshot (`URL_READ_ONLY`), any other
+ *   registered scheme has no write channel wired (`URL_WRITE_UNSUPPORTED`),
+ *   and an unregistered scheme gets the resolver-style generic error. The
+ *   optional `writeScheme` hook lets the integration step override the
+ *   dispatch as real write channels land.
  */
 
 import { defineTool } from '@deepseek-ai/dsh-tools'
-import type { ToolDefinition, ToolRunContext } from '@deepseek-ai/dsh-tools'
+import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
 
 import type { ResolverEnv } from '../resolver.ts'
 import { parseUrl, UrlSchemaError } from '../selector.ts'
-import { dispatchXdWrite } from '../handlers/xd.ts'
 
-/** Canonical write outcome (mirrors upstream `dsh-tool-fs` write result shape). */
+/**
+ * Canonical write outcome (mirrors the upstream `dsh-tool-fs` write result
+ * shape, so a delegated native return value validates against this tool's
+ * declared output schema unchanged).
+ */
 export interface WriteOutcome {
   path: string
   operation: 'create' | 'update'
+  /** The replaced content (`null` when the file was created). */
+  before: string | null
+  /** The written content. */
+  after: string
 }
 
 /** Dependencies captured by the write tool. */
 export interface WriteToolDeps {
-  /** Native write for non-URL paths (the integration step wraps `ctx.fs.writeText`). */
-  nativeWrite: (filePath: string, content: string, exec: ToolRunContext) => Promise<WriteOutcome>
-  /** Optional per-scheme write dispatch; defaults to the xd://-error-only placeholder. */
-  writeScheme?: (scheme: string, path: string, content: string, env: ResolverEnv) => Promise<WriteOutcome>
+  /** Native write definition captured before this wrapper registered. */
+  nativeWrite?: ToolDefinition
+  /** Optional per-scheme write dispatch; defaults to the all-rejected placeholder. */
+  writeScheme?: (
+    scheme: string,
+    path: string,
+    content: string,
+    env: ResolverEnv,
+  ) => Promise<WriteOutcome>
 }
+
+/**
+ * Schemes the URL schema registers (v0.1.8d): the default write dispatch
+ * keys off this static table; the integration step can replace the whole
+ * dispatch through `writeScheme` when it needs the live registry.
+ */
+const REGISTERED_SCHEMES = ['agent', 'ctx', 'dsh', 'dvc', 'http', 'https', 'skill'] as const
 
 /** Detects a `scheme://` prefix with the resolver layer's own parser. */
 function isSchemeUrl(raw: string): boolean {
@@ -53,20 +70,36 @@ function isSchemeUrl(raw: string): boolean {
   }
 }
 
-/** Default scheme-write dispatch: only `xd://` is wired (as an error) this wave. */
-function defaultSchemeWrite(scheme: string, path: string, content: string): Promise<WriteOutcome> {
-  if (scheme === 'xd') {
-    dispatchXdWrite(path, content)
+/** Default scheme-write dispatch: every write channel is rejected this wave. */
+function defaultSchemeWrite(scheme: string, path: string): WriteOutcome {
+  if (scheme === 'dvc') {
+    throw new UrlSchemaError(
+      'DVC_NO_DEVICE',
+      'dvc:// write dispatch: no devices mounted to route the write to',
+    )
+  }
+  if (scheme === 'ctx') {
+    throw new UrlSchemaError(
+      'URL_READ_ONLY',
+      `ctx:// is a curated read-only snapshot — write to ctx://${path} is not supported`,
+    )
+  }
+  if ((REGISTERED_SCHEMES as readonly string[]).includes(scheme)) {
+    throw new UrlSchemaError(
+      'URL_WRITE_UNSUPPORTED',
+      `write to ${scheme}:// is not supported (read-only scheme, or its write channel is not wired yet)`,
+    )
   }
   throw new UrlSchemaError(
-    'URL_WRITE_UNSUPPORTED',
-    `write to ${scheme}:// is not supported (read-only scheme, or its write channel is not wired yet)`,
+    'URL_UNREGISTERED_SCHEME',
+    `no handler registered for scheme "${scheme}" (registered: ${REGISTERED_SCHEMES.join(', ')})`,
   )
 }
 
 /**
  * Build the `write` {@link ToolDefinition}: `scheme://` paths route to the
- * scheme write dispatch, ordinary paths to the native write executor.
+ * scheme write dispatch, ordinary paths delegate to the captured native
+ * write definition with args and exec passed through untouched.
  */
 export function createWriteTool(deps: WriteToolDeps): ToolDefinition {
   const { nativeWrite } = deps
@@ -74,7 +107,7 @@ export function createWriteTool(deps: WriteToolDeps): ToolDefinition {
   return defineTool({
     name: 'write',
     description:
-      'Create or fully replace a file. `file_path` may be a filesystem path or a scheme:// URL (xd:// write dispatch errors until a device layer is mounted).',
+      'Create or fully replace a file. `file_path` may be a filesystem path or a scheme:// URL (URL writes are rejected per scheme until a write channel is wired).',
     parameters: {
       file_path: {
         type: 'string',
@@ -94,6 +127,8 @@ export function createWriteTool(deps: WriteToolDeps): ToolDefinition {
         properties: {
           path: { type: 'string', required: true },
           operation: { type: 'string', required: true, enum: ['create', 'update'] as const },
+          before: { required: true, oneOf: [{ type: 'string' }, { type: 'null' }] },
+          after: { type: 'string', required: true },
         },
       },
       render: (_args, value) => {
@@ -106,7 +141,14 @@ export function createWriteTool(deps: WriteToolDeps): ToolDefinition {
         const parsed = parseUrl(args.file_path)
         return writeScheme(parsed.scheme, parsed.path, args.content, {})
       }
-      return nativeWrite(args.file_path, args.content, exec)
+      if (nativeWrite === undefined) {
+        throw new UrlSchemaError(
+          'NATIVE_WRITE_UNAVAILABLE',
+          'the host did not deploy a native write tool — URL-aware write cannot delegate filesystem writes',
+        )
+      }
+      return nativeWrite.execute(args, exec) as Promise<WriteOutcome>
     },
   })
 }
+
