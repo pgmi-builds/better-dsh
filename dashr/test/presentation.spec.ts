@@ -53,7 +53,7 @@ describe('assembly — the DASHR row collapses its scope, and only its scope', (
     expect(catalog?.text).toContain('tool.echo(')
     expect(catalog?.text).not.toContain('class Tools(Protocol)')
     expect(catalog?.text).not.toContain('tools: Tools')
-    expect(catalog?.text).toContain('tool.send_message(')
+    expect(catalog?.text).toContain('tool.agent_message(')
     expect(catalog?.text).not.toContain('eval(')
   })
 
@@ -75,18 +75,18 @@ describe('assembly — the DASHR row collapses its scope, and only its scope', (
     expect(text).not.toContain('tools.')
     // The renamed file glob and the bridge tools get flat guidance.
     expect(text).toContain('tool.glob')
-    // The masked report uplink is never taught: send_message('parent', ...)
+    // The masked report uplink is never taught: agent_message('parent', ...)
     // is the single child->parent channel, and a root has no parent.
     expect(text).not.toContain('await report(')
     expect(text).not.toContain('report tool')
     // The catalog renders the bridge tools as ordinary async-def
     // declarations — one flat surface, no separate bridge-tools block.
-    // v0.1.8b: the removed refine/compact bridges are GONE from the catalog;
-    // send_message is the only remaining bridge tool.
+    // v0.1.8e: the three delegation bridges (agent / agent_message /
+    // agent_workflow) replace the old single send_message bridge.
     const catalog = String(assembly.sections.find(section => section.name === 'dashr:tool-catalog')?.text)
     expect(catalog).not.toContain('tool.refine(')
     expect(catalog).not.toContain('tool.compact(')
-    expect(catalog).toContain('tool.send_message(')
+    expect(catalog).toContain('tool.agent_message(')
   })
 
   it('a neighbor scope WITHOUT the row keeps its full native schema set (PTC coexistence, part one)', async () => {

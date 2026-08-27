@@ -16,7 +16,7 @@
 **依据**（ScoutRestrict/WireChannel）：
 - restrict 编译为 `{allow:Set, deny:Set}` 追加进 agent own 层 restrictions（dsh-tools:2778-2786）；`admits` 对继承名全票制（:2523-2527）→ 被拒名从 `visible` 消失 → wire/catalog/SDK/run_code 绑定/**按名 dispatch** 五面同步（dispatch 链 `createExecution.get()` :3016 → `resolveExecution` :3171 → UNKNOWN_TOOL :3178，nested 不豁免——`collapses` 纯 mode 折叠 :2975）。
 - ordering hazard 只在「restrict 时名字未注册」（对照 `restrictableNames` throw，:2783-2785）；session-start 时点全部插件已 apply，安全。
-- own 层（我们的 URL wrapper read/write/grep/glob、桥 agent_message）**绕过 admits**（:2852），不受 deny 影响。
+- own 层（我们的 URL wrapper read/write/grep/glob、三桥 agent / agent_message / agent_workflow）**绕过 admits**（:2852），不受 deny 影响。
 - `run_code` 不可 restrict（:2782）——本就要保留。
 - 否决的备选：`system-prompt/assemble` waterfall 过滤 wire 数组（软掩码）——只掩 wire 一面，catalog/SDK 仍显示该工具 → 模型看到却调不到的不一致面，维护成本高。
 
@@ -30,7 +30,7 @@
 
 ### D2. 捕获定义仅供 DASHR 内部（被掩名对 LLM 全链路消失）
 
-**Decision**：被掩名对 LLM 是**全链路不可达**——wire/catalog/SDK/REPL 绑定/按名 dispatch 五面一致消失（restrict 的 `visible` 投影就是唯一源）。session-start 在 restrict **之前**的全量捕获（per-agent WeakMap `Map<name, ToolDefinition>`）**只服务于 DASHR 内部**：URL wrapper 的非 URL 委托、`agent_message` 桥（child 下行透传捕获的 `send_message.execute`，parent 上行透传捕获的 `report.execute`——语义与原生一致，含投递模式：内容以 user-role 投递为目标的下一轮 turn，工具返回 messageId 确认，非工具结果）。REPL 绑定**不绑被掩名**——「LLM 直调 = REPL 桥接」是同一投影源的结构保证，不需要（也不应该）向 LLM 解释这个对应关系。
+**Decision**：被掩名对 LLM 是**全链路不可达**——wire/catalog/SDK/REPL 绑定/按名 dispatch 五面一致消失（restrict 的 `visible` 投影就是唯一源）。session-start 在 restrict **之前**的全量捕获（per-agent WeakMap `Map<name, ToolDefinition>`）**只服务于 URL wrapper 的非 URL 委托**（read/write/grep/glob 直调捕获的原生定义）。三桥不捕获、不按名 dispatch——**service 层直调**：`agent` → `ctx.subagents.start/startContinuable`（spawn/fork）、`agent_message` → `followup/reportFrom/interrupt`（三路）、`agent_workflow` → `ctx.workflowEngine.start`（script/rfc）；原生参数语义透传，service 内部授权（authorizeLineage/authorizeReporter/ancestor authority）天然保留，不打开越权面。投递模式一致：内容以 user-role 投递为目标的下一轮 turn，工具返回 messageId/runId 确认，非工具结果。REPL 绑定**不绑被掩名**——「LLM 直调 = REPL 桥接」是同一投影源的结构保证，不需要（也不应该）向 LLM 解释这个对应关系。
 
 ### D3. REPL 自动映射（废除 allowlist，单态）
 
@@ -93,4 +93,5 @@ run_code 定位为 **REPL scripting pad（草稿本）**：会话持久的运行
 
 - RESOLVED（spike S6）：browser 不需 puppeteer-core patch——纯 stealth 改造，无 patch 冒烟通过。
 - RESOLVED（spike S5）：`@oh-my-pi/pi-natives` npm wrapper 是 Bun-only，但 `.node` 二进制可从 Node 直接 dlopen；本 change 采用 optionalDependencies 平台包 + 直 dlopen（linux-x64 已验证；darwin/arm64 平台包名已注记）。
-- 遗留（有意 deferred，非本 change）：spawn 面的用户确认（subagent 家族 deny 后模型无内建 spawn 入口，roster 空除非带外创建）；cross-platform pi-natives 平台包登记；package-lock 同步（registry 重解析超时，部署走实物复制 workflow）。
+- RESOLVED（Wave5）：spawn 面经 `agent` 桥补齐——subagent 家族 deny 后模型仍有内建 spawn 入口（route `ctx.subagents.start/startContinuable`，label/prompt/run_in_background 透传）；同批补齐 `agent_message` 的 interrupt 与 `agent_workflow`（workflow/ralph，route `ctx.workflowEngine.start`）。
+- 遗留（有意 deferred，非本 change）：cross-platform pi-natives 平台包登记；package-lock 同步（registry 重解析超时，部署走实物复制 workflow）。

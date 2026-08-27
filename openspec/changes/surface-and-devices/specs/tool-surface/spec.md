@@ -1,23 +1,23 @@
 ## Purpose
 
-DASHR 的模型表面（model surface）契约：哪些工具出现在 registry 投影（LLM-client 协议 tools 数组、目录文本、REPL 绑定）里。核心原则——掩码作用于 tool registry（被替代了呈现面的原生工具全部 visible=false）；REPL 绑定对 registry 可见集做机械/透明的自动桥接（零名单维护）；被掩工具的运行时定义仅供 DASHR 内部工具层桥透传（能力保留靠桥，不靠 registry 豁免）。
+DASHR 的模型表面（model surface）契约：哪些工具出现在 registry 投影（LLM-client 协议 tools 数组、目录文本、REPL 绑定）里。核心原则——掩码作用于 tool registry（被替代了呈现面的原生工具全部 visible=false）；REPL 绑定对 registry 可见集做机械/透明的自动桥接（零名单维护）；被掩工具的能力保留靠三桥 service 层直调（`agent` spawn/fork、`agent_message` 消息+中断、`agent_workflow` 编排），不靠 registry 豁免。
 
 ## ADDED Requirements
 
 ### Requirement: Registry masking of replaced-presentation native tools
-The system SHALL remove the native tools whose presentation surface DASHR replaces (`skill`, upstream `send_message`, `report`, `list_agents`, and the delegation family `subagent`/`subagent_fork`/`interrupt_agent`/`workflow`/`ralph`) from the agent's tool registry projection via an agent-scope registry restriction — the wire tools array, tool catalog, and REPL bindings all derive from the same projection, so the removal is uniform. The restriction MUST NOT touch the registered tool definitions themselves; DASHR preserves each masked tool's native capability at the tool-bridge level (not by registry exemption): `agent_message` passes child-downlink and parent-uplink through to the captured native definitions, `agent://` replaces `list_agents`, `read skill://` replaces `skill`.
+The system SHALL remove the native tools whose presentation surface DASHR replaces (`skill`, upstream `send_message`, `report`, `list_agents`, and the delegation family `subagent`/`subagent_fork`/`interrupt_agent`/`workflow`/`ralph`) from the agent's tool registry projection via an agent-scope registry restriction — the wire tools array, tool catalog, and REPL bindings all derive from the same projection, so the removal is uniform. The restriction MUST NOT touch the registered tool definitions themselves; DASHR preserves each masked tool's native capability at the tool-bridge level (not by registry exemption): `agent` spawns/forks subagents, `agent_message` passes child-downlink/parent-uplink/interrupt through the service layer, `agent_workflow` runs workflow/ralph — each a thin adapter over the host-plane service (`ctx.subagents` / `ctx.workflowEngine`) with native authorization intact; `agent://` replaces `list_agents`, `read skill://` replaces `skill`.
 
 #### Scenario: Masked tool absent from every model-facing surface
 - **WHEN** an agent session starts under DASHR
 - **THEN** the wire tools array, the tool catalog section, and the REPL bindings contain none of the masked names, and a call naming a masked tool returns `UNKNOWN_TOOL`
 
 #### Scenario: Masked capability preserved through the bridge
-- **WHEN** the model sends a child-downlink or parent-uplink through the `agent_message` bridge
-- **THEN** the captured native `send_message`/`report` definition executes with its native delivery semantics (user-role next-turn delivery, `messageId` confirmation), including the native direct-child-only authorization
+- **WHEN** the model sends a child-downlink, parent-uplink, or interrupt through the `agent_message` bridge
+- **THEN** the service layer executes it with native delivery semantics (user-role next-turn delivery, `messageId` confirmation) and native authorization (direct-child-only lineage, ancestor authority for interrupt)
 
 #### Scenario: DASHR's own wrappers unaffected
 - **WHEN** the agent-scope restriction denies a native name that a DASHR wrapper shadows on the agent's own layer
-- **THEN** the wrapper (`read`/`write`/`grep`/`glob`, `agent_message`) remains visible and callable on every surface
+- **THEN** the wrapper (`read`/`write`/`grep`/`glob`, `agent`/`agent_message`/`agent_workflow`) remains visible and callable on every surface
 
 ### Requirement: REPL bindings bridge the visible registry mechanically
 The system SHALL install REPL bindings by automatic, transparent conversion of every flat-bindable name in the registry's visible set at session start — no manual allowlist or denylist; masked names are naturally absent because the binding source and the masking act on the same projection. Non-flat names (hyphens, `__`-scoped MCP names) SHALL be skipped and the bridge instructions SHALL state the name-shape limitation without enumerating affected tools.

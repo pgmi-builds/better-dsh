@@ -4,18 +4,17 @@ import type { Agent } from '@deepseek-ai/dsh-agent'
 import { FakeCellRuntime, fakeRuntime, fakeSubagentsService, registerFakeDelegationTools, runCell, setupPresentation, setupKernel } from './helpers.ts'
 
 /**
- * Native delegation + the displaced `send_message()` bridge (ADR-0001).
+ * Native delegation + the delegation bridges (Wave5).
  *
- * v0.1.9: the `rlm()`/`agent_list()`/`rlm_workflow()`/`rlm_ralph()` bridges
- * are GONE. The upstream delegation tools (`subagent`, `subagent_fork`,
- * `list_agents`, `interrupt_agent`, `workflow`, `ralph`) are now exposed
- * DIRECTLY as `tool.*` members — the model calls them exactly as the host
- * ships them, through the same nested sub-dispatch pipeline (parent token,
- * code-dispatch audit events, the tool's own JSON output returned unchanged).
- * Exactly two upstream names stay displaced behind ONE bridge: `send_message`
- * (the parent→child downlink) and `report` (the child→parent uplink) collapse
- * into `send_message({"receiver": "child"|"parent", ...})` — the service layer
- * appears ONLY where no tool covers the direction.
+ * The upstream delegation tools (`subagent`, `subagent_fork`, `list_agents`,
+ * `interrupt_agent`, `workflow`, `ralph`) are dispatched directly as `tool.*`
+ * members when the registry mask has NOT landed (this harness never fires
+ * `agent/session-start`), through the same nested sub-dispatch pipeline. The
+ * displaced A2A bridge is now named `agent_message` (Wave5 renamed it from
+ * `send_message`): receiver 'child' → `ctx.subagents.followup`, 'parent' →
+ * `ctx.subagents.reportFrom`, and 'interrupt' → `ctx.subagents.interrupt`.
+ * The sibling `agent` and `agent_workflow` bridges are covered by
+ * `test/surface-devices/bridges.spec.ts`.
  */
 
 import type { ReplJsonValue } from '../src/runtime-surface.ts'
@@ -108,31 +107,40 @@ describe('native delegation tools exposed directly as tool.* members', () => {
   })
 })
 
-describe('send_message() — the dual-use A2A bridge', () => {
-  it("receiver='child' dispatches the send_message tool with the required subagent_id", async () => {
+describe('agent_message() — the A2A bridge', () => {
+  it("receiver='child' follows up to the child through the service layer", async () => {
     const { ctx, agent } = await setupPresentation(fakeRuntime)
-    const calls = registerFakeDelegationTools(ctx)
+    const followups: { childId: string, content: unknown[], source: { kind: string, form: string, senderSessionId: string } }[] = []
+    await ctx.plugin({ name: 'fake-followup', apply(c) {
+      c.provide('subagents', {
+        followup: (_parent: unknown, childId: string, content: unknown[], options: { source: { kind: string, form: string, senderSessionId: string } }) => {
+          followups.push({ childId, content, source: options.source })
+          return Promise.resolve('mid-1')
+        },
+      })
+    } })
     const runtime = ctx.get('replRuntime') as FakeCellRuntime
     runtime.behavior = async (request) => {
-      const result = await callableOf(request, 'send_message')({ receiver: 'child', message: 'here is more work', subagent_id: 'child-1' })
+      const result = await callableOf(request, 'agent_message')({ receiver: 'child', message: 'here is more work', subagent_id: 'child-1' })
       return { logs: [], value: result }
     }
     const result = await cell(ctx, agent.agent, 'program')
-    expect(result.value.result).toEqual({ messageId: 'msg-1' })
-    expect(calls).toEqual([{ tool: 'send_message', args: { subagent_id: 'child-1', message: 'here is more work' }, parented: true }])
+    expect(result.value.result).toEqual({ messageId: 'mid-1' })
+    expect(followups).toHaveLength(1)
+    expect(followups[0]!.childId).toBe('child-1')
+    expect(followups[0]!.content).toEqual([{ type: 'text', text: 'here is more work' }])
+    expect(followups[0]!.source.kind).toBe('coordinator')
   })
 
-  it("receiver='child' without subagent_id is a structured error, dispatching nothing", async () => {
+  it("receiver='child' without subagent_id is a structured error, calling nothing", async () => {
     const { ctx, agent } = await setupPresentation(fakeRuntime)
-    const calls = registerFakeDelegationTools(ctx)
     const runtime = ctx.get('replRuntime') as FakeCellRuntime
     runtime.behavior = async (request) => {
-      const result = await callableOf(request, 'send_message')({ receiver: 'child', message: 'hi' })
+      const result = await callableOf(request, 'agent_message')({ receiver: 'child', message: 'hi' })
       return { logs: [], value: result }
     }
     const result = await cell(ctx, agent.agent, 'program')
     expect(result.value.result).toEqual({ error: expect.stringContaining('requires {"subagent_id"') })
-    expect(calls).toEqual([])
   })
 
   it("receiver='parent' bridges the service layer: reportFrom with zero ids, wakeup delivery", async () => {
@@ -140,7 +148,7 @@ describe('send_message() — the dual-use A2A bridge', () => {
     const reports = await fakeSubagentsService(ctx)
     const runtime = ctx.get('replRuntime') as FakeCellRuntime
     runtime.behavior = async (request) => {
-      const result = await callableOf(request, 'send_message')({ receiver: 'parent', message: 'task complete' })
+      const result = await callableOf(request, 'agent_message')({ receiver: 'parent', message: 'task complete' })
       return { logs: [], value: result }
     }
     const result = await cell(ctx, agent.agent, 'program')
@@ -161,7 +169,7 @@ describe('send_message() — the dual-use A2A bridge', () => {
     })
     const runtime = ctx.get('replRuntime') as FakeCellRuntime
     runtime.behavior = async (request) => {
-      const result = await callableOf(request, 'send_message')({ receiver: 'parent', message: 'root tries to report' })
+      const result = await callableOf(request, 'agent_message')({ receiver: 'parent', message: 'root tries to report' })
       return { logs: [], value: result }
     }
     const result = await cell(ctx, agent.agent, 'program')
@@ -172,7 +180,7 @@ describe('send_message() — the dual-use A2A bridge', () => {
     const { ctx, agent } = await setupPresentation(fakeRuntime)
     const runtime = ctx.get('replRuntime') as FakeCellRuntime
     runtime.behavior = async (request) => {
-      const result = await callableOf(request, 'send_message')({ receiver: 'parent', message: 'hello?' })
+      const result = await callableOf(request, 'agent_message')({ receiver: 'parent', message: 'hello?' })
       return { logs: [], value: result }
     }
     const result = await cell(ctx, agent.agent, 'program')
@@ -181,21 +189,19 @@ describe('send_message() — the dual-use A2A bridge', () => {
 
   it('unknown receivers and malformed signatures are structured errors', async () => {
     const { ctx, agent } = await setupPresentation(fakeRuntime)
-    const calls = registerFakeDelegationTools(ctx)
     const runtime = ctx.get('replRuntime') as FakeCellRuntime
     runtime.behavior = async (request) => {
-      const sendMessage = callableOf(request, 'send_message')
+      const sendMessage = callableOf(request, 'agent_message')
       const sibling = await sendMessage({ receiver: 'sibling', message: 'm' })
-      const oneArg = await sendMessage({ receiver: 'child' })
+      const oneArg = await sendMessage({ message: 'm' })
       const stray = await sendMessage({ receiver: 'child', message: 'm', urgent: true })
       return { logs: [], value: { sibling, oneArg, stray } }
     }
     const result = await cell(ctx, agent.agent, 'program')
     const errors = result.value.result as Record<string, { error: unknown }>
-    expect(errors['sibling']).toEqual({ error: expect.stringContaining("expected 'child' or 'parent'") })
+    expect(errors['sibling']).toEqual({ error: expect.stringContaining("expected 'child', 'parent', or 'interrupt'") })
     expect(errors['oneArg']).toEqual({ error: expect.stringContaining('requires {"receiver"') })
     expect(errors['stray']).toEqual({ error: expect.stringContaining('unexpected key(s): urgent') })
-    expect(calls).toEqual([])
   })
 })
 
@@ -223,13 +229,16 @@ describe('the tool.* binding surface', () => {
     expect(globalsSeen).toContain('tool')
     expect(globalsSeen).not.toContain('file_glob')
     expect(globalsSeen).not.toContain('tools')
-    // Native delegation tools are bound directly; the A2A uplink name is not.
+    // Native delegation tools are bound directly (the mask never landed in
+    // this harness); the A2A uplink name is not.
     for (const exposed of ['subagent', 'subagent_fork', 'list_agents', 'interrupt_agent', 'workflow', 'ralph']) {
       expect(toolMembers).toContain(exposed)
     }
     expect(toolMembers).not.toContain('report')
-    // send_message is the displaced bridge (still a member, replacing the masked tool).
-    expect(toolMembers).toContain('send_message')
+    // The three delegation bridges are members beside the auto-mapped tools.
+    for (const bridge of ['agent', 'agent_message', 'agent_workflow']) {
+      expect(toolMembers).toContain(bridge)
+    }
     expect(globbed).toBe('globbed')
   })
 })

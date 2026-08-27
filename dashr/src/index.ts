@@ -14,8 +14,12 @@
  * (blueprint §7.4) — the `eval` transport tool, the generated Tool
  * Catalog prompt section, the model-direct-call collapse, the tool→binding
  * bridge that binds the registry's agent-visible tools as `await tool.name(args)`
- * members (v0.1.5 Q8: one `tool` holder, no flat globals), and the displaced
- * `send_message` bridge (ADR-0001: the single dual-direction A2A channel).
+ * members (v0.1.5 Q8: one `tool` holder, no flat globals), and the three
+ * delegation bridges — `agent` (spawn/fork), `agent_message`
+ * (followup/report/interrupt), `agent_workflow` (workflow/ralph) — thin
+ * adapters over the host-plane service layer (Wave5: the displaced native
+ * delegation tools are masked, and these are the model's only reachable
+ * delegation surface).
  * The Continual Harness (`refine`) and the compaction bridge (`compact`)
  * were removed in v0.1.8b — harness/refine became third-party territory, and
  * context compaction is the host runtime's business, not the REPL's.
@@ -93,7 +97,6 @@ import type {
   ReplBindingErrorClass,
   ReplBindingFunction,
   ReplBindingNamespace,
-  ReplJsonValue,
   ReplRunResult,
   ReplRuntimeSurface,
 } from './runtime-surface.ts'
@@ -101,9 +104,9 @@ import { isFlatBindableName, renderReplBridgeInstructions } from './py-sdk.ts'
 import type { DASHRSdkSchema } from './py-sdk.ts'
 import { snapshotJsonValue } from './snapshot-json.ts'
 import type { JsonValue } from './snapshot-json.ts'
-import { getCapturedTools } from './url-schema/native-capture.ts'
 import type { Agent } from '@deepseek-ai/dsh-agent'
-import type { DASHRSubagentsSurface } from './subagents-surface.ts'
+import type { DASHRSubagentsSurface, DASHRWorkflowEngine } from './subagents-surface.ts'
+import { AGENT_BRIDGE_SCHEMAS, createAgentBridgeBindings } from './bridges/index.ts'
 import { readFileSync } from 'node:fs'
 
 /** The control prompt text, loaded at module time from the sibling markdown file (editable without touching TS). */
@@ -190,34 +193,6 @@ export const CONTROL_SECTION_ORDER = 100
 
 /** The `dashr:tool-catalog` section order: the 100–199 tool-guidance band's SDK position, matching upstream `tools:sdk`. */
 export const SDK_SECTION_ORDER = 150
-
-/**
- * The bridge tools rendered INTO the bridge instructions as if they were
- * registry tools: each is a hand-written {@link DASHRSdkSchema} fed to the
- * SAME `renderReplBridgeInstructions` as the registry schemas, so the
- * declarations show one flat `tool.name(args)` surface — no second calling
- * convention, no separate "bridge tools" block. The bridge enforces these
- * shapes per call (the bridge tools below); the schemas here are the
- * model-facing declaration only. Descriptions must stay truthful about
- * requiredness and semantics.
- */
-const BRIDGE_TOOL_SCHEMAS: DASHRSdkSchema[] = [
-  {
-    name: 'send_message',
-    description: "The single agent-to-agent message channel, both directions: receiver 'child' delivers down to a child; receiver 'parent' reports up to this agent's parent (live continuable children only; a root agent gets a structured UNAUTHORIZED instead).",
-    parameters: {
-      type: 'object',
-      properties: {
-        receiver: { type: 'string', description: "'child' (deliver down) or 'parent' (report up)." },
-        message: { type: 'string', description: 'The message text.' },
-        subagent_id: { type: 'string', description: "The child's durable id (required when receiver is 'child')." },
-      },
-      required: ['receiver', 'message'],
-      additionalProperties: false,
-    },
-    output: { type: 'object', properties: {}, additionalProperties: true },
-  },
-]
 
 /**
  * The `eval` tool description the model sees: cell semantics — the
@@ -333,27 +308,6 @@ function flatToolArgs(rawArgs: unknown): unknown {
   return callArgs
 }
 
-/**
- * Unwrap one bridge-tool {@link parseReplCall} packaging into its single
- * arguments object. Same one-object contract as {@link flatToolArgs}, but
- * bridge tools return a structured `{ error }` value instead of throwing, and
- * a call with no arguments reads as an empty object. Keyword and
- * multi-positional forms are rejected.
- */
-function flatBridgeToolArgs(rawArgs: unknown): { ok: true, args: Record<string, unknown> } | { ok: false, error: string } {
-  // The `tool.*` member proxy sends the single positional arguments object
-  // DIRECTLY (no {args, kwargs} wrapper — that was the flat bare-callable
-  // shape). No arguments reads as an empty object; a multi-positional list
-  // or a bare value is rejected.
-  if (rawArgs === undefined || rawArgs === null) return { ok: true, args: {} }
-  if (Array.isArray(rawArgs)) {
-    return { ok: false, error: 'tools take exactly one positional arguments object — call e.g. tool.name({"field": value})' }
-  }
-  if (typeof rawArgs !== 'object') {
-    return { ok: false, error: 'tools take one positional arguments object, not a bare value — call e.g. tool.name({"field": value})' }
-  }
-  return { ok: true, args: rawArgs as Record<string, unknown> }
-}
 
 /** Resolve the eval overlap cap at the config boundary (schemastery already validated the range; direct construction in tests bypasses it). */
 export function resolveMaxParallelSubCalls(value: number | undefined): number {
@@ -472,13 +426,19 @@ export interface RunCellBridgeOptions {
   shapeDispatchLog: (dispatch: CodeDispatchLog) => Promise<ContentBlock[]>
   /**
    * Resolves the host-plane `ctx.subagents` service (or undefined when this
-   * composition has no subagent capability) for the send_message()
-   * receiver='parent' UPLINK alone — every downlink bridges the tool layer
-   * instead (ADR-0001). Read at run time so a host-side provider mounted
-   * later still becomes visible; absent means the uplink answers with a
+   * composition has no subagent capability) for the `agent` /
+   * `agent_message` bridges. Read at run time so a host-side provider mounted
+   * later still becomes visible; absent means the bridge answers with a
    * structured "unavailable" error, never a crash.
    */
   requireSubagents?: () => DASHRSubagentsSurface | undefined
+  /**
+   * Resolves the host-plane `ctx.workflowEngine` service (or undefined when
+   * this composition has no workflow capability) for the `agent_workflow`
+   * bridge. Same use-time read and structured-unavailable contract as
+   * {@link RunCellBridgeOptions.requireSubagents}.
+   */
+  requireWorkflowEngine?: () => DASHRWorkflowEngine | undefined
 }
 
 /**
@@ -495,7 +455,7 @@ export interface RunCellBridgeOptions {
  * @returns the registry-ready definition.
  */
 export function createRunCellTool(registry: ToolRuntime, options: RunCellBridgeOptions): ToolDefinition {
-  const { requireRuntime, maxParallel, shapeDispatchLog, requireSubagents } = options
+  const { requireRuntime, maxParallel, shapeDispatchLog, requireSubagents, requireWorkflowEngine } = options
   return defineTool({
     name: EVAL_NAME,
     description: EVAL_DESCRIPTION,
@@ -782,73 +742,15 @@ export function createRunCellTool(registry: ToolRuntime, options: RunCellBridgeO
         toolFunctions[schema.name] = async (args: unknown) => binding(schema.name)(args)
       }
 
-
-      // send_message() bare callable global (plan Q25): one dual-use A2A
-      // function. receiver='child' bridges the send_message TOOL downlink
-      // (subagent_id required — the id a spawn call returned) through the
-      // CAPTURED native definition — `send_message` is on the wire-mask
-      // deny list, so a by-name dispatch (`binding('send_message')`) would
-      // hit the registry's UNKNOWN_TOOL; the session-start capture
-      // (native-capture.ts) took the definition before the mask landed and
-      // the direct `def.execute` preserves the native delivery semantics.
-      // The by-name fallback serves lifecycles that never fired
-      // `agent/session-start` (no capture exists): there the mask never
-      // landed either, so the dispatch resolves — and under a mask without
-      // a capture it fails loudly as UNKNOWN_TOOL rather than silently
-      // dropping the channel. receiver='parent' bridges the SERVICE-layer
-      // reportFrom uplink — the only direction no tool covers — with zero
-      // ids: the child (exec.agent) is the authority credential and the
-      // service bootstraps the parent from the child's own session header.
-      // delivery stays FIXED at 'wakeup' (the upstream default; a
-      // scheduling policy, not model-facing). A root caller fails the
-      // service's authorizeReporter with SubagentError 'UNAUTHORIZED',
-      // surfaced here as a structured error value.
-      const sendMessageCallable: ReplBindingFunction = async (rawArgs: unknown): Promise<ReplJsonValue> => {
-        const parsed = flatBridgeToolArgs(rawArgs)
-        if (!parsed.ok) return { error: parsed.error }
-        const a = parsed.args
-        const unknownKeys = Object.keys(a).filter(key => !['receiver', 'message', 'subagent_id'].includes(key))
-        if (unknownKeys.length > 0) return { error: `send_message() got unexpected key(s): ${unknownKeys.join(', ')}` }
-        const receiver = a['receiver']
-        const message = a['message']
-        if (typeof receiver !== 'string' || typeof message !== 'string') {
-          return { error: 'send_message() requires {"receiver": "child" | "parent", "message": "..."}' }
-        }
-        if (receiver === 'child') {
-          const subagentId = a['subagent_id']
-          if (typeof subagentId !== 'string' || subagentId.length === 0) {
-            return { error: 'send_message() receiver "child" requires {"subagent_id": "..."} — the durable subagent id a spawn returned' }
-          }
-          const capturedSend = exec.agent !== undefined ? getCapturedTools(exec.agent)?.get('send_message') : undefined
-          if (capturedSend !== undefined) {
-            // Direct captured-definition call: the native delivery
-            // semantics unchanged, the masked name never re-entered. A
-            // rejection propagates to the kernel as the binding failure
-            // (ToolCallError), same as the by-name path below.
-            return await capturedSend.execute({ subagent_id: subagentId, message }, exec) as ReplJsonValue
-          }
-          return await binding('send_message')({ subagent_id: subagentId, message })
-        }
-        if (receiver === 'parent') {
-          if (!exec.agent) {
-            return { error: 'send_message(receiver=\'parent\') requires an agent session (this run has no agent to report from)' }
-          }
-          const subagents = requireSubagents?.()
-          if (!subagents) {
-            return { error: "send_message(receiver='parent') is unavailable: no ctx.subagents service is mounted in this composition" }
-          }
-          try {
-            const messageId = await subagents.reportFrom(exec.agent, [{ type: 'text', text: message }], { delivery: 'wakeup', signal: exec.signal })
-            return { delivered: true, message_id: messageId }
-          } catch (error: unknown) {
-            if ((error as { code?: unknown }).code === 'UNAUTHORIZED') {
-              return { error: `send_message(receiver='parent') rejected: only a live continuable child agent can report to its parent (a root agent has none) — ${error instanceof Error ? error.message : String(error)}` }
-            }
-            return { error: `send_message(receiver='parent') failed: ${error instanceof Error ? error.message : String(error)}` }
-          }
-        }
-        return { error: `send_message() unknown receiver ${JSON.stringify(receiver)}: expected 'child' or 'parent'` }
-      }
+      // The three delegation bridges (Wave5): flat-name callables built per
+      // run, closing over this run's exec context and the use-time service
+      // resolvers. Each routes straight to the service layer — `agent` →
+      // ctx.subagents.start / startContinuable, `agent_message` → followup /
+      // reportFrom / interrupt, `agent_workflow` → ctx.workflowEngine.start —
+      // so native parameter semantics are unchanged and the service's own
+      // authorization is preserved verbatim. Validation failures and service
+      // rejections answer with a structured `{ error }` value, never a crash.
+      const bridgeBindings = createAgentBridgeBindings(exec, { requireSubagents, requireWorkflowEngine })
 
       try {
         let result: ReplRunResult
@@ -860,7 +762,7 @@ export function createRunCellTool(registry: ToolRuntime, options: RunCellBridgeO
                 global: 'tool',
                 functions: {
                   ...toolFunctions,
-                  send_message: sendMessageCallable,
+                  ...bridgeBindings,
                 },
                 errorClass: TOOL_CALL_ERROR_CLASS,
               },
@@ -1029,7 +931,8 @@ export function apply(ctx: Context, config: Config): void {
     // records the reservation delta). Registered through the injected
     // runtime context so the tool's lifetime follows the runtime service's.
     const requireSubagents = (): DASHRSubagentsSurface | undefined => runtimeCtx.get('subagents')
-    runtimeCtx.tools.register(createRunCellTool(registry, { requireRuntime, maxParallel, shapeDispatchLog, requireSubagents }))
+    const requireWorkflowEngine = (): DASHRWorkflowEngine | undefined => runtimeCtx.get('workflowEngine')
+    runtimeCtx.tools.register(createRunCellTool(registry, { requireRuntime, maxParallel, shapeDispatchLog, requireSubagents, requireWorkflowEngine }))
 
     // ①½ The wire mask (design D1): deny the displaced delegation names on
     // the agent's OWN scope layer at session-start. Ordering is the mount
@@ -1095,15 +998,14 @@ export function apply(ctx: Context, config: Config): void {
     // at assembly time (the same scope-aware shape as upstream's
     // sdkSection: an assembly for a different scope renders its own view,
     // never ours). The bridge tools are fed into the SAME renderer as
-    // registry tools (BRIDGE_TOOL_SCHEMAS), so the surface is one flat
+    // registry tools (AGENT_BRIDGE_SCHEMAS), so the surface is one flat
     // convention: every tool — registry tool or bridge tool — is
     // `await tool.name(args)`.
     systemPrompt.section({
       name: 'dashr:tool-catalog',
       order: SDK_SECTION_ORDER,
-      text: context => renderReplBridgeInstructions([...collectSdkSchemas(registry, context.scope), ...BRIDGE_TOOL_SCHEMAS]),
+      text: context => renderReplBridgeInstructions([...collectSdkSchemas(registry, context.scope), ...AGENT_BRIDGE_SCHEMAS]),
     })
-
 
   })
 }

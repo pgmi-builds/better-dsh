@@ -275,10 +275,11 @@ describe('REPL bindings — single-state auto-map over the post-mask projection'
     expect(names).toContain('plain_tool')
     // The own-layer URL wrappers are bound like any visible tool.
     expect(names).toContain('read')
-    // The bridge stays the single send_message surface.
-    expect(names).toContain('send_message')
+    // The three delegation bridges survive masking as flat visible tools.
+    expect(names).toContain('agent')
+    expect(names).toContain('agent_message')
+    expect(names).toContain('agent_workflow')
     for (const masked of MASKED_TOOL_NAMES) {
-      if (masked === 'send_message') continue
       expect(names, `${masked} must not be bound`).not.toContain(masked)
     }
     // Non-flat names (the MCP hyphen shape) cannot be members.
@@ -294,41 +295,6 @@ describe('REPL bindings — single-state auto-map over the post-mask projection'
   })
 })
 
-describe('send_message bridge — the downlink runs the captured definition', () => {
-  it("receiver='child' calls the captured send_message def directly (no registry dispatch of the masked name)", async () => {
-    const surface = await setupSurface()
-    const directCalls: { args: unknown, exec: unknown }[] = []
-    registerGlobalFake(surface.ctx, 'send_message', (args, exec) => {
-      directCalls.push({ args, exec })
-      return { messageId: 'direct-1' }
-    })
-    surface.startSession()
-    // The mask landed: the name is gone from the projection…
-    expect(surface.ctx.tools.schemas(surface.agent).map(schema => schema.name)).not.toContain('send_message')
-
-    let outcome: unknown
-    const runtime = surface.ctx.get('replRuntime') as FakeCellRuntime
-    runtime.behavior = async (request) => {
-      const send = request.bindings[0]?.functions['send_message']
-      if (send === undefined) throw new Error('no send_message binding')
-      outcome = await send({ receiver: 'child', message: 'here is more work', subagent_id: 'child-1' })
-      return { logs: [] }
-    }
-    const result = await runCell(surface.ctx, 'program', { agent: surface.agent })
-    expect(result.isError, `cell failed: ${JSON.stringify(result.content)}`).toBe(false)
-
-    // The captured definition executed, with the bridge's argument shape.
-    expect(directCalls).toEqual([{
-      args: { subagent_id: 'child-1', message: 'here is more work' },
-      exec: expect.objectContaining({ name: 'eval' }),
-    }])
-    expect(outcome).toEqual({ messageId: 'direct-1' })
-    // A direct captured call bypasses the scheduler: no dispatch events exist
-    // for the masked name (the by-name path would have logged them).
-    const dispatchEvents = surface.events.filter(event => event.type.startsWith('tool/code-dispatch'))
-    expect(dispatchEvents).toEqual([])
-  })
-})
 
 describe('bridge instructions — the repositioned catalog render (design D4/D5)', () => {
   /** A visible-tool fixture set: nested args, string enums, optional keys, a non-flat name. */
@@ -345,14 +311,15 @@ describe('bridge instructions — the repositioned catalog render (design D4/D5)
       output: { type: 'object', properties: { value: { type: 'string' } }, required: ['value'], additionalProperties: false },
     },
     {
-      name: 'send_message',
+      name: 'agent_message',
       description: 'The A2A bridge.',
       parameters: {
         type: 'object',
         properties: {
-          receiver: { type: 'string', enum: ['child', 'parent'] },
+          receiver: { type: 'string', enum: ['child', 'parent', 'interrupt'] },
           message: { type: 'string' },
           subagent_id: { type: 'string' },
+          target_session_id: { type: 'string' },
         },
         required: ['receiver', 'message'],
         additionalProperties: false,
@@ -377,11 +344,10 @@ describe('bridge instructions — the repositioned catalog render (design D4/D5)
     const text = renderReplBridgeInstructions(schemas)
     expect(text).toContain('## Calling tools from the scripting pad')
     // Required vs optional keys, string enums, and the output shape inline.
-    expect(text).toContain("tool.echo(args: {'value': str, 'tag'?: str}) -> {'value': str}")
-    expect(text).toContain("tool.send_message(args: {'receiver': 'child' | 'parent', 'message': str, 'subagent_id'?: str}) -> dict")
+    expect(text).toContain("tool.agent_message(args: {'receiver': 'child' | 'parent' | 'interrupt', 'message': str, 'subagent_id'?: str, 'target_session_id'?: str}) -> dict")
     // Lexicographic emission; the non-flat name gets NO declaration line
     // (the exception sentence covers it), and no TypedDict classes remain.
-    expect(text.indexOf('tool.echo(')).toBeLessThan(text.indexOf('tool.send_message('))
+    expect(text.indexOf('tool.agent_message(')).toBeLessThan(text.indexOf('tool.echo('))
     expect(text).not.toContain('tool.hyphen-tool(')
     expect(text).not.toContain('class ')
     expect(text).not.toContain('TypedDict')
@@ -425,7 +391,7 @@ describe('bridge instructions — the repositioned catalog render (design D4/D5)
     expect(text).toContain('await tool.<name>(args)')
     expect(text).toContain('ToolCallError')
     expect(text).toContain('not plain identifiers')
-    expect(text).toContain('dir(tool)')
+    expect(text).toContain('live callable surface')
     expect(text).not.toContain('```python')
     expect(text).not.toContain('tool.echo(')
   })

@@ -541,7 +541,7 @@ export function renderToolsSdkPy(schemas: readonly DASHRSdkSchema[]): string {
  * alone (zero repetition, the A/B deployment experiment's other arm).
  * Both modes keep the output contract (each tool's canonical JSON output
  * shape) and the non-flat-name exception; neither presents a REPL binding
- * listing — the live member set is runtime truth (`dir(tool)`).
+ * listing — the declaration lines themselves are the authoritative surface.
  */
 export type ReplBridgeCatalogMode = 'signatures' | 'convention'
 
@@ -613,7 +613,7 @@ const REPL_BRIDGE_INSTRUCTIONS = `## Calling tools from the scripting pad
 
 \`eval\` runs each cell on a session-persistent scripting pad (Python today; other languages are natural extensions): variables, imports, and definitions from earlier cells stay alive, top-level \`await\` works, and the pad is one working surface beside your direct tool calls — same tools, composed in code.
 
-Every tool this conversation declares is callable inside a cell as \`await tool.<name>(args)\` with ONE positional arguments object; the awaited value is that tool's canonical JSON output (the output shape declared with each signature) and a failed call raises \`ToolCallError\`, whose \`.toolName\` names the tool. Tool names that are not plain identifiers (for example MCP names with hyphens or \`__\` infixes) have no \`tool.<name>\` member — call those as direct tool calls. These declarations are argument and output SHAPES, not a registry listing: read the live member set at run time with \`dir(tool)\`.`
+Every tool this conversation declares is callable inside a cell as \`await tool.<name>(args)\` with ONE positional arguments object; the awaited value is that tool's canonical JSON output (the output shape declared with each signature) and a failed call raises \`ToolCallError\`, whose \`.toolName\` names the tool. Tool names that are not plain identifiers (for example MCP names with hyphens or \`__\` infixes) have no \`tool.<name>\` member — call those as direct tool calls. The declaration lines below ARE the live callable surface for this scope.`
 
 /**
  * Render the `dashr:tool-catalog` prompt section body as the REPL bridge

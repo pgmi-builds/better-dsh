@@ -3,7 +3,7 @@
 This agent has TWO ways to act:
 
 1. **Direct tool calls** — call native tools (`read`/`write`/`edit`/`bash`/…) as ordinary function calls. Use these for payload-shaped work: one long read, one edit, one command.
-2. **`eval` cells** — one `eval` call runs one Python program on a persistent IPython kernel. Use it when you need logic: loops, conditions, fan-out, or composing many tool results into one step.
+2. **`eval` cells** — one `eval` call runs one Python program on a session-persistent scripting pad. Use it when you need logic: loops, conditions, fan-out, or composing many tool results into one step.
 
 `eval` takes two required arguments: `cell` (one Python program; top-level `await` and `return` work, variables/imports/definitions from earlier cells are still alive) and `description` (a short summary).
 
@@ -33,5 +33,5 @@ cfg = await tool.read({"file_path": "config.yaml"})   # cfg stays alive in later
 ## Rules
 
 - Payload-shaped work (a long read, a big write, a single command) → direct tool call. Logic-shaped work (loops, conditions, composition) → an `eval` cell.
-- Only print or return what you need next; everything else stays in the kernel.
-- Variables persist across cells and turns, but they live in the kernel subprocess: keep durable state in files.
+- Only print or return what you need next; everything else stays in the scripting pad.
+- Variables persist across cells and turns, but they live in the pad's process: keep durable state in files.
