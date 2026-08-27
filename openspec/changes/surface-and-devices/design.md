@@ -20,7 +20,7 @@
 - `run_code` 不可 restrict（:2782）——本就要保留。
 - 否决的备选：`system-prompt/assemble` waterfall 过滤 wire 数组（软掩码）——只掩 wire 一面，catalog/SDK 仍显示该工具 → 模型看到却调不到的不一致面，维护成本高。
 
-**deny 名单（默认，可配置）**：`skill`、`send_message`（上游）、`report`、`subagent`、`subagent_fork`、`list_agents`、`interrupt_agent`、`workflow`、`ralph`——全部有替代面（skill://、agent_message 桥、agent://、REPL 自动绑定）。
+**deny 名单（默认，可配置；bridge 原则——只掩被替代了呈现面的，不 jail 原生能力）**：`skill`（→ `read skill://`）、`send_message` 上游（→ `agent_message` 桥）、`report`（→ 桥的 receiver='parent'）、`list_agents`（→ `agent://` 名册）。**保持可见**：`subagent`/`subagent_fork`/`interrupt_agent`/`workflow`/`ralph`——spawn 家族原生直通（label 参数、run_in_background 等原生语义零重包装），REPL 自动绑定照常覆盖。
 
 ### D2. 捕获定义仅供 DASHR 内部（被掩名对 LLM 全链路消失）
 
@@ -40,9 +40,10 @@
 推荐 **B**（omp 实证 + 低档模型稳健），A/B 由部署实测 `unknown binding`/参数错误率后定案。两选项共同点：不解释「wire = REPL」的对应机制（结构保证，非模型知识）。
 
 
-### D5. REPL 定位 = 平级基础设施（表述原则）
+### D5. run_code = REPL scripting pad（表述原则）
 
-REPL 是平级工具列表中的一员，不是特权 mega-tool：直调（效率通道）与 REPL（能力通道）并存。bridge instructions 与 design 文档统一此表述；不改变 run_code 的注册机制。
+run_code 定位为 **REPL scripting pad（草稿本）**：会话持久的运行环境，平级工具之一，不是特权入口。LLM 可见文案**不用 kernel 一词**（避免与模型交互的真实环境混淆——LLM 真正的环境就是呈现给它的全部 runtime facilities）。当前仅 Python；TS 及更多语言为自然扩展（omp 四语言实证同一桥接形态）。直调（效率）与 REPL（组合能力）并存，不改变 run_code 注册机制。
+
 
 ### D6. roster 并入 children + 持久化回退
 

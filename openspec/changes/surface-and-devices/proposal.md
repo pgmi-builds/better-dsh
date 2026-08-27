@@ -6,9 +6,9 @@ v0.1.8d 实测确认了 DASHR 表面层的一个结构性矛盾：目录掩码�
 
 ## 变更内容
 
-1. **Wire 级掩码**：被 DASHR 替代的原生工具（`skill`、上游 `send_message`、`report`、delegation 家族）在 agent scope 用 `ctx.tools.restrict({deny})` 从 wire schema（LLM-client 协议 tools 数组）摘除。一次 restrict，五个面一致（wire/catalog/SDK 段/run_code 绑定/按名 dispatch）。运行时定义先捕获后 restrict——被掩工具经捕获定义直调仍然可达（"wired but not surfaced"）。
-2. **REPL 自动映射**：`tool.*` 绑定废除 allowlist/blacklist，session-start 时自动转换全部平坦名；被掩名走捕获定义直调，可见名走 by-name 调度。MCP 非平坦名如实说明（名称形态不可作 cell 成员），不再呈现 REPL 可调清单。
-3. **目录改名**：tool-catalog 段改为 REPL bridge instructions 定位（保留输出契约）。
+1. **注册表掩码**：被 DASHR 替代了**呈现面**的原生工具（`skill`、上游 `send_message`、`report`、`list_agents`）在 agent scope 用 `ctx.tools.restrict({deny})` 摘出 registry 投影——wire schema、目录、REPL 绑定、按名 dispatch 一处生效。delegation spawn 家族（`subagent`/`subagent_fork`/`interrupt_agent`/`workflow`/`ralph`）**保持可见**（bridge 原则：原生能力直通，含 label 参数）。捕获定义仅供 DASHR 内部委托。
+2. **REPL 自动桥接**：`tool.*` 绑定废除名单，session-start 对 registry 可见全集机械转换（平坦名）；被掩名随投影消失自然不绑。MCP 非平坦名如实注明名称形态限制，不呈现可调清单。
+3. **目录改名**：tool-catalog 段改为 REPL bridge instructions（呈现形态 A 纯约定 / B omp 式紧凑签名，实测定案；保留输出契约；措辞为 REPL scripting pad，避免 kernel 一词）。
 4. **dvc 设备**：从 omp（MIT，源码在 `upstream/oh-my-pi`）vendor 设备框架 + ast_edit/ast_grep（经 npm `@oh-my-pi/pi-natives`）、browser（puppeteer-core + 系统 Chrome）、lsp（纯 TS + 外部语言服务器可选）。
 5. **agent:// roster 修复**：名册并入子代理（含已完成一次性 subagent，经 `listChildren` 的 live+persisted 合并）；`<id>/<child>` 对已完成子代理回退读持久化日志（`sessionPersistence` → `finalAssistantOutput`）。
 6. **RAM 物化**：grep/glob 的 content-backed 临时物化从磁盘 `/tmp` 切到 `/dev/shm`（tmpfs 即 RAM blob，ripgrep 无感知，崩溃挥发），回退 `/tmp`。

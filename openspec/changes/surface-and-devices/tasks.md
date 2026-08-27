@@ -3,10 +3,10 @@
 ## 1. Surface（wire 掩码 + REPL 自动映射 + 目录改名）
 
 - [ ] 1.1 捕获层扩展：`native-capture.ts` 泛化为「session-start 全量捕获」（restrict 前枚举 `registry.schemas(agent)` + 逐名 `ctx.tools.get`，per-agent WeakMap 存 `Map<name, ToolDefinition>`）
-- [ ] 1.2 restrict 接线：`agent/session-start` 末尾 `agentCtx.tools.restrict({deny: WIRE_MASKED_NAMES})`（默认名单见 design D1，config 可覆盖）；own-layer wrapper 注册先行（时序断言入测试）
+- [ ] 1.2 restrict 接线：`agent/session-start` 末尾 `agentCtx.tools.restrict({deny: WIRE_MASKED_NAMES})`（默认名单=design D1 修订版：`skill`/`send_message`/`report`/`list_agents`；spawn 家族保持可见，config 可覆盖）；own-layer wrapper 注册先行（时序断言入测试）
 - [ ] 1.3 REPL 绑定单态自动映射：restrict **之后**枚举 `registry.schemas(agent)`（= visible 全集），凡平坦名自动绑、by-name scheduler；无名单无二态（被掩名天然不在 visible）；MCP 非平坦名跳过；删除 MASKED_TOOL_NAMES 的绑定过滤路径（名单仅作 restrict deny 来源）
 - [ ] 1.4 `agent_message` 桥下行内部分发改捕获定义（原 `binding('send_message')` 按名会被 restrict 断）
-- [ ] 1.5 目录段改 REPL bridge instructions，两选项（design D4）：A 纯约定一句 / B omp 式紧凑签名（每工具一行 `name(args: {…}): Promise<unknown>`，参照 upstream eval.ts `generateCodeModeDeclarations`）；均保留 ToolOutputMap、非平坦名例外、不呈现 REPL 可调清单；部署实测 `unknown binding`/参数错误率定案
+- [ ] 1.5 目录段改 REPL bridge instructions，两选项（design D4）：A 纯约定一句 / B omp 式紧凑签名（每工具一行 `name(args: {…}): Promise<unknown>`，参照 upstream eval.ts `generateCodeModeDeclarations`）；均保留 ToolOutputMap、非平坦名例外、不呈现 REPL 可调清单；措辞=REPL scripting pad（会话持久、当前 Python、可扩展），LLM 可见文本不用 kernel 一词；部署实测 `unknown binding`/参数错误率定案
 - [ ] 1.6 测试：restrict 后 schemas/wireSchemas 无被掩名（fake registry 层链）；被掩名 binding 不存在且 dispatch UNKNOWN_TOOL（全链路消失）；新 host 工具零改动自动入绑；own-layer wrapper 不受 deny 影响
 
 ## 2. agent:// roster 修复
