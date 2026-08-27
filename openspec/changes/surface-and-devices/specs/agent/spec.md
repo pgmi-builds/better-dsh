@@ -1,26 +1,22 @@
 ## MODIFIED Requirements
 
 ### Requirement: Agent roster addressing
-The system SHALL let bare `agent://` return the roster of every live session plus every child subagent discoverable for those sessions (live or settled one-shot, via the subagent service's live-preferred merge), oldest first, as a five-column table: `id`, `status`, `kind`, `parent`, `last activity`. The `id` column shows a child's durable creation label when it has one (e.g. `doer-1`), else the raw session id. `status` comes from the live agent registry (`idle`/`running`; `-` when the session has no live agent; settled children render their settled state); `kind` is the session header's `origin` (default `main`; children `subagent`); `parent` is the delegating parent session id (`-` at top level); `last activity` is the last session event's time in ISO 8601 (`-` when the session has no events).
+The system SHALL let bare `agent://` return the caller's family tree — its descendant subagents through the subagent service's descendant projection, mirroring native `list_agents` semantics: only continuable children are listed (one-shot children are omitted — they are not continuation candidates; discovery traverses them only to find grandchildren), never sessions outside the caller's family, and never a global superset. Columns: `id` (creation label when present, e.g. `doer-1`, else raw session id), `status` (`running`/`idle` from the live agent registry; `ready` when only persisted — resumable, not terminal), `parent`, `last activity`. A caller with no children gets an empty roster.
 
-#### Scenario: Listing all agents
-- **WHEN** the model reads bare `agent://`
-- **THEN** the system returns one row per live session and per discoverable child, with all five columns
+#### Scenario: Listing the caller's continuable children
+- **WHEN** the model reads bare `agent://` while it has continuable children (live or persisted)
+- **THEN** the roster returns one row per continuable child, labeled and with native status semantics
 
-#### Scenario: Session without a live agent
-- **WHEN** a roster row's session has no entry in the live agent registry
-- **THEN** its `status` column renders `-`
+#### Scenario: One-shot children omitted from the listing
+- **WHEN** the caller's only children are settled one-shot subagents
+- **THEN** the roster is empty (their ids arrive from spawn return and settlement notices, as natively)
 
-#### Scenario: Settled one-shot child appears in the roster
-- **WHEN** one of the caller's one-shot subagents has already settled
-- **THEN** the roster contains a row for that child with the parent's id in the `parent` column and a settled status
-
-#### Scenario: Roster without children stays a single row
-- **WHEN** the caller has never spawned a subagent
-- **THEN** the roster shows only the caller's row with `parent` as `-`
+#### Scenario: No cross-family visibility
+- **WHEN** another agent's session runs concurrently outside the caller's family
+- **THEN** it does not appear in the caller's roster
 
 ### Requirement: Nested output addressing
-The system SHALL let `agent://<id>/<child>` return a direct child's output artifact, resolving the child only through the parent's enumerated children: from the live store when the child is live, and from the persisted session log (final assistant output) when the child has settled. Child addressing accepts the raw session id or the child's creation label (raw id takes precedence on conflict). Unknown children return `AGENT_UNKNOWN_ID`. Paths with more than two segments return `AGENT_BAD_PATH`.
+The system SHALL let `agent://<id>/<child>` return a direct child's output artifact, with addressing scoped to the caller's own family: from the live store when the child is live, and from the persisted session log (final assistant output) when the child has settled (the URL analog of collecting a background run's result). Child addressing accepts the raw session id or the child's creation label (raw id takes precedence on conflict). Unknown children return `AGENT_UNKNOWN_ID`. Paths with more than two segments return `AGENT_BAD_PATH`.
 
 #### Scenario: Reading a nested child output
 - **WHEN** the model reads `agent://<parent id>/<child id>` and the child is a direct child of that parent
@@ -37,3 +33,23 @@ The system SHALL let `agent://<id>/<child>` return a direct child's output artif
 #### Scenario: Settled one-shot child output retrievable
 - **WHEN** the model reads `agent://<parent>/<child>` after the one-shot child completed
 - **THEN** the child's final assistant message is returned from the persisted log
+
+## MODIFIED Requirements
+
+### Requirement: Agent output addressing
+The system SHALL let `agent://<id>` return that agent's output artifact: the rendered content of its last non-empty assistant message (matching `SubagentResult.output` semantics), or empty text when the agent produced no non-empty assistant output. Addressing is scoped to the caller's own family (the caller itself and its descendant children) — ids outside the family return `AGENT_UNKNOWN_ID`.
+
+#### Scenario: Reading a completed agent's output
+- **WHEN** the model reads `agent://<finished agent id>` from within its family
+- **THEN** the system returns the rendered text of that agent's last non-empty assistant message
+
+#### Scenario: Reading an unknown agent
+- **WHEN** the model reads `agent://<unknown id>` (or an id outside the caller's family)
+- **THEN** the system returns the structured `AGENT_UNKNOWN_ID` error
+
+### Requirement: Agent transcript addressing
+The system SHALL let `agent://<id>/transcript` return the agent's full derived message history in order, each message headed by its role (`assistant`, `user`, `tool result`, `system`), with tool calls rendered as `[tool: name] arguments` and errors as `[tool error] …`. Addressing follows the same family scoping as output addressing.
+
+#### Scenario: Reading an agent's session history
+- **WHEN** the model reads `agent://<id>/transcript` for an agent in the caller's family
+- **THEN** the system returns every message of that session in order, role-headed

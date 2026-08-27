@@ -51,13 +51,15 @@
 run_code 定位为 **REPL scripting pad（草稿本）**：会话持久的运行环境，平级工具之一，不是特权入口。LLM 可见文案**不用 kernel 一词**（避免与模型交互的真实环境混淆——LLM 真正的环境就是呈现给它的全部 runtime facilities）。当前仅 Python；TS 及更多语言为自然扩展（omp 四语言实证同一桥接形态）。直调（效率）与 REPL（组合能力）并存，不改变 run_code 注册机制。
 
 
-### D6. roster 并入 children + 持久化回退
+### D6. roster = caller 的 family tree（native list_agents 语义对齐，修正全局超集）
 
-（ScoutRosterChildren 根因）名册只见自己 = `sessions.list()` 是 live 内存库，一次性 subagent settle 即摘除；`<id>/<child>` 报 not live = `listChildren` 能发现 persisted 子（`activity:'inactive'`）但 `nestedOutput` 又要求 `sessions.get(childId)` 命中 live 库。
+**原则**：既不缩小上游能力，也不自造 feature。原生 `list_agents`（`dsh-tool-subagent-control/lib/types/list-agents.js`）= `ctx.subagents.listChildren()/listDescendants()` 的 caller 视角投影——**只列自己的 family tree**（children / 可选 descendants），且**只列 continuable 子**（one-shot 子明确省略：不可续谈、模型无从选择；遍历 one-shot 仅为发现孙辈），status 为 `running|idle|ready`。可见但不可通讯的全局超集无意义（跨 family 本就 UNAUTHORIZED），且属自造 feature。
 
-**修法**：roster 对每个 live session 追加 `listChildren(parentId)` 行（status 用 entry.activity 映射，parent=该 session，kind=subagent）；`nestedOutput` 按 `activity` 分支——`inactive` → `ctx.sessionPersistence.inspect(childId)` → `finalAssistantOutput(events)`。`inject` 增加 `'sessionPersistence'`。
+**修法（roster）**：裸 `agent://` 从「全部 live session」改为 **caller 的 family tree**：`listDescendants(caller.id)` 投影，行 = continuable 子，列 = `id`（`label ?? rawId`）、`status`（running/idle/ready，native 语义：ready = 仅存持久化、可续谈非终态）、`parent`、`last activity`。无子时名册为空（native 同型）。全局 session 枚举（v0.1.8d 的 sessions.list() 行为）**移除**——那是无意引入的 feature。
 
-**label 寻址（对齐 native list_agents 体验）**：`SubagentListEntry.label` 是 one-shot 子代理的持久创建标签（admission 时传入，如 `doer-1`）。roster 的 id 列显示 `label ?? rawId`；`<id>/<child>` 与 `agent://<id>` 寻址做**双匹配**——先 exact raw session id，未中再按 label 匹配（复刻 v0.1.6 `ctx.agent send_message` 收 `phase1doer` 这类别名的先例）。label 冲突时 raw id 优先并文档注明。
+**修法（寻址范围）**：`agent://<id>` / `<id>/transcript` / `<id>/<child>` 限定 caller 自己 + 其 family descendants——自己的上下文与自己的孩子是 caller 的既有能力面（job_output/notice 语义），别人的不是。settled one-shot 子不进名册但**可寻址**（id 来自 spawn 返回/notice，native 用 job_output 收集，URL 等价物）：`activity:'inactive'` → `ctx.sessionPersistence.inspect(childId)` → `finalAssistantOutput(events)`；live 子走 live 库。`inject` 增加 `'sessionPersistence'`。
+
+**label 寻址**：`SubagentListEntry.label` 是 continuable 子的持久创建标签（如 `doer-1`）。名册 id 列 `label ?? rawId`；寻址**双匹配**——先 exact raw session id，未中按 label（native `list_agents` 的 label 字段同名语义）。label 冲突时 raw id 优先并文档注明。
 
 ### D7. RAM 物化 = /dev/shm tmpfs
 

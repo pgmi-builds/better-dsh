@@ -11,10 +11,10 @@
 
 ## 2. agent:// roster 修复
 
-- [ ] 2.1 roster 并 children：每个 live session 追加 `listChildren(parentId)` 行（activity→status 映射、parent=该 session、kind=subagent）；inject 增加 `'sessionPersistence'`
-- [ ] 2.2 nestedOutput 持久化回退：`activity==='inactive'` → `sessionPersistence.inspect(childId)` → `finalAssistantOutput(events)`；`AgentSubagentsSurface` 扩展对应类型
+- [ ] 2.1 roster 改 family tree：裸 `agent://` = `listDescendants(caller.id)` 的 continuable 投影（one-shot 不列；列 id=label??rawId / status=running|idle|ready / parent / last activity；无子=空名册）；移除全局 `sessions.list()` 枚举；寻址范围（output/transcript/nested）限 caller 自身 + descendants；inject 增加 `'sessionPersistence'`
+- [ ] 2.2 nestedOutput 持久化回退：`activity==='inactive'` → `sessionPersistence.inspect(childId)` → `finalAssistantOutput(events)`；`AgentSubagentsSurface` 扩展 `listDescendants` 与对应类型
 - [ ] 2.3 label 寻址：roster id 列 `label ?? rawId`；`<id>`/`<id>/<child>` 双匹配（raw id exact 优先，未中按 label）；label 冲突时 raw 优先；测试覆盖 label 命中/raw 优先/冲突
-- [ ] 2.4 测试：settled 子出现在名册且输出可取；live 子原路径不回归；unknown child 错误不变
+- [ ] 2.4 测试：family 外 id 与跨 family 均AGENT_UNKNOWN_ID；one-shot 不列但可寻址取输出；live 子原路径不回归；无子=空名册；unknown child 错误不变
 
 ## 3. RAM 物化
 
