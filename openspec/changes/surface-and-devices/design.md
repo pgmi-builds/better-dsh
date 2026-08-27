@@ -30,7 +30,7 @@
 
 ### D2. 捕获定义仅供 DASHR 内部（被掩名对 LLM 全链路消失）
 
-**Decision**：被掩名对 LLM 是**全链路不可达**——wire/catalog/SDK/REPL 绑定/按名 dispatch 五面一致消失（restrict 的 `visible` 投影就是唯一源）。session-start 在 restrict **之前**的全量捕获（per-agent WeakMap `Map<name, ToolDefinition>`）**只服务于 URL wrapper 的非 URL 委托**（read/write/grep/glob 直调捕获的原生定义）。三桥不捕获、不按名 dispatch——**service 层直调**：`agent` → `ctx.subagents.start/startContinuable`（spawn/fork）、`agent_message` → `followup/reportFrom/interrupt`（三路）、`agent_workflow` → `ctx.workflowEngine.start`（script/rfc）；原生参数语义透传，service 内部授权（authorizeLineage/authorizeReporter/ancestor authority）天然保留，不打开越权面。投递模式一致：内容以 user-role 投递为目标的下一轮 turn，工具返回 messageId/runId 确认，非工具结果。REPL 绑定**不绑被掩名**——「LLM 直调 = REPL 桥接」是同一投影源的结构保证，不需要（也不应该）向 LLM 解释这个对应关系。
+**Decision**：被掩名对 LLM 是**全链路不可达**——wire/catalog/SDK/REPL 绑定/按名 dispatch 五面一致消失（restrict 的 `visible` 投影就是唯一源）。session-start 在 restrict **之前**的全量捕获（per-agent WeakMap `Map<name, ToolDefinition>`）服务于两处：URL wrapper 的非 URL 委托（read/write/grep/glob 直调捕获的原生定义）与 `agent_workflow` 桥。三桥按服务可见性分两型——**host 单例 service 直调**：`agent` → `ctx.subagents.start/startContinuable`（spawn/fork）、`agent_message` → `followup/reportFrom/interrupt`（三路）；**realm 私有服务走捕获定义直调**：`agent_workflow` → 捕获的 native `workflow`/`ralph` 定义（v0.1.8f 实测裁决：`workflowEngine` 被 standard preset 的 delegation 组 `isolate: workflowEngine: true` 隔离在 entry-local realm，DASHR 的任何 ctx 都解析不到；native 工具的 execute 闭包在 realm 内执行，是唯一通路）。原生参数语义透传，各层授权（authorizeLineage/authorizeReporter/ancestor authority）天然保留。投递模式一致：内容以 user-role 投递为目标的下一轮 turn，工具返回 messageId/runId 确认，非工具结果。REPL 绑定**不绑被掩名**——「LLM 直调 = REPL 桥接」是同一投影源的结构保证，不需要（也不应该）向 LLM 解释这个对应关系。
 
 ### D3. REPL 自动映射（废除 allowlist，单态）
 
@@ -93,5 +93,5 @@ run_code 定位为 **REPL scripting pad（草稿本）**：会话持久的运行
 
 - RESOLVED（spike S6）：browser 不需 puppeteer-core patch——纯 stealth 改造，无 patch 冒烟通过。
 - RESOLVED（spike S5）：`@oh-my-pi/pi-natives` npm wrapper 是 Bun-only，但 `.node` 二进制可从 Node 直接 dlopen；本 change 采用 optionalDependencies 平台包 + 直 dlopen（linux-x64 已验证；darwin/arm64 平台包名已注记）。
-- RESOLVED（Wave5）：spawn 面经 `agent` 桥补齐——subagent 家族 deny 后模型仍有内建 spawn 入口（route `ctx.subagents.start/startContinuable`，label/prompt/run_in_background 透传）；同批补齐 `agent_message` 的 interrupt 与 `agent_workflow`（workflow/ralph，route `ctx.workflowEngine.start`）。
+- RESOLVED（Wave5）：spawn 面经 `agent` 桥补齐——subagent 家族 deny 后模型仍有内建 spawn 入口（route `ctx.subagents.start/startContinuable`，label/prompt/run_in_background 透传）；同批补齐 `agent_message` 的 interrupt 与 `agent_workflow`（workflow/ralph）。`agent_workflow` 初版走 `ctx.workflowEngine` service 直调，v0.1.8f 实测发现该服务被 preset delegation realm 隔离（外部 ctx 不可见），改回**捕获定义直调**——native 定义的 execute 闭包在 realm 内解析引擎，为 realm 私有服务的唯一通路。
 - 遗留（有意 deferred，非本 change）：cross-platform pi-natives 平台包登记；package-lock 同步（registry 重解析超时，部署走实物复制 workflow）。

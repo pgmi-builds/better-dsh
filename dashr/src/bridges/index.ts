@@ -24,14 +24,8 @@
  * @module dashr-repl/bridges
  */
 
-import type { ToolRunContext } from '@deepseek-ai/dsh-tools'
-import type {
-  DASHRSubagentsSurface,
-  DASHRSubagentDelegation,
-  DASHRWorkflowEngine,
-  DASHRWorkflowMeta,
-  DASHRWorkflowRun,
-} from '../subagents-surface.ts'
+import type { ToolDefinition, ToolRunContext } from '@deepseek-ai/dsh-tools'
+import type { DASHRSubagentsSurface, DASHRSubagentDelegation } from '../subagents-surface.ts'
 import type { ReplBindingFunction, ReplJsonValue } from '../runtime-surface.ts'
 import type { DASHRSdkSchema } from '../py-sdk.ts'
 import type { SessionId } from '@deepseek-ai/dsh-session'
@@ -79,108 +73,6 @@ function stopReasonError(reason: string): string {
 
 /** The native `dsh-tool-subagent` default delegation-depth cap (Config default `3`). */
 const NATIVE_MAX_DEPTH = 3
-
-/** The fixed Ralph orchestration (deployment-owned, copied verbatim from `@deepseek-ai/dsh-tool-ralph`). */
-const RALPH_META: DASHRWorkflowMeta = {
-  name: 'ralph-loop',
-  description: 'Iterate toward one objective with a fresh child and bounded structured handoff per round.',
-  phases: [{ title: 'Fresh-agent rounds', detail: 'One clean child context per Ralph round.' }],
-}
-
-/** Native Ralph defaults (Config defaults). */
-const RALPH_SUBAGENT_PROVIDER = 'spawn'
-const RALPH_MAX_ROUNDS = 256
-const RALPH_MAX_HANDOFF_CHARS = 16_384
-
-/** The fixed, deployment-owned Ralph script, copied verbatim from `@deepseek-ai/dsh-tool-ralph`. */
-const RALPH_SCRIPT = String.raw`
-const reportSchema = {
-  type: 'object',
-  properties: {
-    status: { type: 'string', enum: ['continue', 'complete', 'blocked'] },
-    summary: { type: 'string' },
-    evidence: { type: 'array', items: { type: 'string' } },
-    nextSteps: { type: 'array', items: { type: 'string' } },
-    blocker: { type: 'string' },
-  },
-  required: ['status', 'summary', 'evidence', 'nextSteps', 'blocker'],
-  additionalProperties: false,
-}
-
-function normalizedText(value) {
-  return typeof value === 'string' && value.length > 0 && value === value.trim()
-}
-
-function normalizedList(value) {
-  return Array.isArray(value) && value.every(normalizedText)
-}
-
-function validateReport(report) {
-  if (report === null || typeof report !== 'object' || Array.isArray(report)) {
-    throw new Error('Ralph child returned no structured round report')
-  }
-  if (!normalizedText(report.summary)) {
-    throw new Error('Ralph round report summary must be non-empty and normalized')
-  }
-  if (!normalizedList(report.evidence) || !normalizedList(report.nextSteps)) {
-    throw new Error('Ralph round report evidence and nextSteps must contain only non-empty normalized strings')
-  }
-  if (typeof report.blocker !== 'string' || report.blocker !== report.blocker.trim()) {
-    throw new Error('Ralph round report blocker must be a normalized string')
-  }
-  switch (report.status) {
-    case 'continue':
-      if (report.nextSteps.length === 0 || report.blocker !== '') {
-        throw new Error('a continuing Ralph report needs nextSteps and an empty blocker')
-      }
-      break
-    case 'complete':
-      if (report.evidence.length === 0 || report.nextSteps.length !== 0 || report.blocker !== '') {
-        throw new Error('a complete Ralph report needs evidence, no nextSteps, and an empty blocker')
-      }
-      break
-    case 'blocked':
-      if (!normalizedText(report.blocker)) {
-        throw new Error('a blocked Ralph report needs a concrete blocker')
-      }
-      break
-    default:
-      throw new Error('Ralph round report status is invalid')
-  }
-  const serialized = JSON.stringify(report)
-  if (serialized.length > args.maxHandoffChars) {
-    throw new Error('Ralph round report exceeds maxHandoffChars (' + serialized.length + ' > ' + args.maxHandoffChars + ')')
-  }
-  return report
-}
-
-let previous
-phase('Fresh-agent rounds')
-for (let round = 1; round <= args.maxRounds; round += 1) {
-  const prior = previous === undefined ? '(none — this is the first round)' : JSON.stringify(previous)
-  const prompt = [
-    'You are one fresh worker in a foreground Ralph loop. You receive no parent conversation and no prior child session. Do not call the ralph tool: this round already is its worker.',
-    'Immutable objective:\n' + args.objective,
-    'Ralph round: ' + round + ' of ' + args.maxRounds + '.',
-    'The shared workspace and its current working tree are the long-term memory and source of truth. Inspect them before acting, preserve existing work, perform concrete in-scope work, and verify what you change. Treat the previous report only as a bounded handoff; confirm it against the workspace.',
-    'Previous structured handoff:\n' + prior,
-    'Return one report with exact normalized strings. Use status continue with at least one nextSteps entry while useful work remains; complete only with concrete evidence and no nextSteps; blocked only when no meaningful progress is possible without human input or an external-state change. blocker must be empty unless blocked.',
-  ].join('\n\n')
-  const rawReport = await agent(prompt, {
-    label: 'Ralph round ' + round,
-    phase: 'Fresh-agent rounds',
-    schema: reportSchema,
-  })
-  if (rawReport === null) {
-    return { status: 'round-failed', roundsStarted: round, lastReport: previous ?? null }
-  }
-  const report = validateReport(rawReport)
-  if (report.status === 'complete') return { status: 'complete', roundsStarted: round, report }
-  if (report.status === 'blocked') return { status: 'blocked', roundsStarted: round, report }
-  previous = report
-}
-return { status: 'budget-limited', roundsStarted: args.maxRounds, report: previous }
-`
 
 /**
  * The model-facing declarations for the three bridge tools, fed to the SAME
@@ -243,19 +135,24 @@ export const AGENT_BRIDGE_SCHEMAS: DASHRSdkSchema[] = [
 
 /**
  * Build the three bridge callables for one `eval` run, closing over the run's
- * execution context and the use-time service resolvers.
+ * execution context and the use-time resolvers.
  * @param exec - the run's tool-execution context (carries `agent` and `signal`).
- * @param deps - the service resolvers (`ctx.subagents` / `ctx.workflowEngine`).
+ * @param deps - the service resolver (`ctx.subagents`) and the captured
+ * native workflow/ralph definitions (the workflowEngine service lives inside
+ * the preset's delegation realm — entry-local, invisible to any outside ctx —
+ * so the workflow bridge passes through the CAPTURED tool definitions, whose
+ * execute closures resolve the engine from inside that realm).
  * @returns the flat-name callables, keyed by their model-facing names.
  */
 export function createAgentBridgeBindings(
   exec: ToolRunContext,
   deps: {
     requireSubagents?: () => DASHRSubagentsSurface | undefined
-    requireWorkflowEngine?: () => DASHRWorkflowEngine | undefined
+    resolveCapturedWorkflow?: () => ToolDefinition | undefined
+    resolveCapturedRalph?: () => ToolDefinition | undefined
   },
 ): Record<string, ReplBindingFunction> {
-  const { requireSubagents, requireWorkflowEngine } = deps
+  const { requireSubagents, resolveCapturedWorkflow, resolveCapturedRalph } = deps
 
   const agentCallable: ReplBindingFunction = async (rawArgs): Promise<ReplJsonValue> => {
     const parsed = flatBridgeToolArgs(rawArgs)
@@ -413,70 +310,36 @@ export function createAgentBridgeBindings(
     if (!exec.agent) {
       return { error: 'agent_workflow() requires a calling agent (this run has no agent to attribute the workflow to)' }
     }
-    const engine = requireWorkflowEngine?.()
-    if (!engine) {
-      return { error: 'agent_workflow() is unavailable: no ctx.workflowEngine service is mounted in this composition' }
-    }
-
-    const settle = async (run: DASHRWorkflowRun): Promise<ReplJsonValue> => {
-      const onAbort = (): void => { run.cancel('parent step aborted') }
-      exec.signal.addEventListener('abort', onAbort, { once: true })
-      try {
-        const result = await run.result
-        if (result.stopReason !== 'completed') {
-          return { error: `agent_workflow() did not finish cleanly: ${result.error ?? result.stopReason}` }
-        }
-        return { runId: run.id, agentsStarted: result.agentsStarted, result: result.value as ReplJsonValue }
-      } catch (error: unknown) {
-        return { error: `agent_workflow() failed: ${error instanceof Error ? error.message : String(error)}` }
-      } finally {
-        exec.signal.removeEventListener('abort', onAbort)
-        await run.dispose()
+    if (mode === 'script') {
+      if (typeof a['script'] !== 'string' || a['script'].length === 0) {
+        return { error: 'agent_workflow() mode "script" requires {"script": "..."} — the plain-JS workflow script body' }
       }
+      if (typeof a['meta'] !== 'object' || a['meta'] === null || Array.isArray(a['meta'])) {
+        return { error: 'agent_workflow() mode "script" requires {"meta": {...}} — the workflow identity block' }
+      }
+    } else if (typeof a['objective'] !== 'string' || a['objective'].trim().length === 0) {
+      return { error: 'agent_workflow() mode "rfc" requires {"objective": "..."} — the immutable completion objective' }
     }
-
+    // The workflowEngine service is entry-local to the preset's delegation
+    // realm — invisible to this bridge's ctx — so the bridge passes through
+    // the CAPTURED native definitions; their execute closures run inside the
+    // realm and resolve the engine natively.
+    const captured = mode === 'script' ? resolveCapturedWorkflow?.() : resolveCapturedRalph?.()
+    if (captured === undefined) {
+      return { error: `agent_workflow() is unavailable: the native ${mode === 'script' ? 'workflow' : 'ralph'} tool is not registered in this composition` }
+    }
     try {
-      if (mode === 'script') {
-        const script = a['script']
-        const meta = a['meta']
-        if (typeof script !== 'string' || script.length === 0) {
-          return { error: 'agent_workflow() mode "script" requires {"script": "..."} — the plain-JS workflow script body' }
-        }
-        if (typeof meta !== 'object' || meta === null || Array.isArray(meta)) {
-          return { error: 'agent_workflow() mode "script" requires {"meta": {...}} — the workflow identity block' }
-        }
-        const run = engine.start({
-          script,
-          meta: meta as DASHRWorkflowMeta,
+      const result = mode === 'script'
+        ? await captured.execute({
+          script: a['script'],
+          meta: a['meta'],
           ...(a['args'] !== undefined ? { args: a['args'] } : {}),
-          parent: exec.agent,
-          signal: exec.signal,
-        })
-        return await settle(run)
-      }
-      // rfc mode: the fixed fresh-agent Ralph loop.
-      const objective = a['objective']
-      if (typeof objective !== 'string' || objective.trim().length === 0) {
-        return { error: 'agent_workflow() mode "rfc" requires {"objective": "..."} — the immutable completion objective' }
-      }
-      const requestedRounds = a['maxRounds']
-      const maxRounds = requestedRounds ?? RALPH_MAX_ROUNDS
-      if (typeof maxRounds !== 'number' || !Number.isSafeInteger(maxRounds) || maxRounds < 1) {
-        return { error: 'agent_workflow() mode "rfc" maxRounds must be a positive safe integer' }
-      }
-      if (maxRounds > RALPH_MAX_ROUNDS) {
-        return { error: `agent_workflow() mode "rfc" maxRounds ${maxRounds} exceeds the deployment ceiling ${RALPH_MAX_ROUNDS}` }
-      }
-      const run = engine.start({
-        script: RALPH_SCRIPT,
-        meta: RALPH_META,
-        args: { objective: objective.trim(), maxRounds, maxHandoffChars: RALPH_MAX_HANDOFF_CHARS },
-        subagentProvider: RALPH_SUBAGENT_PROVIDER,
-        maxTotalAgents: maxRounds,
-        parent: exec.agent,
-        signal: exec.signal,
-      })
-      return await settle(run)
+        }, exec)
+        : await captured.execute({
+          objective: a['objective'],
+          ...(a['maxRounds'] !== undefined ? { maxRounds: a['maxRounds'] } : {}),
+        }, exec)
+      return result as ReplJsonValue
     } catch (error: unknown) {
       return { error: `agent_workflow() failed: ${error instanceof Error ? error.message : String(error)}` }
     }

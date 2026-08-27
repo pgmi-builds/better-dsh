@@ -1,17 +1,21 @@
 import { describe, expect, it, onTestFinished } from 'vitest'
 import type { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
+import { defineTool } from '@deepseek-ai/dsh-tools'
 import { FakeCellRuntime, fakeRuntime, runCell, setupPresentation } from '../helpers.ts'
+import { captureAllTools } from '../../src/url-schema/native-capture.ts'
 import type { ReplJsonValue } from '../../src/runtime-surface.ts'
 
 /**
  * The three delegation bridges (Wave5): `agent` (spawn/fork), `agent_message`
- * (followup/report/interrupt), `agent_workflow` (workflow/ralph). Each is a
- * thin adapter over the host-plane service layer, so the tests route through a
- * fake `ctx.subagents` / `ctx.workflowEngine` and assert the EXACT call the
- * native tools would make — request field passthrough, provider selection, and
- * interrupt authority — plus the structured-error contract and the three flat
- * names in the REPL binding set.
+ * (followup/report/interrupt), `agent_workflow` (workflow/ralph). `agent` and
+ * `agent_message` are thin adapters over the host-plane `ctx.subagents`
+ * service; `agent_workflow` passes through the CAPTURED native workflow/ralph
+ * definitions (the workflowEngine service is entry-local to the preset's
+ * delegation realm, invisible to any outside ctx). The tests route through a
+ * fake service / fake captured tools and assert the EXACT passthrough —
+ * request fields, provider selection, interrupt authority — plus the
+ * structured-error contract and the three flat names in the REPL binding set.
  */
 
 type Callable = (args: unknown) => Promise<ReplJsonValue>
@@ -39,7 +43,8 @@ interface DelegationCalls {
   followups: { childId: string, message: string, sourceKind: string, senderId: string }[]
   interrupts: { targetId: string, authorityKind: string, authorityAgent: Agent }[]
   reports: { message: string }[]
-  workflowStarts: { script: string, metaName: string, objective: unknown, subagentProvider: unknown, maxTotalAgents: unknown, args: unknown }[]
+  workflowExecs: { script: string, metaName: string, args: unknown }[]
+  ralphExecs: { objective: string, maxRounds: unknown }[]
 }
 
 /**
@@ -51,7 +56,7 @@ async function fakeDelegationServices(
   ctx: Context,
   overrides: { startStopReason?: string, reportFrom?: (call: { message: string }) => Promise<string> } = {},
 ): Promise<DelegationCalls> {
-  const calls: DelegationCalls = { starts: [], continuableStarts: [], followups: [], interrupts: [], reports: [], workflowStarts: [] }
+  const calls: DelegationCalls = { starts: [], continuableStarts: [], followups: [], interrupts: [], reports: [], workflowExecs: [], ralphExecs: [] }
   const fiber = await ctx.plugin({ name: 'fake-delegation-services', apply(c) {
     c.provide('subagents', {
       start: (provider: string, request: { label: string, prompt: { text: string }[], parent: Agent, maxDepth: number, signal: AbortSignal }) => {
@@ -78,20 +83,41 @@ async function fakeDelegationServices(
         return overrides.reportFrom !== undefined ? overrides.reportFrom({ message: content[0]!.text }) : Promise.resolve('mid-1')
       },
     })
-    c.provide('workflowEngine', {
-      start: (request: { script: string, meta: { name: string }, args?: { objective?: unknown }, subagentProvider?: unknown, maxTotalAgents?: unknown }) => {
-        calls.workflowStarts.push({ script: request.script, metaName: request.meta.name, objective: request.args?.objective, subagentProvider: request.subagentProvider, maxTotalAgents: request.maxTotalAgents, args: request.args })
-        return {
-          id: 'wf-1',
-          result: Promise.resolve({ value: { ok: true }, stopReason: 'completed', agentsStarted: 2 }),
-          cancel: () => {},
-          dispose: () => Promise.resolve(),
-        }
-      },
-    })
   } })
   onTestFinished(() => fiber.dispose())
   return calls
+}
+
+/**
+ * Register fake native `workflow`/`ralph` registry tools and CAPTURE them the
+ * way session-start does, so the `agent_workflow` bridge resolves them. The
+ * fakes record the exact args the bridge passed through and answer the native
+ * result shapes.
+ */
+function registerCapturedWorkflowTools(ctx: Context, agent: Agent, calls: DelegationCalls): void {
+  ctx.tools.register(defineTool({
+    name: 'workflow',
+    description: 'Fake native workflow tool.',
+    parameters: { script: { type: 'string', required: true }, meta: { type: 'json', required: true } },
+    output: { schema: { type: 'json' }, render: (_args, value) => [{ type: 'text', text: JSON.stringify(value) }] },
+    execute(args) {
+      const a = args as { script: string, meta: { name: string }, args?: unknown }
+      calls.workflowExecs.push({ script: a.script, metaName: a.meta.name, args: a.args })
+      return Promise.resolve({ runId: 'wf-1', agentsStarted: 2, result: { ok: true } }) as Promise<never>
+    },
+  }))
+  ctx.tools.register(defineTool({
+    name: 'ralph',
+    description: 'Fake native ralph tool.',
+    parameters: { objective: { type: 'string', required: true }, maxRounds: { type: 'number' } },
+    output: { schema: { type: 'json' }, render: (_args, value) => [{ type: 'text', text: JSON.stringify(value) }] },
+    execute(args) {
+      const a = args as { objective: string, maxRounds?: number }
+      calls.ralphExecs.push({ objective: a.objective, maxRounds: a.maxRounds })
+      return Promise.resolve({ runId: 'ralph-1', agentsStarted: 3, result: 'done', rounds: 2 }) as Promise<never>
+    },
+  }))
+  captureAllTools(ctx, agent)
 }
 
 describe('agent bridge — spawn/fork unified', () => {
@@ -205,10 +231,11 @@ describe('agent_message bridge — followup / report / interrupt', () => {
   })
 })
 
-describe('agent_workflow bridge — script / rfc', () => {
-  it("mode 'script' passes script/meta/args through to workflowEngine.start", async () => {
+describe('agent_workflow bridge — captured native definitions', () => {
+  it("mode 'script' passes script/meta/args through to the captured workflow tool", async () => {
     const { ctx, agent } = await setupPresentation(fakeRuntime)
     const calls = await fakeDelegationServices(ctx)
+    registerCapturedWorkflowTools(ctx, agent.agent, calls)
     const runtime = ctx.get('replRuntime') as FakeCellRuntime
     runtime.behavior = async (request) => {
       const result = await callableOf(request, 'agent_workflow')({ mode: 'script', script: 'return 1', meta: { name: 'audit', description: 'Audit the repo' }, args: { files: ['a'] } })
@@ -216,28 +243,40 @@ describe('agent_workflow bridge — script / rfc', () => {
     }
     const result = await cell(ctx, agent.agent, 'program')
     expect(result.value.result).toEqual({ runId: 'wf-1', agentsStarted: 2, result: { ok: true } })
-    expect(calls.workflowStarts).toHaveLength(1)
-    expect(calls.workflowStarts[0]!.script).toBe('return 1')
-    expect(calls.workflowStarts[0]!.metaName).toBe('audit')
-    expect(calls.workflowStarts[0]!.args).toEqual({ files: ['a'] })
+    expect(calls.workflowExecs).toHaveLength(1)
+    expect(calls.workflowExecs[0]!.script).toBe('return 1')
+    expect(calls.workflowExecs[0]!.metaName).toBe('audit')
+    expect(calls.workflowExecs[0]!.args).toEqual({ files: ['a'] })
   })
 
-  it("mode 'rfc' routes the fixed Ralph loop with the objective and defaults", async () => {
+  it("mode 'rfc' passes the objective (and an explicit maxRounds) through to the captured ralph tool", async () => {
     const { ctx, agent } = await setupPresentation(fakeRuntime)
     const calls = await fakeDelegationServices(ctx)
+    registerCapturedWorkflowTools(ctx, agent.agent, calls)
     const runtime = ctx.get('replRuntime') as FakeCellRuntime
     runtime.behavior = async (request) => {
-      const result = await callableOf(request, 'agent_workflow')({ mode: 'rfc', objective: 'finish the migration' })
+      const result = await callableOf(request, 'agent_workflow')({ mode: 'rfc', objective: 'finish the migration', maxRounds: 5 })
       return { logs: [], value: result }
     }
     await cell(ctx, agent.agent, 'program')
-    expect(calls.workflowStarts).toHaveLength(1)
-    const start = calls.workflowStarts[0]!
-    expect(start.metaName).toBe('ralph-loop')
-    expect(start.objective).toBe('finish the migration')
-    expect(start.subagentProvider).toBe('spawn')
-    expect(start.maxTotalAgents).toBe(256)
-    expect(start.script).toContain('Ralph round: ')
+    expect(calls.ralphExecs).toHaveLength(1)
+    expect(calls.ralphExecs[0]!.objective).toBe('finish the migration')
+    expect(calls.ralphExecs[0]!.maxRounds).toBe(5)
+  })
+
+  it('answers a structured unavailable when neither native tool was captured in this composition', async () => {
+    const { ctx, agent } = await setupPresentation(fakeRuntime)
+    await fakeDelegationServices(ctx)
+    const runtime = ctx.get('replRuntime') as FakeCellRuntime
+    runtime.behavior = async (request) => {
+      const script = await callableOf(request, 'agent_workflow')({ mode: 'script', script: 'return 1', meta: { name: 'x', description: 'x' } })
+      const rfc = await callableOf(request, 'agent_workflow')({ mode: 'rfc', objective: 'do it' })
+      return { logs: [], value: { script, rfc } }
+    }
+    const result = await cell(ctx, agent.agent, 'program')
+    const errors = result.value.result as Record<string, { error: unknown }>
+    expect(errors['script']).toEqual({ error: expect.stringContaining('the native workflow tool is not registered') })
+    expect(errors['rfc']).toEqual({ error: expect.stringContaining('the native ralph tool is not registered') })
   })
 })
 

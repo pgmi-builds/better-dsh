@@ -105,7 +105,8 @@ import type { DASHRSdkSchema } from './py-sdk.ts'
 import { snapshotJsonValue } from './snapshot-json.ts'
 import type { JsonValue } from './snapshot-json.ts'
 import type { Agent } from '@deepseek-ai/dsh-agent'
-import type { DASHRSubagentsSurface, DASHRWorkflowEngine } from './subagents-surface.ts'
+import type { DASHRSubagentsSurface } from './subagents-surface.ts'
+import { getCapturedTools } from './url-schema/native-capture.ts'
 import { AGENT_BRIDGE_SCHEMAS, createAgentBridgeBindings } from './bridges/index.ts'
 import { readFileSync } from 'node:fs'
 
@@ -433,12 +434,15 @@ export interface RunCellBridgeOptions {
    */
   requireSubagents?: () => DASHRSubagentsSurface | undefined
   /**
-   * Resolves the host-plane `ctx.workflowEngine` service (or undefined when
-   * this composition has no workflow capability) for the `agent_workflow`
-   * bridge. Same use-time read and structured-unavailable contract as
-   * {@link RunCellBridgeOptions.requireSubagents}.
+   * Resolves the captured native `workflow`/`ralph` tool definitions (or
+   * undefined when this composition registered neither) for the
+   * `agent_workflow` bridge. The workflowEngine service is entry-local to the
+   * preset's delegation realm — invisible to any outside ctx — so the bridge
+   * passes through the captured definitions instead of resolving the service.
    */
-  requireWorkflowEngine?: () => DASHRWorkflowEngine | undefined
+  resolveCapturedWorkflow?: (agent: ToolRunContext['agent']) => ToolDefinition | undefined
+  /** Ralph variant of {@link RunCellBridgeOptions.resolveCapturedWorkflow}. */
+  resolveCapturedRalph?: (agent: ToolRunContext['agent']) => ToolDefinition | undefined
 }
 
 /**
@@ -455,7 +459,7 @@ export interface RunCellBridgeOptions {
  * @returns the registry-ready definition.
  */
 export function createRunCellTool(registry: ToolRuntime, options: RunCellBridgeOptions): ToolDefinition {
-  const { requireRuntime, maxParallel, shapeDispatchLog, requireSubagents, requireWorkflowEngine } = options
+  const { requireRuntime, maxParallel, shapeDispatchLog, requireSubagents, resolveCapturedWorkflow, resolveCapturedRalph } = options
   return defineTool({
     name: EVAL_NAME,
     description: EVAL_DESCRIPTION,
@@ -743,14 +747,21 @@ export function createRunCellTool(registry: ToolRuntime, options: RunCellBridgeO
       }
 
       // The three delegation bridges (Wave5): flat-name callables built per
-      // run, closing over this run's exec context and the use-time service
-      // resolvers. Each routes straight to the service layer — `agent` →
-      // ctx.subagents.start / startContinuable, `agent_message` → followup /
-      // reportFrom / interrupt, `agent_workflow` → ctx.workflowEngine.start —
-      // so native parameter semantics are unchanged and the service's own
-      // authorization is preserved verbatim. Validation failures and service
-      // rejections answer with a structured `{ error }` value, never a crash.
-      const bridgeBindings = createAgentBridgeBindings(exec, { requireSubagents, requireWorkflowEngine })
+      // run, closing over this run's exec context and the use-time resolvers.
+      // `agent` / `agent_message` route straight to the host-plane service
+      // layer (ctx.subagents start / followup / reportFrom / interrupt); the
+      // workflowEngine service is entry-local to the preset's delegation
+      // realm, so `agent_workflow` passes through the CAPTURED native
+      // workflow/ralph definitions, whose execute closures resolve the engine
+      // from inside that realm. Native parameter semantics are unchanged and
+      // every service's own authorization is preserved verbatim. Validation
+      // failures and service rejections answer with a structured `{ error }`
+      // value, never a crash.
+      const bridgeBindings = createAgentBridgeBindings(exec, {
+        requireSubagents,
+        resolveCapturedWorkflow: () => resolveCapturedWorkflow?.(exec.agent),
+        resolveCapturedRalph: () => resolveCapturedRalph?.(exec.agent),
+      })
 
       try {
         let result: ReplRunResult
@@ -931,8 +942,11 @@ export function apply(ctx: Context, config: Config): void {
     // records the reservation delta). Registered through the injected
     // runtime context so the tool's lifetime follows the runtime service's.
     const requireSubagents = (): DASHRSubagentsSurface | undefined => runtimeCtx.get('subagents')
-    const requireWorkflowEngine = (): DASHRWorkflowEngine | undefined => runtimeCtx.get('workflowEngine')
-    runtimeCtx.tools.register(createRunCellTool(registry, { requireRuntime, maxParallel, shapeDispatchLog, requireSubagents, requireWorkflowEngine }))
+    const resolveCapturedWorkflow = (agent: ToolRunContext['agent']): ToolDefinition | undefined =>
+      agent === undefined ? undefined : getCapturedTools(agent)?.get('workflow')
+    const resolveCapturedRalph = (agent: ToolRunContext['agent']): ToolDefinition | undefined =>
+      agent === undefined ? undefined : getCapturedTools(agent)?.get('ralph')
+    runtimeCtx.tools.register(createRunCellTool(registry, { requireRuntime, maxParallel, shapeDispatchLog, requireSubagents, resolveCapturedWorkflow, resolveCapturedRalph }))
 
     // ①½ The wire mask (design D1): deny the displaced delegation names on
     // the agent's OWN scope layer at session-start. Ordering is the mount
