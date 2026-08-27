@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { CodeBindingFunction, CodeBindingNamespace } from '../src/vendored/rlm-runtime.ts'
+import type { CodeBindingFunction, CodeBindingNamespace } from '../src/vendored/repl-runtime.ts'
 import { setupRuntime } from './helpers.ts'
 
 /** One namespace `tools` with a typed rejection class, worker-thread test style. */

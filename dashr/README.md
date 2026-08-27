@@ -21,7 +21,7 @@ The presentation half — the `eval` transport tool, the Python SDK renderer,
 and the tool→binding bridge — lives in the SAME package (merged in v0.1.8;
 the pre-merge `dsh-rlm-mode`/`dashr-presentation` sibling split is gone).
 The runtime registers the service key `replRuntime` through its own vendored
-Service Definition (see `src/vendored/rlm-runtime.ts`), so it carries **zero
+Service Definition (see `src/vendored/repl-runtime.ts`), so it carries **zero
 dsh runtime package dependencies**: only `@deepseek-ai/cordis` (peer),
 `schemastery`, and `zeromq`.
 

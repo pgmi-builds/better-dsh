@@ -1,6 +1,6 @@
 /**
  * Vocabulary types for the code-execution seam: what a caller hands a
- * {@link ./rlm-runtime.ts | ReplRuntime} and what it gets back. Pure types — no
+ * {@link ./repl-runtime.ts | ReplRuntime} and what it gets back. Pure types — no
  * runtime code lives here.
  *
  * Vendored from `@deepseek-ai/dsh-code-runtime@0.1.0-rc.6` (`src/types.ts`)
@@ -17,9 +17,10 @@
  *    share one namespace. Optional so upstream-shaped requests stay valid —
  *    an absent principal addresses the provider's shared default key.
  * 3. `CodeBindingNamespace.callable` is a DASHR-OWNED field (M3-B, blueprint
- *    §9 rlm() binding): upstream's object-holder model (a global whose
- *    MEMBERS are callable) cannot express a bare callable global like
- *    `rlm(prompt)`. `callable: true` declares the global itself is a
+ *    §9, introduced for the rlm() bare-callable binding family — deleted in
+ *    v0.1.8, kept for shape compatibility): upstream's object-holder model
+ *    (a global whose MEMBERS are callable) cannot express a bare callable
+ *    global. `callable: true` declares the global itself is a
  *    function; `functions` then carries exactly one entry — the single host
  *    function the global call dispatches. Optional so upstream-shaped
  *    namespaces stay valid.
@@ -86,9 +87,9 @@ export interface CodeBindingNamespace {
    * object whose members are callable. When true, `functions` must contain
    * EXACTLY ONE entry — the single host function the bare global call
    * dispatches (its key is a transport detail, not a program-visible member).
-   * DASHR-owned delta (M3-B, blueprint §9): the rlm() family and the flat
-   * per-tool bindings are bare callable globals, which the object-holder
-   * model cannot express.
+   * DASHR-owned delta (M3-B, blueprint §9): introduced for the rlm()
+   * bare-callable family (deleted in v0.1.8; the flat per-tool bindings
+   * succeeded it under the object-holder model).
    */
   callable?: true
   /** Optional program-visible typed rejection contract for this namespace. */
@@ -103,7 +104,7 @@ export interface CodeBindingNamespace {
  */
 export interface CodeRunRequest {
   /**
-   * The program source, in the runtime's {@link ./rlm-runtime.ts | language}. It
+   * The program source, in the runtime's {@link ./repl-runtime.ts | language}. It
    * runs as the body of an async function: top-level `await` and `return`
    * are available, and the completion value becomes
    * {@link CodeRunResult.value}.

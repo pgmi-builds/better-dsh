@@ -1,7 +1,7 @@
 /**
  * The `replRuntime` seam surface, as the presentation half of this plugin
  * consumes it — a STRUCTURAL MIRROR of the vendored Service Definition
- * (`src/vendored/rlm-runtime.ts`, itself vendored verbatim from
+ * (`src/vendored/repl-runtime.ts`, itself vendored verbatim from
  * `@deepseek-ai/dsh-code-runtime@0.1.0-rc.6` `src/types.ts`).
  *
  * Why a mirror instead of a direct import, even inside one package: the

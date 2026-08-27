@@ -41,14 +41,14 @@ import {
   RESERVED_BINDING_GLOBALS,
   RESERVED_ERROR_MEMBERS,
   ReplRuntime,
-} from './vendored/rlm-runtime.ts'
+} from './vendored/repl-runtime.ts'
 import type {
   CodeBindingNamespace,
   CodeJsonValue,
   CodeRunFailure,
   CodeRunRequest,
   CodeRunResult,
-} from './vendored/rlm-runtime.ts'
+} from './vendored/repl-runtime.ts'
 import { IpyKernelBridge } from './kernel.ts'
 import type { CellOutcome, HostRequestOutcome, QueryVarOutcome, SetVarOutcome, SnapshotSpec } from './kernel.ts'
 import { buildRunCell } from './python.ts'
@@ -799,7 +799,7 @@ export default DashrRuntime
  * tests, any future backend) can depend on the PUBLISHED shape instead of
  * reaching into `./src/*` (which the published tarball does not carry).
  */
-export { ReplRuntime } from './vendored/rlm-runtime.ts'
+export { ReplRuntime } from './vendored/repl-runtime.ts'
 export type {
   CodeBindingErrorClass,
   CodeBindingFunction,
@@ -808,4 +808,4 @@ export type {
   CodeRunFailure,
   CodeRunRequest,
   CodeRunResult,
-} from './vendored/rlm-runtime.ts'
+} from './vendored/repl-runtime.ts'

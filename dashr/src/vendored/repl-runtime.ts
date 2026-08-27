@@ -6,12 +6,14 @@
  * per blueprint v0.5 §7.6, so this plugin carries zero dsh runtime
  * dependencies. Intentional deltas from upstream (everything else verbatim):
  * the service registers under our own key `replRuntime` (class renamed
- * `CodeRuntime` → `ReplRuntime`, Context property likewise), the class doc's
+ * `CodeRuntime` → `ReplRuntime`, Context property likewise), the module file
+ * is named `repl-runtime.ts` to match that class (the pre-rebrand name was
+ * `rlm-runtime.ts`), the class doc's
  * "isolate runs from one another" clause is replaced by this seam's stateful
  * contract (see the class doc), the monorepo-internal Agent Note link is
  * cited by name instead of a relative path, and `invariant.ts` (a monorepo
  * test gate) was not vendored.
- * @module dashr/vendored/rlm-runtime
+ * @module dashr/vendored/repl-runtime
  */
 
 import { Context, Service } from '@deepseek-ai/cordis'

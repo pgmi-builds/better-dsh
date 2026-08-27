@@ -1,4 +1,4 @@
-/** `dashr-repl`: the DASHR RLM mode — one plugin, one row.
+/** `dashr-repl`: the DASHR REPL surface — one plugin, one row.
  *
  * Naming (v0.1.5 layer model): the runtime class is `DashrRuntime`, the
  * standing-mount-layer component — one instance per mount holding the
@@ -28,7 +28,7 @@
  * any dsh tool row must (shape-mirroring `dsh-agent-tool-presentation` and
  * the code-mode half of `dsh-tools`, 0.1.0-rc.6), but it re-points execution
  * at our own `ctx.replRuntime` (the harness's runtime seam, vendored from
- * `@deepseek-ai/dsh-code-runtime` in `src/vendored/rlm-runtime.ts` as an
+ * `@deepseek-ai/dsh-code-runtime` in `src/vendored/repl-runtime.ts` as an
  * interface only): the host registry stays untouched. The bundle patch
  * mounts this row on the HOST plane, so every agent in every preset gets
  * the cell surface (scoping, where wanted, is a PTC preset's own

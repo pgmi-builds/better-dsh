@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { CodeRunResult } from '../src/vendored/rlm-runtime.ts'
+import type { CodeRunResult } from '../src/vendored/repl-runtime.ts'
 import { setupRuntime } from './helpers.ts'
 
 /**

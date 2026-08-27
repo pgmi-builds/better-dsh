@@ -33,7 +33,7 @@
 
 import { assertSupportedJsonSchema } from '@deepseek-ai/dsh-tools'
 import type { JsonSchemaNode, JsonSchemaScalar } from '@deepseek-ai/dsh-tools'
-import { PORTABLE_RESERVED_WORDS, RESERVED_BINDING_GLOBALS } from './vendored/rlm-runtime.ts'
+import { PORTABLE_RESERVED_WORDS, RESERVED_BINDING_GLOBALS } from './vendored/repl-runtime.ts'
 
 /**
  * One tool as the SDK renderer sees it: the model-facing schema

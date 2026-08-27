@@ -31,8 +31,8 @@ import { createScope } from '@deepseek-ai/dsh-scope'
 import type { Scope } from '@deepseek-ai/dsh-scope'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import { SessionId } from '@deepseek-ai/dsh-session'
-import { ReplRuntime } from '../src/vendored/rlm-runtime.ts'
-import type { CodeRunRequest, CodeRunResult } from '../src/vendored/rlm-runtime.ts'
+import { ReplRuntime } from '../src/vendored/repl-runtime.ts'
+import type { CodeRunRequest, CodeRunResult } from '../src/vendored/repl-runtime.ts'
 import Presentation from '../src/index.ts'
 
 /**

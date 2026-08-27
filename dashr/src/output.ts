@@ -4,7 +4,7 @@
  * @module dashr/output
  */
 
-import type { CodeJsonValue, CodeRunFailure, CodeRunResult } from './vendored/rlm-runtime.ts'
+import type { CodeJsonValue, CodeRunFailure, CodeRunResult } from './vendored/repl-runtime.ts'
 
 /** ANSI color escapes, which ipykernel embeds in published tracebacks. */
 const ANSI_ESCAPE = /\x1b\[[0-9;]*[A-Za-z]/g
