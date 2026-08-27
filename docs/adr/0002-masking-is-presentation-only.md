@@ -11,4 +11,5 @@ Hiding exactly two upstream A2A tool names (`send_message` — the parent→chil
 ## Consequences
 
 - The masked tools remain in the registry and are reachable via nested sub-dispatch with a parent token, which passes the model-direct guard.
+- **Field-verified (v0.1.8d, `both` presentation mode)**: reachable by MODEL-DIRECT native call too — no parent token needed. A probe calling the masked `skill({"name":…})` through the API function-call surface executed in full. Cause: the mask registers no visibility filter, so the name stays in `view(scope).visible`, and `resolveExecution` collapses model-direct calls only under `code` mode. The mask is an ADVERTISING cut, not an enforcement point; the hard gate is the REPL binding allowlist (`unknown binding`). If a deployment ever needs true model-direct rejection, the mechanisms are a visibility-layer `restrict()` (rejected here for ordering hazards) or a `code`-mode collapse — both are deployment-level decisions, not mask-level ones.
 - Zero upstream mutation means zero interference with host-plane modules that enumerate or interact with the delegation tools.
