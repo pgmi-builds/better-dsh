@@ -121,12 +121,12 @@ function registerCapturedWorkflowTools(ctx: Context, agent: Agent, calls: Delega
 }
 
 describe('agent bridge — spawn/fork unified', () => {
-  it("mode 'delegate' (default) starts a one-shot child on the spawn provider with the native request fields", async () => {
+  it("mode 'delegate' with run_in_background false starts a ONE-SHOT child on the spawn provider with the native request fields", async () => {
     const { ctx, agent } = await setupPresentation(fakeRuntime)
     const calls = await fakeDelegationServices(ctx)
     const runtime = ctx.get('replRuntime') as FakeCellRuntime
     runtime.behavior = async (request) => {
-      const result = await callableOf(request, 'agent')({ description: 'worker', prompt: 'do the thing' })
+      const result = await callableOf(request, 'agent')({ description: 'worker', prompt: 'do the thing', run_in_background: false })
       return { logs: [], value: result }
     }
     const result = await cell(ctx, agent.agent, 'program')
@@ -137,6 +137,21 @@ describe('agent bridge — spawn/fork unified', () => {
     expect(calls.starts[0]!.promptText).toBe('do the thing')
     expect(calls.starts[0]!.parent).toBe(agent.agent)
     expect(calls.starts[0]!.maxDepth).toBe(3)
+    expect(calls.continuableStarts).toHaveLength(0)
+  })
+
+  it('an omitted run_in_background defaults to the native continuable semantics: background, durable id, no one-shot start', async () => {
+    const { ctx, agent } = await setupPresentation(fakeRuntime)
+    const calls = await fakeDelegationServices(ctx)
+    const runtime = ctx.get('replRuntime') as FakeCellRuntime
+    runtime.behavior = async (request) => {
+      const result = await callableOf(request, 'agent')({ description: 'worker', prompt: 'default me' })
+      return { logs: [], value: result }
+    }
+    const result = await cell(ctx, agent.agent, 'program')
+    expect(result.value.result).toEqual({ kind: 'continuable', subagentId: 'child-1' })
+    expect(calls.continuableStarts).toHaveLength(1)
+    expect(calls.starts).toHaveLength(0)
   })
 
   it("mode 'fork' starts the child on the fork provider", async () => {
@@ -144,7 +159,7 @@ describe('agent bridge — spawn/fork unified', () => {
     const calls = await fakeDelegationServices(ctx)
     const runtime = ctx.get('replRuntime') as FakeCellRuntime
     runtime.behavior = async (request) => {
-      const result = await callableOf(request, 'agent')({ description: 'twin', prompt: 'fork me', mode: 'fork' })
+      const result = await callableOf(request, 'agent')({ description: 'twin', prompt: 'fork me', mode: 'fork', run_in_background: false })
       return { logs: [], value: result }
     }
     await cell(ctx, agent.agent, 'program')
@@ -174,7 +189,7 @@ describe('agent bridge — spawn/fork unified', () => {
     await fakeDelegationServices(ctx, { startStopReason: 'error' })
     const runtime = ctx.get('replRuntime') as FakeCellRuntime
     runtime.behavior = async (request) => {
-      const result = await callableOf(request, 'agent')({ description: 'worker', prompt: 'do the thing' })
+      const result = await callableOf(request, 'agent')({ description: 'worker', prompt: 'do the thing', run_in_background: false })
       return { logs: [], value: result }
     }
     const result = await cell(ctx, agent.agent, 'program')

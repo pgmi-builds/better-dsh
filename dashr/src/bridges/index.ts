@@ -83,13 +83,13 @@ const NATIVE_MAX_DEPTH = 3
 export const AGENT_BRIDGE_SCHEMAS: DASHRSdkSchema[] = [
   {
     name: 'agent',
-    description: 'Start a child agent and optionally wait for its result. mode "delegate" (default) starts a fresh child; mode "fork" seeds the child with this agent\'s completed conversation turns. Set run_in_background true to return a durable subagent id immediately and keep the conversation open for agent_message follow-ups.',
+    description: 'Start a child agent. Runs in the background by default: returns a durable subagent id immediately and keeps the child conversation open for agent_message follow-ups. Set run_in_background false to run a ONE-SHOT child instead — the call waits for the result and the child ends with the run. mode "delegate" (default) starts a fresh child; mode "fork" seeds the child with this agent\'s completed conversation turns.',
     parameters: {
       type: 'object',
       properties: {
         description: { type: 'string', description: 'A short (3-5 word) description of the delegated task, for display.' },
         prompt: { type: 'string', description: 'The task prompt for the child agent.' },
-        run_in_background: { type: 'boolean', description: 'Whether to run in the background and return a durable subagent id immediately (default false: wait for the result).' },
+        run_in_background: { type: 'boolean', description: 'Default true: return a durable subagent id immediately (continuable, agent_message can follow up). Explicit false: one-shot — wait for the child\'s result here.' },
         mode: { type: 'string', description: "'delegate' (default: a fresh child) or 'fork' (a child seeded with this agent's completed conversation turns)." },
       },
       required: ['description', 'prompt'],
@@ -186,7 +186,12 @@ export function createAgentBridgeBindings(
       parent: exec.agent,
       maxDepth: NATIVE_MAX_DEPTH,
     }
-    const runInBackground = a['run_in_background'] === true
+    // Native semantics (the deployed subagent tool is backgroundMode:
+    // continuable): run_in_background defaults TRUE — the call returns a
+    // durable subagent id immediately and the child conversation stays open
+    // for agent_message follow-ups. An explicit false runs a ONE-SHOT child:
+    // subagents.start, wait for the result, the child ends with the run.
+    const runInBackground = a['run_in_background'] ?? true
     try {
       if (runInBackground) {
         const start = await subagents.startContinuable({
