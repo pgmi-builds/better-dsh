@@ -44,10 +44,13 @@ describe('assembly — the DASHR row collapses its scope, and only its scope', (
     expect(assembly.tools.map(tool => tool.name)).toEqual(['echo', 'eval'])
     const catalog = assembly.sections.find(section => section.name === 'dashr:tool-catalog')
     expect(catalog).toBeDefined()
-    expect(catalog?.text).toContain('## Writing cells for eval')
+    // v0.1.8e: the catalog is REPL bridge instructions for the scripting
+    // pad — one compact signature line per tool, no kernel wording.
+    expect(catalog?.text).toContain('## Calling tools from the scripting pad')
+    expect(catalog?.text).not.toContain('kernel')
     // FLAT shape: the tool is a top-level function, no Tools protocol, no
     // tools singleton — and the bridge tools render in the same section.
-    expect(catalog?.text).toContain('tool.echo(args: EchoArgs) -> str')
+    expect(catalog?.text).toContain('tool.echo(')
     expect(catalog?.text).not.toContain('class Tools(Protocol)')
     expect(catalog?.text).not.toContain('tools: Tools')
     expect(catalog?.text).toContain('tool.send_message(')
@@ -124,7 +127,7 @@ describe('assembly — the DASHR row collapses its scope, and only its scope', (
     expect(catalog?.text).not.toContain('secret')
   })
 
-  it('the Tool Catalog masks only the A2A names (send_message/report) and renames glob to file_glob', async () => {
+  it('the catalog renderer applies no masking of its own — it renders every schema it is handed (masking is session-start restrict, covered by surface.spec)', async () => {
     const { ctx, agent } = await setupPresentation(fakeRuntime)
     registerEcho(ctx)
     registerFakeDelegationTools(ctx)
@@ -135,33 +138,19 @@ describe('assembly — the DASHR row collapses its scope, and only its scope', (
       output: { schema: { type: 'string' }, render: (_args, value) => [{ type: 'text', text: String(value) }] },
       execute: args => Promise.resolve(`reported:${String((args as { output: string }).output)}`),
     }))
-    ctx.tools.register(defineTool({
-      name: 'glob',
-      description: 'Glob files by pattern.',
-      parameters: { pattern: { type: 'string', required: true } },
-      output: { schema: { type: 'string' }, render: (_args, value) => [{ type: 'text', text: String(value) }] },
-      execute: args => Promise.resolve(`globbed:${String((args as { pattern: string }).pattern)}`),
-    }))
     const assembly = await ctx.systemPrompt.assemble({ scope: agent.agent })
     const catalog = String(assembly.sections.find(section => section.name === 'dashr:tool-catalog')?.text)
-    // Masking (ADR-0002): exactly the two A2A names disappear as callable
-    // declarations — while staying registered and executable (send_message
-    // dispatches them; rlm.spec covers that half). Every OTHER delegation
-    // tool is exposed directly as a native `tool.*` member.
-    for (const masked of ['send_message', 'report']) {
-      expect(catalog).not.toContain(`async def ${masked}(`)
+    // The renderer is mask-agnostic: every registered flat name renders as a
+    // one-line signature. Restriction (which removes the replaced-presentation
+    // names from `schemas(agent)`) happens at agent/session-start and is the
+    // surface.spec responsibility — this layer must not double-filter.
+    for (const name of ['send_message', 'report', 'subagent', 'subagent_fork', 'list_agents', 'interrupt_agent', 'workflow', 'ralph']) {
+      expect(catalog).toContain(`tool.${name}(`)
     }
-    for (const exposed of ['subagent', 'subagent_fork', 'list_agents', 'interrupt_agent', 'workflow', 'ralph']) {
-      expect(catalog).toContain(`tool.${exposed}(`)
-    }
-    // The one rename: file_glob in, glob out — with the stdlib-shadow note.
-    expect(catalog).toContain('tool.glob(args: GlobArgs) -> str')
-    expect(catalog).not.toContain('tool.file_glob(')
-    expect(catalog).toContain('tool.glob')
-    // The registry itself is untouched: every masked name is still there.
+    // The registry itself is untouched: every registered name is still there.
     const registered = ctx.tools.schemas(agent.agent).map(schema => schema.name)
-    expect(registered.filter(name => ['subagent', 'subagent_fork', 'send_message', 'list_agents', 'interrupt_agent', 'workflow', 'ralph', 'report', 'glob'].includes(name)).sort())
-      .toEqual(['glob', 'interrupt_agent', 'list_agents', 'ralph', 'report', 'send_message', 'subagent', 'subagent_fork', 'workflow'])
+    expect(registered.filter(name => ['subagent', 'subagent_fork', 'send_message', 'list_agents', 'interrupt_agent', 'workflow', 'ralph', 'report'].includes(name)).sort())
+      .toEqual(['interrupt_agent', 'list_agents', 'ralph', 'report', 'send_message', 'subagent', 'subagent_fork', 'workflow'])
   })
 })
 

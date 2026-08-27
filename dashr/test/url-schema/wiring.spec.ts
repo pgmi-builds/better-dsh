@@ -22,11 +22,9 @@ describe('dsh-url-schema wiring smoke', () => {
   })
 
   it('apply() mounts handlers and installs tools with capture-before-register ordering', async () => {
-    const fakeNative = {
-      write: { name: 'write', execute: async () => ({}) },
-      grep: { name: 'grep', execute: async () => ({}) },
-      glob: { name: 'glob', execute: async () => ({}) },
-    }
+    // The fake registry's pre-mask visible surface: the three shadowed
+    // natives plus one extra host tool, in this emission order.
+    const visibleNames = ['write', 'grep', 'glob', 'host_extra']
     const order: string[] = []
     let sessionStart: ((payload: { agent: unknown }) => void) | undefined
 
@@ -46,9 +44,10 @@ describe('dsh-url-schema wiring smoke', () => {
       settings: {},
       agents: { get: () => undefined },
       tools: {
+        schemas: () => visibleNames.map(name => ({ name })),
         get: (name: string) => {
           order.push(`capture:${name}`)
-          return fakeNative[name as keyof typeof fakeNative]
+          return { name, execute: async () => ({}) }
         },
         register: () => () => {},
       },
@@ -73,10 +72,13 @@ describe('dsh-url-schema wiring smoke', () => {
 
     const firstAgentRegIdx = order.findIndex((s) => s === 'agent-register:read')
     const lastCaptureIdx = order.map((s) => s.startsWith('capture:')).lastIndexOf(true)
+    // The capture is now the FULL session-start snapshot: every visible
+    // name resolves once, in schemas order — not just the wrapper triple.
     expect(order.filter((s) => s.startsWith('capture:'))).toEqual([
       'capture:write',
       'capture:grep',
       'capture:glob',
+      'capture:host_extra',
     ])
     expect(lastCaptureIdx).toBeLessThan(firstAgentRegIdx)
     expect(order.filter((s) => s.startsWith('agent-register:'))).toEqual([
@@ -92,7 +94,13 @@ describe('dsh-url-schema wiring smoke', () => {
     const resolver = new UrlResolver()
     resolver.register('dvc', createDvcHandler())
     resolver.register('ctx', createCtxHandler())
-    await expect(resolver.resolve({}, 'dvc://')).resolves.toBe('no devices mounted')
+    // apply() (previous test, same module) registered the vendored devices,
+    // so a fresh resolver's bare dvc:// reads the device roster — not the
+    // empty placeholder (that path is covered with a fresh module in
+    // dvc-framework.spec.ts).
+    await expect(resolver.resolve({}, 'dvc://')).resolves.toContain('ast_grep')
+    await expect(resolver.resolve({}, 'dvc://')).resolves.toContain('browser')
+    await expect(resolver.resolve({}, 'dvc://')).resolves.toContain('lsp')
     await expect(
       resolver.resolve(
         { agent: { id: 'a1', status: 'idle', options: {}, session: { header: { cwd: '/tmp' } } } },

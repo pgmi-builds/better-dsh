@@ -80,8 +80,8 @@ run_code 定位为 **REPL scripting pad（草稿本）**：会话持久的运行
 
 - [被掩名直调绕过政策管线] 捕获定义直调不走 pre-execute guard/超时瀑布——与 URL wrapper 委托原生 write 的既有取舍一致；被掩名（skill/delegation）本就是低风险只读或已有桥语义的工具。
 - [prompt-cache 命中] 目录段瘦身（~23KB）与标题变更会使旧会话前缀失效一次——一次性成本。
-- [pi-natives 平台覆盖] npm 包需含 linux-x64-modern 之外的产物时才可跨平台；本机优先，跨平台列为 open question。
-- [browser patch] 若 fork patch 为必需，patch-package 引入新构建步骤；评估结论落在 tasks。
+- [pi-natives 平台覆盖] npm 包按平台 optionalDependencies 分发；本 change 仅登记 linux-x64（已验证），darwin/arm64/win32 平台包名已在代码注记，发布前补登 optionalDependencies。
+- [browser patch] RESOLVED：omp 的 puppeteer-core patch 是纯 stealth/反检测改造，无功能必要性；本 change 直接用无 patch 的 puppeteer-core@25.3.0（系统 Chrome 冒烟验证）。
 - [restrict 名单漂移] host 未来新增 delegation 工具不会自动进 deny——名单可配置 + 文档注明维护点。
 
 ## Migration Plan
@@ -91,5 +91,6 @@ run_code 定位为 **REPL scripting pad（草稿本）**：会话持久的运行
 
 ## Open Questions
 
-- browser 的 puppeteer-core patch 是否必需（spike 首个任务内裁决）。
-- `@oh-my-pi/pi-natives` npm 产物是否覆盖 darwin/arm64（本机 linux-x64 已验证）。
+- RESOLVED（spike S6）：browser 不需 puppeteer-core patch——纯 stealth 改造，无 patch 冒烟通过。
+- RESOLVED（spike S5）：`@oh-my-pi/pi-natives` npm wrapper 是 Bun-only，但 `.node` 二进制可从 Node 直接 dlopen；本 change 采用 optionalDependencies 平台包 + 直 dlopen（linux-x64 已验证；darwin/arm64 平台包名已注记）。
+- 遗留（有意 deferred，非本 change）：spawn 面的用户确认（subagent 家族 deny 后模型无内建 spawn 入口，roster 空除非带外创建）；cross-platform pi-natives 平台包登记；package-lock 同步（registry 重解析超时，部署走实物复制 workflow）。

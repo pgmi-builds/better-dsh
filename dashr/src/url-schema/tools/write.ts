@@ -10,18 +10,21 @@
  *   resolve back to this wrapper (infinite recursion). Without a native
  *   delegate the branch reports the structured `NATIVE_WRITE_UNAVAILABLE`
  *   error instead of silently reimplementing a write.
- * - `scheme://` URL → structured scheme dispatch. Every write channel is
- *   rejected this wave: `dvc://` has no device layer (`DVC_NO_DEVICE`),
- *   `ctx://` is a curated read-only snapshot (`URL_READ_ONLY`), any other
- *   registered scheme has no write channel wired (`URL_WRITE_UNSUPPORTED`),
- *   and an unregistered scheme gets the resolver-style generic error. The
- *   optional `writeScheme` hook lets the integration step override the
- *   dispatch as real write channels land.
+ * - `scheme://` URL → structured scheme dispatch. `dvc://<device>` writes
+ *   route to the device registry via `dispatchDvcWrite` — routing/args
+ *   failures throw `DVC_NO_DEVICE` / `DVC_UNKNOWN_DEVICE` / `DVC_BAD_ARGS`
+ *   and device failures reject as `DVC_DEVICE_ERROR`. Every other write
+ *   channel is rejected: `ctx://` is a curated read-only snapshot
+ *   (`URL_READ_ONLY`), any other registered scheme has no write channel
+ *   wired (`URL_WRITE_UNSUPPORTED`), and an unregistered scheme gets the
+ *   resolver-style generic error. The optional `writeScheme` hook lets the
+ *   integration step override the dispatch as real write channels land.
  */
 
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
 
+import { dispatchDvcWrite } from '../handlers/dvc.ts'
 import type { ResolverEnv } from '../resolver.ts'
 import { parseUrl, UrlSchemaError } from '../selector.ts'
 
@@ -32,10 +35,11 @@ import { parseUrl, UrlSchemaError } from '../selector.ts'
  */
 export interface WriteOutcome {
   path: string
-  operation: 'create' | 'update'
+  /** `execute` is the `dvc://` device-dispatch outcome (no file involved). */
+  operation: 'create' | 'update' | 'execute'
   /** The replaced content (`null` when the file was created). */
   before: string | null
-  /** The written content. */
+  /** The written content (`dvc://` writes carry the device result, JSON-rendered). */
   after: string
 }
 
@@ -43,7 +47,7 @@ export interface WriteOutcome {
 export interface WriteToolDeps {
   /** Native write definition captured before this wrapper registered. */
   nativeWrite?: ToolDefinition
-  /** Optional per-scheme write dispatch; defaults to the all-rejected placeholder. */
+  /** Optional per-scheme write dispatch; defaults to the dvc-dispatching built-in. */
   writeScheme?: (
     scheme: string,
     path: string,
@@ -70,13 +74,21 @@ function isSchemeUrl(raw: string): boolean {
   }
 }
 
-/** Default scheme-write dispatch: every write channel is rejected this wave. */
-function defaultSchemeWrite(scheme: string, path: string): WriteOutcome {
+/**
+ * Default scheme-write dispatch: `dvc://` routes through the device
+ * registry (`dispatchDvcWrite`); every other write channel is rejected.
+ */
+async function defaultSchemeWrite(scheme: string, path: string, content: string): Promise<WriteOutcome> {
   if (scheme === 'dvc') {
-    throw new UrlSchemaError(
-      'DVC_NO_DEVICE',
-      'dvc:// write dispatch: no devices mounted to route the write to',
-    )
+    // The dispatch's structured errors (DVC_NO_DEVICE / DVC_UNKNOWN_DEVICE /
+    // DVC_BAD_ARGS, plus the DVC_DEVICE_ERROR wrap) bubble unchanged.
+    const result = await dispatchDvcWrite(path, content)
+    return {
+      path: `dvc://${path}`,
+      operation: 'execute',
+      before: '',
+      after: JSON.stringify(result, null, 2),
+    }
   }
   if (scheme === 'ctx') {
     throw new UrlSchemaError(
@@ -107,7 +119,7 @@ export function createWriteTool(deps: WriteToolDeps): ToolDefinition {
   return defineTool({
     name: 'write',
     description:
-      'Create or fully replace a file. `file_path` may be a filesystem path or a scheme:// URL (URL writes are rejected per scheme until a write channel is wired).',
+      'Create or fully replace a file. `file_path` may be a filesystem path or a scheme:// URL (`dvc://<device>` executes the device with a JSON args payload; other scheme writes are rejected).',
     parameters: {
       file_path: {
         type: 'string',
@@ -126,13 +138,13 @@ export function createWriteTool(deps: WriteToolDeps): ToolDefinition {
         additionalProperties: false,
         properties: {
           path: { type: 'string', required: true },
-          operation: { type: 'string', required: true, enum: ['create', 'update'] as const },
+          operation: { type: 'string', required: true, enum: ['create', 'update', 'execute'] as const },
           before: { required: true, oneOf: [{ type: 'string' }, { type: 'null' }] },
           after: { type: 'string', required: true },
         },
       },
       render: (_args, value) => {
-        const verb = value.operation === 'update' ? 'Updated' : 'Created'
+        const verb = value.operation === 'update' ? 'Updated' : value.operation === 'execute' ? 'Executed' : 'Created'
         return [{ type: 'text', text: `${verb} ${value.path}` }]
       },
     },

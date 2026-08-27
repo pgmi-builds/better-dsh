@@ -1,24 +1,39 @@
 /**
- * `agent://` scheme handler — subagent roster, output artifact, transcript,
- * and nested-child output.
+ * `agent://` scheme handler — the caller's family tree: roster, output
+ * artifact, transcript, and nested-child output (design.md D6).
  *
- * Roster, transcript, output artifact, and nested-child lookups share one
- * scheme, per design.md D3:
- *
- *   - `agent://`                → roster table (all live sessions)
- *   - `agent://<id>`            → the agent's final output artifact
+ *   - `agent://`                → the caller's roster: continuable descendants
+ *                                 only (one-shot children are omitted — they
+ *                                 are not continuation candidates), never a
+ *                                 global session enumeration
+ *   - `agent://<id>`            → that agent's final output artifact
  *   - `agent://<id>/transcript` → the agent's full message transcript
  *   - `agent://<id>/<child>`    → a direct child's output artifact
  *
+ * Addressing is scoped to the caller's own family — itself plus the child
+ * rows of `ctx.subagents.listDescendants(caller.id)` — mirroring the
+ * service-layer lineage authorization: a cross-family id is AGENT_UNKNOWN_ID,
+ * never a readable session. An id segment resolves by exact raw session id
+ * first, then by the child's creation label; on label ambiguity the newest
+ * child wins and failure messages say to use the raw id.
+ *
+ * A settled child (absent from the live store) stays addressable: its final
+ * output is read from `ctx.sessionPersistence` — the URL analog of collecting
+ * a background run's result via job_output.
+ *
  * Services required (for the integration/wiring step):
- *   - `ctx.subagents` — the host-plane subagent seam, for `listChildren`
- *     (nested-child resolution). Mirrored STRUCTURALLY (see `subagents-surface.ts`)
- *     because `@deepseek-ai/dsh-subagent` is a host-plane root-realm singleton
- *     that is deliberately not in this package's dependency graph.
- *   - `ctx.sessions` — the event-sourced session store, for the roster
- *     (`list()`), live-session lookup (`get()`), output, and transcript.
+ *   - `ctx.subagents` — the host-plane subagent seam, for `listDescendants`
+ *     (family enumeration + addressing scope). Mirrored STRUCTURALLY because
+ *     `@deepseek-ai/dsh-subagent` is a host-plane root-realm singleton that
+ *     is deliberately not in this package's dependency graph.
+ *   - `ctx.sessions` — the event-sourced session store, for live-session
+ *     lookup (output, transcript, roster last-activity).
+ *   - `ctx.sessionPersistence` — the durable session-log seam, for settled
+ *     children's final output and creation times (same structural-mirror
+ *     policy as `ctx.subagents`).
  *   - `ctx.agents` — the live agent registry, for the roster `status` column
- *     (optional; a session with no live agent renders `-`).
+ *     (optional; a registry miss renders `ready` — persisted-only, resumable,
+ *     not terminal).
  */
 
 import { SessionId, type Session, type SessionStore } from '@deepseek-ai/dsh-session'
@@ -27,9 +42,10 @@ import type { ResolverEnv, SchemeHandler } from '../resolver.ts'
 import { UrlSchemaError } from '../selector.ts'
 
 /**
- * Structural mirror of the host-plane `SubagentListEntry` — only the fields the
- * nested-child lookup consumes. The real entry is a discriminated union; this
- * looser shape stays structurally assignable from `SubagentRuntime.listChildren`.
+ * Structural mirror of the host-plane `SubagentListEntry` — only the fields
+ * the family projection consumes. The real entry is a discriminated union;
+ * this looser shape stays structurally assignable from
+ * `SubagentRuntime.listDescendants`.
  */
 export interface AgentChildEntry {
   readonly kind: 'child' | 'diagnostic'
@@ -41,9 +57,20 @@ export interface AgentChildEntry {
   readonly reason?: 'corrupt' | 'unsupported' | 'unavailable'
 }
 
+/**
+ * Structural mirror of the host-plane `SubagentDescendantListEntry` — a
+ * {@link AgentChildEntry} plus its position in the enumerated tree.
+ */
+export interface AgentDescendantEntry extends AgentChildEntry {
+  /** Durable direct parent of this child in the enumerated tree. */
+  readonly parentId: SessionId
+  /** Edge distance from the enumerated root; direct children are `1`. */
+  readonly depth: number
+}
+
 /** The subset of `ctx.subagents` this handler calls. */
 export interface AgentSubagentsSurface {
-  listChildren(parentSessionId: SessionId, signal?: AbortSignal): Promise<AgentChildEntry[]>
+  listDescendants(rootSessionId: SessionId, signal?: AbortSignal): Promise<AgentDescendantEntry[]>
 }
 
 /** The subset of the live agent registry (`ctx.agents`) the roster reads. */
@@ -51,14 +78,53 @@ export interface AgentRegistrySurface {
   get(id: SessionId): { readonly status: 'idle' | 'running' } | undefined
 }
 
+/**
+ * Structural mirror of one persisted session event — only what the settled
+ * output fallback and the roster's last-activity column read. The real
+ * `SessionEvent` is a discriminated union over `data`; this looser shape
+ * stays structurally assignable from `SessionPersistence.inspect`.
+ */
+export interface PersistedSessionEvent {
+  readonly type: string
+  readonly time: number
+  readonly data?: unknown
+}
+
+/** The subset of `ctx.sessionPersistence` this handler calls. */
+export interface SessionPersistenceSurface {
+  inspect(id: SessionId, signal?: AbortSignal): Promise<
+    | { readonly meta: { readonly createdAt: number }; readonly events: readonly PersistedSessionEvent[] }
+    | undefined
+  >
+}
+
 /** Dependencies captured by the agent:// handler. */
 export interface AgentHandlerDeps {
-  /** Live session store — roster, output, transcript reads. */
-  sessions: Pick<SessionStore, 'list' | 'get'>
-  /** Subagent enumeration — nested-child resolution. */
+  /** Live session store — live lookup for output, transcript, last activity. */
+  sessions: Pick<SessionStore, 'get'>
+  /** Subagent enumeration — family roster and addressing scope. */
   subagents: AgentSubagentsSurface
-  /** Live agent registry — roster `status`; absent renders `-` for every row. */
+  /** Durable session log — settled children's output and creation times. */
+  sessionPersistence: SessionPersistenceSurface
+  /** Live agent registry — roster `status`; a miss renders `ready`. */
   agents?: AgentRegistrySurface
+}
+
+/** The `env` subset this handler reads: the calling agent's session id. */
+export interface AgentEnv extends ResolverEnv {
+  readonly agent?: { readonly id: SessionId | string }
+}
+
+/** The read surfaces the family lookups share: live sessions + persisted logs. */
+interface FamilyReads {
+  readonly sessions: Pick<SessionStore, 'get'>
+  readonly sessionPersistence: SessionPersistenceSurface
+}
+
+/** One resolved address segment: the raw id plus its label-ambiguity trail. */
+interface AddressResolution {
+  readonly rawId: string
+  readonly ambiguous?: { readonly label: string; readonly matches: number }
 }
 
 /**
@@ -66,27 +132,44 @@ export interface AgentHandlerDeps {
  * resource; the resolver applies any `:raw`/`:N-M`/`/path`/`?q=` selector.
  */
 export function createAgentHandler(deps: AgentHandlerDeps): SchemeHandler {
-  const { sessions, subagents, agents } = deps
+  const { sessions, subagents, sessionPersistence, agents } = deps
+  const family: FamilyReads = { sessions, sessionPersistence }
   return {
-    async resolve(_env: ResolverEnv, path: string): Promise<string> {
+    async resolve(env: ResolverEnv, path: string): Promise<string> {
       const segments = path.replace(/^\/+/, '').split('/').filter((seg) => seg !== '')
+      const callerRaw = requireCaller(env)
+
+      // The family enumeration doubles as the addressing scope. Only `child`
+      // rows are members; diagnostics relay enumeration damage and never name
+      // a usable agent.
+      const children = (await subagents.listDescendants(SessionId(callerRaw)))
+        .filter((entry) => entry.kind === 'child')
 
       if (segments.length === 0) {
-        return renderRoster(sessions.list(), agents)
+        return await renderRoster(family, children, agents)
       }
 
-      const [id, rest] = [segments[0]!, segments[1]]
+      const [first, rest] = [segments[0]!, segments[1]]
 
       if (segments.length === 1) {
-        return outputArtifact(requireSession(sessions, id))
+        const target = requireAddress(await resolveAddress(first, callerRaw, children, family), first)
+        return await outputFor(target, family)
       }
 
       if (segments.length === 2 && rest === 'transcript') {
-        return renderTranscript(requireSession(sessions, id))
+        const target = requireAddress(await resolveAddress(first, callerRaw, children, family), first)
+        return renderTranscript(requireLiveSession(target, family))
       }
 
       if (segments.length === 2) {
-        return nestedOutput(subagents, sessions, id, rest!)
+        const parent = requireAddress(await resolveAddress(first, callerRaw, children, family), first)
+        const grandChildren = children.filter((entry) => String(entry.parentId) === parent.rawId)
+        const child = requireAddress(
+          await resolveAddress(rest!, parent.rawId, grandChildren, family),
+          rest!,
+          `unknown child agent "${rest}" of "${parent.rawId}"`,
+        )
+        return await outputFor(child, family)
       }
 
       throw new UrlSchemaError(
@@ -97,59 +180,150 @@ export function createAgentHandler(deps: AgentHandlerDeps): SchemeHandler {
   }
 }
 
-/** Resolve a raw id to its live session, or fail with a structured error. */
-function requireSession(sessions: Pick<SessionStore, 'get'>, rawId: string): Session {
-  const session = sessions.get(SessionId(rawId))
+/** The calling agent's raw session id, or a structured error without one. */
+function requireCaller(env: ResolverEnv): string {
+  const { agent } = env as AgentEnv
+  if (agent === undefined) {
+    throw new UrlSchemaError(
+      'AGENT_NO_AGENT',
+      'agent:// requires the calling agent in the resolver env (this context has none)',
+    )
+  }
+  return String(agent.id)
+}
+
+/**
+ * Resolve one id segment against a candidate set: exact raw session id first
+ * (the caller itself, then an exact candidate id — a label that collides with
+ * a raw id never shadows it), then the creation label. On label ambiguity the
+ * newest candidate wins; `undefined` means no match at all.
+ */
+async function resolveAddress(
+  segment: string,
+  selfRaw: string,
+  candidates: readonly AgentDescendantEntry[],
+  family: FamilyReads,
+): Promise<AddressResolution | undefined> {
+  if (segment === selfRaw) return { rawId: selfRaw }
+  const byId = candidates.find((entry) => String(entry.id) === segment)
+  if (byId !== undefined) return { rawId: String(byId.id) }
+  const byLabel = candidates.filter((entry) => entry.label === segment)
+  if (byLabel.length === 1) return { rawId: String(byLabel[0]!.id) }
+  if (byLabel.length > 1) {
+    const newest = await newestByCreation(byLabel, family)
+    return { rawId: String(newest.id), ambiguous: { label: segment, matches: byLabel.length } }
+  }
+  return undefined
+}
+
+/** Turn a failed address resolution into its structured error. */
+function requireAddress(
+  target: AddressResolution | undefined,
+  segment: string,
+  message = `unknown agent "${segment}" — addressing is scoped to your family tree (self and descendants)`,
+): AddressResolution {
+  if (target === undefined) throw new UrlSchemaError('AGENT_UNKNOWN_ID', message)
+  return target
+}
+
+/** The newest entry by creation time (live header, else persisted metadata). */
+async function newestByCreation(
+  entries: readonly AgentDescendantEntry[],
+  family: FamilyReads,
+): Promise<AgentDescendantEntry> {
+  let newest = entries[0]!
+  let newestAt = await createdAtOf(newest, family)
+  for (const entry of entries.slice(1)) {
+    const at = await createdAtOf(entry, family)
+    if (at >= newestAt) {
+      newest = entry
+      newestAt = at
+    }
+  }
+  return newest
+}
+
+/** One child's creation time: its live header, else its persisted metadata. */
+async function createdAtOf(entry: AgentDescendantEntry, family: FamilyReads): Promise<number> {
+  const live = family.sessions.get(entry.id)
+  if (live !== undefined) return live.header.createdAt
+  const inspection = await family.sessionPersistence.inspect(entry.id)
+  return inspection?.meta.createdAt ?? 0
+}
+
+/**
+ * The output artifact for one resolved address: the live session's last
+ * non-empty assistant message, else the persisted log's — a settled child
+ * with neither is unreachable.
+ */
+async function outputFor(target: AddressResolution, family: FamilyReads): Promise<string> {
+  const live = family.sessions.get(SessionId(target.rawId))
+  if (live !== undefined) return outputArtifact(live)
+  const inspection = await family.sessionPersistence.inspect(SessionId(target.rawId))
+  if (inspection === undefined) {
+    throw unknownId(target, `agent "${target.rawId}" has no live session and no persisted log`)
+  }
+  return persistedOutput(inspection.events)
+}
+
+/** The live session for one resolved address, or a structured error. */
+function requireLiveSession(target: AddressResolution, family: FamilyReads): Session {
+  const session = family.sessions.get(SessionId(target.rawId))
   if (session === undefined) {
-    throw new UrlSchemaError('AGENT_UNKNOWN_ID', `unknown agent "${rawId}"`)
+    throw unknownId(
+      target,
+      `agent "${target.rawId}" is not live in the session store (transcript requires a live session)`,
+    )
   }
   return session
 }
 
-/** Resolve `<id>/<child>`: enumerate the parent's direct children, then read the child's output. */
-async function nestedOutput(
-  subagents: AgentSubagentsSurface,
-  sessions: Pick<SessionStore, 'get'>,
-  parentRaw: string,
-  childRaw: string,
-): Promise<string> {
-  const parentId = SessionId(parentRaw)
-  const childId = SessionId(childRaw)
-  const children = await subagents.listChildren(parentId)
-  const entry = children.find((child) => child.kind === 'child' && child.id === childId)
-  if (entry === undefined) {
-    throw new UrlSchemaError('AGENT_UNKNOWN_ID', `unknown child agent "${childRaw}" of "${parentRaw}"`)
-  }
-  const childSession = sessions.get(childId)
-  if (childSession === undefined) {
-    throw new UrlSchemaError(
-      'AGENT_UNKNOWN_ID',
-      `child agent "${childRaw}" of "${parentRaw}" is not live in the session store`,
-    )
-  }
-  return outputArtifact(childSession)
+/** A structured AGENT_UNKNOWN_ID with the label-ambiguity hint appended. */
+function unknownId(target: AddressResolution, message: string): UrlSchemaError {
+  const note = target.ambiguous === undefined
+    ? ''
+    : `; label "${target.ambiguous.label}" is ambiguous (${target.ambiguous.matches} children share it) — address the raw session id to disambiguate`
+  return new UrlSchemaError('AGENT_UNKNOWN_ID', `${message}${note}`)
 }
 
 /**
- * Roster table: every live session, oldest first, one row each. Columns per
- * spec: `id`, `status` (live-registry state, `-` when not live), `kind`
- * (`subagent` or `main`), `parent` (delegating parent session id, `-` at
- * top level), `last activity` (last event time, ISO 8601, `-` when empty).
+ * Roster table: one row per continuable descendant, in enumeration (stable
+ * pre-order) order. One-shot children are omitted — they are not continuation
+ * candidates. Columns per spec: `id` (creation label when present, else the
+ * raw session id), `status` (`running`/`idle` from the live registry, `ready`
+ * when only persisted), `parent` (durable direct parent), `last activity`
+ * (last event time, ISO 8601, `-` when no log is reachable).
  */
-function renderRoster(sessions: Session[], agents?: AgentRegistrySurface): string {
-  if (sessions.length === 0) {
+async function renderRoster(
+  family: FamilyReads,
+  descendants: readonly AgentDescendantEntry[],
+  agents?: AgentRegistrySurface,
+): Promise<string> {
+  const continuable = descendants.filter((entry) => entry.mode === 'continuable')
+  if (continuable.length === 0) {
     return 'no agents'
   }
-  const sorted = [...sessions].sort((a, b) => a.header.createdAt - b.header.createdAt)
-  const rows = sorted.map((session) => {
-    const header = session.header
-    const status = agents?.get(session.id)?.status ?? '-'
-    const parent = header.parentSession ?? '-'
-    const lastEvent = session.events.at(-1)
-    const lastActivity = lastEvent === undefined ? '-' : new Date(lastEvent.time).toISOString()
-    return `${session.id}\t${status}\t${header.origin ?? 'main'}\t${parent}\t${lastActivity}`
-  })
-  return ['id\tstatus\tkind\tparent\tlast activity', ...rows].join('\n')
+  const rows = await Promise.all(continuable.map(async (entry) => {
+    const rawId = String(entry.id)
+    const status = agents?.get(entry.id)?.status ?? 'ready'
+    const lastActivity = await lastActivityOf(rawId, family)
+    return `${entry.label ?? rawId}\t${status}\t${String(entry.parentId)}\t${lastActivity}`
+  }))
+  return ['id\tstatus\tparent\tlast activity', ...rows].join('\n')
+}
+
+/** One child's last activity: its live log's last event, else its persisted one. */
+async function lastActivityOf(rawId: string, family: FamilyReads): Promise<string> {
+  const live = family.sessions.get(SessionId(rawId))
+  if (live !== undefined) return lastEventTime(live.events)
+  const inspection = await family.sessionPersistence.inspect(SessionId(rawId))
+  return inspection === undefined ? '-' : lastEventTime(inspection.events)
+}
+
+/** The last event's time as ISO 8601, `-` for an empty log. */
+function lastEventTime(events: readonly { readonly time: number }[]): string {
+  const last = events.at(-1)
+  return last === undefined ? '-' : new Date(last.time).toISOString()
 }
 
 /**
@@ -166,6 +340,26 @@ function outputArtifact(session: Session): string {
       if (text.trim() !== '') {
         return text
       }
+    }
+  }
+  return ''
+}
+
+/**
+ * The persisted log's final assistant output: the rendered content of the
+ * last non-empty `assistant/message` event, or `''` when there is none. A
+ * deliberately simple fold over the inspected events — the upstream
+ * `finalAssistantOutput` helper is not exported.
+ */
+function persistedOutput(events: readonly PersistedSessionEvent[]): string {
+  for (let i = events.length - 1; i >= 0; i--) {
+    const event = events[i]!
+    if (event.type !== 'assistant/message') continue
+    const message = (event.data as { message?: { readonly content?: readonly ContentBlock[] } } | undefined)?.message
+    if (message === undefined) continue
+    const text = renderBlocks(message.content ?? [])
+    if (text.trim() !== '') {
+      return text
     }
   }
   return ''

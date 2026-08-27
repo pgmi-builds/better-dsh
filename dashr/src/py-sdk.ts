@@ -531,3 +531,118 @@ export function renderToolsSdkPy(schemas: readonly DASHRSdkSchema[]): string {
   const declaration = `${importLine}${errorDeclaration}\n\n${classBlock}${defs.join('\n\n')}`
   return `${SDK_INSTRUCTIONS}\n\n\`\`\`python\n${declaration}\n\`\`\``
 }
+
+/**
+ * The `dashr:tool-catalog` section's presentation mode (design D4):
+ * `'signatures'` renders one compact declaration line per visible tool
+ * (the omp code-mode shape: `name(args: {…})` per line, argument and output
+ * sketches abbreviated to depth 2 — the default, chosen for low-tier model
+ * robustness); `'convention'` renders the one-sentence calling convention
+ * alone (zero repetition, the A/B deployment experiment's other arm).
+ * Both modes keep the output contract (each tool's canonical JSON output
+ * shape) and the non-flat-name exception; neither presents a REPL binding
+ * listing — the live member set is runtime truth (`dir(tool)`).
+ */
+export type ReplBridgeCatalogMode = 'signatures' | 'convention'
+
+/** The deployed presentation mode; flip to `'convention'` to ship arm A. */
+export const REPL_BRIDGE_CATALOG_MODE: ReplBridgeCatalogMode = 'signatures'
+
+/** Abbreviation depth for the compact sketches: root, children, grandchildren; deeper degrades to `Any`. */
+const COMPACT_SKETCH_DEPTH = 2
+
+/**
+ * Render one JSON-Schema node as a compact Python-flavored shape sketch:
+ * scalar names map to Python (`str`/`int`/`float`/`bool`), objects render
+ * as the dict literal the call actually takes (`{'path': str, 'offset'?: int}` —
+ * `?` marks optional keys), string enums render as quoted unions, arrays as
+ * `list[…]`. Nodes deeper than {@link COMPACT_SKETCH_DEPTH}, and anything
+ * malformed or unsupported, degrade to `Any` — the sketch is advisory
+ * prompt text, mirroring the omp `tsType` simplification (depth-capped,
+ * never throwing) rather than the full TypedDict codegen above.
+ */
+function compactSketch(schema: unknown, depth: number): string {
+  if (schema === null || typeof schema !== 'object' || depth > COMPACT_SKETCH_DEPTH) return 'Any'
+  const node = schema as {
+    type?: unknown
+    properties?: Record<string, unknown>
+    required?: unknown
+    items?: unknown
+    enum?: unknown
+  }
+  if (Array.isArray(node.enum) && node.enum.length > 0 && node.enum.every(value => typeof value === 'string')) {
+    return node.enum.map(value => `'${value.replaceAll('\\', '\\\\').replaceAll("'", "\\'")}'`).join(' | ')
+  }
+  switch (node.type) {
+    case 'string':
+      return 'str'
+    case 'integer':
+      return 'int'
+    case 'number':
+      return 'float'
+    case 'boolean':
+      return 'bool'
+    case 'null':
+      return 'None'
+    case 'array':
+      return `list[${compactSketch(node.items, depth + 1)}]`
+    case 'object': {
+      const properties = node.properties
+      if (properties === undefined) return 'dict'
+      const required = new Set(Array.isArray(node.required) ? node.required : [])
+      const entries = Object.entries(properties).map(([key, child]) => {
+        const printedKey = `'${key.replaceAll('\\', '\\\\').replaceAll("'", "\\'")}'${required.has(key) ? '' : '?'}`
+        return `${printedKey}: ${compactSketch(child, depth + 1)}`
+      })
+      return entries.length === 0 ? 'dict' : `{${entries.join(', ')}}`
+    }
+    default:
+      return 'Any'
+  }
+}
+
+/**
+ * The fixed model-facing convention rendered above any declaration lines —
+ * the REPL scripting pad positioning (design D5): a session-persistent
+ * environment (Python today) that is one working surface beside direct tool
+ * calls, never a privileged entry point. The wording deliberately avoids
+ * the word "kernel": the model's real environment is the runtime surface
+ * presented to it, and importing a second name for it only blurs that.
+ */
+const REPL_BRIDGE_INSTRUCTIONS = `## Calling tools from the scripting pad
+
+\`eval\` runs each cell on a session-persistent scripting pad (Python today; other languages are natural extensions): variables, imports, and definitions from earlier cells stay alive, top-level \`await\` works, and the pad is one working surface beside your direct tool calls — same tools, composed in code.
+
+Every tool this conversation declares is callable inside a cell as \`await tool.<name>(args)\` with ONE positional arguments object; the awaited value is that tool's canonical JSON output (the output shape declared with each signature) and a failed call raises \`ToolCallError\`, whose \`.toolName\` names the tool. Tool names that are not plain identifiers (for example MCP names with hyphens or \`__\` infixes) have no \`tool.<name>\` member — call those as direct tool calls. These declarations are argument and output SHAPES, not a registry listing: read the live member set at run time with \`dir(tool)\`.`
+
+/**
+ * Render the `dashr:tool-catalog` prompt section body as the REPL bridge
+ * instructions (design D4/D5): the scripting-pad positioning and the
+ * calling convention above, then — in the default `'signatures'` mode —
+ * one compact declaration line per visible tool
+ * (`tool.<name>(args: {…}) -> <output shape>`, omp code-mode shape with
+ * the output contract kept), inside one fenced ```python block.
+ * Non-bindable names (reserved, exotic, underscore-leading) are omitted
+ * from the lines; the convention sentence above states that limit once.
+ *
+ * Deterministic — lines are emitted in lexicographic name order, so an
+ * unchanged tool set produces byte-identical text across assemblies.
+ * @param schemas - the calling scope's visible tools (the caller already
+ *   excluded the transport and the wire-masked names).
+ * @param mode - override the deployed {@link REPL_BRIDGE_CATALOG_MODE}
+ *   (the two render states; tests exercise both).
+ * @returns the complete section body.
+ */
+export function renderReplBridgeInstructions(
+  schemas: readonly DASHRSdkSchema[],
+  mode: ReplBridgeCatalogMode = REPL_BRIDGE_CATALOG_MODE,
+): string {
+  if (mode === 'convention') return REPL_BRIDGE_INSTRUCTIONS
+  const lines: string[] = []
+  for (const schema of [...schemas].sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0)) {
+    if (!isFlatBindableName(schema.name)) continue
+    lines.push(`tool.${schema.name}(args: ${compactSketch(schema.parameters, 0)}) -> ${compactSketch(schema.output, 0)}`)
+  }
+  if (lines.length === 0) return REPL_BRIDGE_INSTRUCTIONS
+  return `${REPL_BRIDGE_INSTRUCTIONS}\n\nTool declarations (one line per tool; \`?\` marks optional keys, deeper structure is abbreviated):\n\n\`\`\`python\n${lines.join('\n')}\n\`\`\``
+}

@@ -97,10 +97,12 @@ import type {
   ReplRunResult,
   ReplRuntimeSurface,
 } from './runtime-surface.ts'
-import { isFlatBindableName, renderToolsSdkPy } from './py-sdk.ts'
+import { isFlatBindableName, renderReplBridgeInstructions } from './py-sdk.ts'
 import type { DASHRSdkSchema } from './py-sdk.ts'
 import { snapshotJsonValue } from './snapshot-json.ts'
 import type { JsonValue } from './snapshot-json.ts'
+import { getCapturedTools } from './url-schema/native-capture.ts'
+import type { Agent } from '@deepseek-ai/dsh-agent'
 import type { DASHRSubagentsSurface } from './subagents-surface.ts'
 import { readFileSync } from 'node:fs'
 
@@ -138,24 +140,41 @@ export const Config: z<Config> = z.intersect([
 export const EVAL_NAME = 'eval'
 
 /**
- * The upstream A2A tool names displaced from the model's surface (ADR-0002:
- * masking is presentation-only). They stay REGISTERED, EXECUTABLE, and
- * dispatchable, but appear in NEITHER the Tool Catalog text NOR the kernel
- * binding names. The registry itself is never touched (no `restrict()`, no
- * disable patch). Exactly two are displaced, both by the single
- * `send_message` bridge: upstream `send_message` (the parent→child downlink)
- * and `report` (the child→parent uplink the host's subagent-report package
- * installs into every continuable child) collapse into ONE dual-direction
- * channel — `send_message({"receiver": "child"|"parent", ...})`. Every other
- * delegation tool (`subagent`, `subagent_fork`, `list_agents`,
- * `interrupt_agent`, `workflow`, `ralph`) stays directly exposed as a native
- * `tool.*` binding — the model calls it exactly as the host ships it.
+ * The wire-mask deny list (design D1): the upstream delegation and
+ * guidance tools DASHR displaces from the model's surface. The list feeds
+ * ONE registry-level mechanism — `tools.restrict({deny})` on the agent's
+ * own scope layer at session-start — which removes every name from ALL
+ * registry projections at once (wire schemas, catalog, SDK, REPL bindings,
+ * by-name dispatch): the restricted-away names are gone for the model on
+ * every surface, not hidden per-presentation. Two exemptions are registry
+ * facts, not list policy: a name the host never registered is skipped (a
+ * restriction may only name inherited tools), and a name registered on the
+ * agent's OWN layer (the child-scoped native `report`, this composition's
+ * own URL wrappers) is exempt from restrictions by construction — the
+ * capability it carries stays reachable through the captured-definition
+ * bridges below, never through the masked name.
  */
 export const MASKED_TOOL_NAMES: ReadonlySet<string> = new Set([
+  'skill',
   'send_message',
   'report',
-  'skill',
+  'list_agents',
+  'subagent',
+  'subagent_fork',
+  'interrupt_agent',
+  'workflow',
+  'ralph',
 ])
+
+/**
+ * The effective deny list the session-start wiring restricts. An alias of
+ * {@link MASKED_TOOL_NAMES} today; a config override (a deployment naming
+ * its own mask) slots in HERE and nowhere else — the constant is the single
+ * source, so the mask never drifts between capture, restrict, and the
+ * bridges that read captured definitions.
+ */
+export const WIRE_MASKED_NAMES: ReadonlySet<string> = MASKED_TOOL_NAMES
+
 
 
 /**
@@ -173,10 +192,10 @@ export const CONTROL_SECTION_ORDER = 100
 export const SDK_SECTION_ORDER = 150
 
 /**
- * The bridge tools rendered INTO the Tool Catalog as if they were
+ * The bridge tools rendered INTO the bridge instructions as if they were
  * registry tools: each is a hand-written {@link DASHRSdkSchema} fed to the
- * SAME `renderToolsSdkPy` as the registry schemas, so the catalog shows one
- * flat `async def name(args: XArgs) -> Output` surface — no second calling
+ * SAME `renderReplBridgeInstructions` as the registry schemas, so the
+ * declarations show one flat `tool.name(args)` surface — no second calling
  * convention, no separate "bridge tools" block. The bridge enforces these
  * shapes per call (the bridge tools below); the schemas here are the
  * model-facing declaration only. Descriptions must stay truthful about
@@ -207,16 +226,16 @@ const BRIDGE_TOOL_SCHEMAS: DASHRSdkSchema[] = [
  * and the model's Code-Interpreter prior matches THIS contract).
  */
 const EVAL_DESCRIPTION
-  = 'Execute one Python cell on the persistent kernel. Takes two required '
+  = 'Execute one Python cell on a session-persistent scripting pad. Takes two required '
     + 'arguments: `cell`, one Python program body (top-level `await` and `return` work; variables, '
     + 'imports, and definitions from earlier cells are still alive), and `description`, '
-    + 'a short summary of what the cell does; optional `timeout` (seconds) bounds the wall-clock and optional `reset` restarts the kernel empty. Call tools as `await tool.name(args)` '
+    + 'a short summary of what the cell does; optional `timeout` (seconds) bounds the wall-clock and optional `reset` restarts the pad empty. Call tools as `await tool.name(args)` '
     + 'functions per the declarations in the system prompt. Only what you print or '
     + 'return comes back — curate it.'
 
 /** The `cell` parameter's model-facing description. */
 const EVAL_CELL_PARAM_DESCRIPTION
-  = 'The cell: one Python program body for the persistent kernel (top-level '
+  = 'The cell: one Python program body for the session-persistent scripting pad (top-level '
     + '`await` and `return` work).'
 
 /**
@@ -489,11 +508,11 @@ export function createRunCellTool(registry: ToolRuntime, options: RunCellBridgeO
       },
       timeout: {
         type: 'number',
-        description: 'Optional wall-clock budget for this cell, in seconds; the kernel is interrupted (then force-stopped) if the cell exceeds it. Omit to use the runtime default.',
+        description: 'Optional wall-clock budget for this cell, in seconds; the cell is interrupted (then force-stopped) if it exceeds the budget. Omit to use the runtime default.',
       },
       reset: {
         type: 'boolean',
-        description: 'Optional: reset the persistent kernel namespace to EMPTY before running — variables, imports, and definitions from earlier cells are discarded and the kernel restarts fresh. Omit to keep the namespace.',
+        description: 'Optional: reset the persistent pad namespace to EMPTY before running — variables, imports, and definitions from earlier cells are discarded and the pad restarts fresh. Omit to keep the namespace.',
       },
     },
     output: {
@@ -741,24 +760,24 @@ export function createRunCellTool(registry: ToolRuntime, options: RunCellBridgeO
         return outcome.value
       }
 
-      // ONE `tool.*` namespace (blueprint §2.2, OMP loopback): every
-      // bindable, unmasked tool becomes a MEMBER async callable
-      // `await tool.name(args)` — no flat globals, no prefix. Masking is
-      // presentation-only (ADR-0002): the masked upstream delegation names
-      // stay registered and executable but appear in neither this binding
-      // surface nor the Tool Catalog — the bridges below dispatch them
-      // internally through the SAME nested sub-dispatch pipeline. Names that
-      // cannot serve as members (exotic, reserved, underscore-leading — the
-      // policy shared with the renderer's isFlatBindableName) are simply not
-      // bound; the catalog renders them as not-callable comments. Enumerate
-      // the CALLING AGENT's visible set (scoped tools join, restricted
-      // globals vanish) — the same view the Tool Catalog declared, so a cell
-      // binds exactly what its prompt promised; sub-dispatch re-resolves per
-      // call through the same view (exec.agent threads down).
+      // ONE `tool.*` namespace (blueprint §2.2, OMP loopback): every bindable
+      // tool the CALLING AGENT can see becomes a MEMBER async callable
+      // `await tool.name(args)` — no flat globals, no prefix, no allowlist.
+      // This is a single-state auto-map over the registry's visible
+      // projection (design D3): the wire mask is a registry-level
+      // restriction installed at session-start, so every masked name is
+      // ALREADY absent from `schemas(exec.agent)` here — a cell binds
+      // exactly the surface the wire declared, one projection for both.
+      // A host tool registered later joins the next cell with zero wiring
+      // on this side. Names that cannot serve as members (exotic, reserved,
+      // underscore-leading — the policy shared with the renderer's
+      // isFlatBindableName, e.g. hyphenated or `__`-infixed MCP names) are
+      // simply not bound; the bridge instructions state that limit.
+      // Sub-dispatch re-resolves per call through the same view
+      // (exec.agent threads down).
       const toolFunctions: Record<string, ReplBindingFunction> = {}
       for (const schema of registry.schemas(exec.agent)) {
         if (schema.name === EVAL_NAME) continue
-        if (MASKED_TOOL_NAMES.has(schema.name)) continue
         if (!isFlatBindableName(schema.name)) continue
         toolFunctions[schema.name] = async (args: unknown) => binding(schema.name)(args)
       }
@@ -766,14 +785,24 @@ export function createRunCellTool(registry: ToolRuntime, options: RunCellBridgeO
 
       // send_message() bare callable global (plan Q25): one dual-use A2A
       // function. receiver='child' bridges the send_message TOOL downlink
-      // (subagent_id required — the id a spawn call returned). receiver=
-      // 'parent' bridges the SERVICE-layer reportFrom uplink — the only
-      // direction no tool covers — with zero ids: the child (exec.agent) is
-      // the authority credential and the service bootstraps the parent from
-      // the child's own session header. delivery stays FIXED at 'wakeup'
-      // (the upstream default; a scheduling policy, not model-facing). A
-      // root caller fails the service's authorizeReporter with SubagentError
-      // 'UNAUTHORIZED', surfaced here as a structured error value.
+      // (subagent_id required — the id a spawn call returned) through the
+      // CAPTURED native definition — `send_message` is on the wire-mask
+      // deny list, so a by-name dispatch (`binding('send_message')`) would
+      // hit the registry's UNKNOWN_TOOL; the session-start capture
+      // (native-capture.ts) took the definition before the mask landed and
+      // the direct `def.execute` preserves the native delivery semantics.
+      // The by-name fallback serves lifecycles that never fired
+      // `agent/session-start` (no capture exists): there the mask never
+      // landed either, so the dispatch resolves — and under a mask without
+      // a capture it fails loudly as UNKNOWN_TOOL rather than silently
+      // dropping the channel. receiver='parent' bridges the SERVICE-layer
+      // reportFrom uplink — the only direction no tool covers — with zero
+      // ids: the child (exec.agent) is the authority credential and the
+      // service bootstraps the parent from the child's own session header.
+      // delivery stays FIXED at 'wakeup' (the upstream default; a
+      // scheduling policy, not model-facing). A root caller fails the
+      // service's authorizeReporter with SubagentError 'UNAUTHORIZED',
+      // surfaced here as a structured error value.
       const sendMessageCallable: ReplBindingFunction = async (rawArgs: unknown): Promise<ReplJsonValue> => {
         const parsed = flatBridgeToolArgs(rawArgs)
         if (!parsed.ok) return { error: parsed.error }
@@ -789,6 +818,14 @@ export function createRunCellTool(registry: ToolRuntime, options: RunCellBridgeO
           const subagentId = a['subagent_id']
           if (typeof subagentId !== 'string' || subagentId.length === 0) {
             return { error: 'send_message() receiver "child" requires {"subagent_id": "..."} — the durable subagent id a spawn returned' }
+          }
+          const capturedSend = exec.agent !== undefined ? getCapturedTools(exec.agent)?.get('send_message') : undefined
+          if (capturedSend !== undefined) {
+            // Direct captured-definition call: the native delivery
+            // semantics unchanged, the masked name never re-entered. A
+            // rejection propagates to the kernel as the binding failure
+            // (ToolCallError), same as the by-name path below.
+            return await capturedSend.execute({ subagent_id: subagentId, message }, exec) as ReplJsonValue
           }
           return await binding('send_message')({ subagent_id: subagentId, message })
         }
@@ -884,21 +921,19 @@ export function createRunCellTool(registry: ToolRuntime, options: RunCellBridgeO
 }
 
 /**
- * Collect one calling scope's Tool Catalog schemas through the registry's
- * public projection APIs: `schemas(scope)` for the model-facing view (scoped
- * tools join, restrictions apply), `get(name, scope)` for the canonical
- * output schema, snapshotted so a live definition cannot mutate under the
- * render. `eval` itself is excluded — it is the transport, not a
- * binding. Masked names are excluded HERE (ADR-0002: the catalog text is
- * one of the two presentation points DASHR owns; the registry is never
- * touched). The catalog teaches exactly the `tool.*` member names the
- * kernel binds.
+ * Collect one calling scope's bridge-declaration schemas through the
+ * registry's public projection APIs: `schemas(scope)` for the model-facing
+ * view (scoped tools join, restrictions apply — the wire mask is a
+ * registry-level restriction installed at session-start, so every masked
+ * name is ALREADY absent from this projection; no second name filter
+ * exists to drift), `get(name, scope)` for the canonical output schema,
+ * snapshotted so a live definition cannot mutate under the render. `eval`
+ * itself is excluded — it is the transport, not a binding.
  */
 export function collectSdkSchemas(registry: ToolRuntime, scope?: ScopeKey): DASHRSdkSchema[] {
   const collected: DASHRSdkSchema[] = []
   for (const schema of registry.schemas(scope)) {
     if (schema.name === EVAL_NAME) continue
-    if (MASKED_TOOL_NAMES.has(schema.name)) continue
     const definition = registry.get(schema.name, scope)
     if (definition === undefined) continue
     const output = snapshotJsonValue(definition.output.schema) as JsonSchemaNode | undefined
@@ -996,6 +1031,51 @@ export function apply(ctx: Context, config: Config): void {
     const requireSubagents = (): DASHRSubagentsSurface | undefined => runtimeCtx.get('subagents')
     runtimeCtx.tools.register(createRunCellTool(registry, { requireRuntime, maxParallel, shapeDispatchLog, requireSubagents }))
 
+    // ①½ The wire mask (design D1): deny the displaced delegation names on
+    // the agent's OWN scope layer at session-start. Ordering is the mount
+    // order made explicit: the url-schema row mounted earlier in `apply`
+    // registered its session-start listener FIRST, so for every dispatch
+    // this listener runs AFTER the own-layer wrappers registered (they are
+    // restriction-exempt — own-layer registrations are never filtered) and
+    // BEFORE any REPL binding enumeration or catalog render, both of which
+    // read the post-restriction visible projection. The mask therefore
+    // lands on wire schemas, catalog, SDK, bindings, and by-name dispatch
+    // in ONE move. Names the host never registered are filtered against
+    // the agent's visible schemas first (a restriction may only name
+    // inherited tools — an unknown name throws); a visible name that still
+    // refuses (it sits on a non-restrictable layer, e.g. the child-scoped
+    // native `report`) is skipped — that layer is exempt by construction
+    // and the capability stays reachable through the captured-definition
+    // bridge.
+    const wireMasked = new WeakSet<Agent>()
+    runtimeCtx.on('agent/session-start', ({ agent }) => {
+      if (wireMasked.has(agent)) return
+      wireMasked.add(agent)
+      try {
+        const visible = new Set(agent.ctx.tools.schemas(agent).map(schema => schema.name))
+        const deny = [...WIRE_MASKED_NAMES].filter(name => visible.has(name))
+        if (deny.length === 0) return
+        try {
+          agent.ctx.tools.restrict({ deny })
+          return
+        } catch {
+          // Fall through: at least one named tool sits on a layer the
+          // registry refuses to restrict; mask the rest one by one and
+          // skip each refusal (skipping is the documented behavior for
+          // own-layer names, not an error).
+        }
+        for (const name of deny) {
+          try {
+            agent.ctx.tools.restrict({ deny: [name] })
+          } catch {
+            // Non-restrictable (own-layer) name — exempt by construction.
+          }
+        }
+      } catch (error: unknown) {
+        logger.warn(`dashr-repl: wire mask failed for agent ${agent.id}: ${error instanceof Error ? error.message : String(error)}`)
+      }
+    })
+
     // ①′ The Control Prompt section (plan Q3): static, scope-independent
     // text teaching the cell paradigm BEFORE the Tool Catalog renders its
     // signatures (order 100 < 150) — the single entry + guard contract, the
@@ -1008,17 +1088,20 @@ export function apply(ctx: Context, config: Config): void {
       text: CONTROL_PROMPT_TEXT,
     })
 
-    // ② The Tool Catalog prompt section (plan Q4/Q7; the pre-0.1.5 name
-    // was `tools:dashr-sdk`), regenerated from the CALLING scope's visible tools at
-    // assembly time (the same scope-aware shape as upstream's sdkSection:
-    // an assembly for a different scope renders its own view, never ours).
-    // The bridge tools are fed into the SAME renderer as registry tools
-    // (BRIDGE_TOOL_SCHEMAS), so the catalog is one flat surface: every tool —
-    // registry tool or bridge tool — is `await tool.name(args)`.
+    // ② The REPL bridge instructions prompt section (the pre-0.1.5 name was
+    // `tools:dashr-sdk`, then `dashr:tool-catalog`; the id stays
+    // `dashr:tool-catalog` so existing session prefixes keep their cache
+    // shape), regenerated from the CALLING scope's post-mask visible tools
+    // at assembly time (the same scope-aware shape as upstream's
+    // sdkSection: an assembly for a different scope renders its own view,
+    // never ours). The bridge tools are fed into the SAME renderer as
+    // registry tools (BRIDGE_TOOL_SCHEMAS), so the surface is one flat
+    // convention: every tool — registry tool or bridge tool — is
+    // `await tool.name(args)`.
     systemPrompt.section({
       name: 'dashr:tool-catalog',
       order: SDK_SECTION_ORDER,
-      text: context => renderToolsSdkPy([...collectSdkSchemas(registry, context.scope), ...BRIDGE_TOOL_SCHEMAS]),
+      text: context => renderReplBridgeInstructions([...collectSdkSchemas(registry, context.scope), ...BRIDGE_TOOL_SCHEMAS]),
     })
 
 

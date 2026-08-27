@@ -16,9 +16,11 @@
  * ({@link captureNativeTools}); `read` keeps its vendored hashline file branch
  * and captures nothing. Host-plane services (`fs`, `skills`, `sessions`,
  * `settings`, `subagents`, `agents`) are read from the plugin's own context,
- * never the agent's scoped one (whose fiber chain does not declare them).
  */
 
+import { registerAstDevices } from './vendored/devices/ast/ast-device.ts'
+import { registerBrowserDevice } from './vendored/devices/browser/browser-device.ts'
+import { installLspDevices } from './vendored/devices/lsp/lsp-device.ts'
 import type { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 // Type-only: each empty import brings the service's `ctx.<name>` Context merge
@@ -26,6 +28,7 @@ import type { Agent } from '@deepseek-ai/dsh-agent'
 import type {} from '@deepseek-ai/dsh-agent'
 import type {} from '@deepseek-ai/dsh-fs'
 import type {} from '@deepseek-ai/dsh-session'
+import type {} from '@deepseek-ai/dsh-session-persistence'
 import type {} from '@deepseek-ai/dsh-settings'
 import type {} from '@deepseek-ai/dsh-skill'
 import type {} from '@deepseek-ai/dsh-subagent'
@@ -55,7 +58,7 @@ export const name = 'dsh-url-schema'
  * NOT listed: nothing in this plugin reads it anymore (the `ctx://` handler
  * reads the calling agent out of the resolver env instead).
  */
-export const inject = ['tools', 'fs', 'skills', 'subagents', 'sessions', 'settings', 'agents']
+export const inject = ['tools', 'fs', 'skills', 'subagents', 'sessions', 'settings', 'agents', 'sessionPersistence']
 
 /** Plugin config — no options yet. */
 export type Config = unknown
@@ -63,13 +66,17 @@ export type Config = unknown
 /** Register the four URL-aware tools on one agent's own scope layer. */
 function installAgentTools(rootCtx: Context, agent: Agent, resolver: UrlResolver): void {
   agent.ctx.effect(async () => {
-    const disposers: Array<() => void> = []
-    // Capture the native write/grep/glob definitions BEFORE any wrapper
+    // Capture the agent's FULL inherited surface BEFORE any wrapper
     // registers on the agent's own scope layer — after registration the
     // scoped lookup would resolve each name back to the wrapper itself
-    // (infinite recursion). `read` needs no capture: its file branch is the
-    // vendored hashline pipeline, not a native delegate.
+    // (infinite recursion), and after the wire-mask restrict (installed by
+    // dashr-repl's later session-start listener) the masked names would
+    // read as absent. `captureNativeTools` seeds the one full snapshot
+    // ({@link captureAllTools}) and projects the write/grep/glob triple the
+    // delegation wrappers need; `read` needs no capture: its file branch is
+    // the vendored hashline pipeline, not a native delegate.
     const native = captureNativeTools(rootCtx, agent)
+    const disposers: Array<() => void> = []
     disposers.push(agent.ctx.tools.register(createReadTool({ resolver, fs: rootCtx.fs, ctx: rootCtx })))
     disposers.push(agent.ctx.tools.register(createWriteTool({ nativeWrite: native.write })))
     disposers.push(agent.ctx.tools.register(createGrepTool({ resolver, nativeGrep: native.grep })))
@@ -88,16 +95,24 @@ export function apply(ctx: Context, config: Config): void {
   resolver.register('agent', createAgentHandler({
     sessions: ctx.sessions,
     subagents: ctx.subagents,
+    sessionPersistence: ctx.sessionPersistence,
     agents: ctx.agents,
   }))
   // Pass `docsDir` explicitly so the handler's fixed-depth `dirname×N` fallback
   // (broken under tsdown bundling) is never reached.
   resolver.register('dsh', createDshHandler({ settings: ctx.settings, docsDir: resolveDocsDir() }))
-  // `dvc://` has no device provider this wave — placeholder handler.
+  // `dvc://` device registry: bare read = roster, <device> read = doc,
+  // write = device dispatch (see vendored/devices/).
   resolver.register('dvc', createDvcHandler())
   // `ctx://` reads the calling agent out of the resolver env (supplied by the
   // tool layer per call), so it needs no service and registers directly.
   resolver.register('ctx', createCtxHandler())
+  // Devices (design D8): light registration — no dlopen, no Chrome launch,
+  // no LSP spawn until the first `write dvc://<device>` executes.
+  registerAstDevices()
+  registerBrowserDevice()
+  installLspDevices()
+
   // One stateless handler instance serves both web schemes.
   const httpHandler = createHttpHandler()
   for (const scheme of HTTP_SCHEMES) resolver.register(scheme, httpHandler)

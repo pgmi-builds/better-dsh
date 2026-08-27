@@ -272,7 +272,7 @@ describe('dvc:// handler', () => {
 })
 
 describe('agent:// roster', () => {
-  const mainId = SessionId('sess-main')
+  const callerId = SessionId('sess-main')
   const childId = SessionId('sess-child')
   const mainTime = 1_700_000_005_000
   const childTime = 1_700_000_009_000
@@ -297,35 +297,52 @@ describe('agent:// roster', () => {
     ], headerFull)
   }
 
+  /** Handler with one live continuable child (`doer-1`) under the caller. */
   function rosterHandler(agents?: { get(id: SessionId): { readonly status: 'idle' | 'running' } | undefined }) {
-    const main = seededSession(mainId, 1_700_000_000_000, mainTime)
+    const main = seededSession(callerId, 1_700_000_000_000, mainTime)
     const child = seededSession(childId, 1_700_000_002_000, childTime, {
       origin: 'subagent',
-      parentSession: mainId,
+      parentSession: callerId,
     })
-    const sessions = {
-      // Deliberately unsorted: the roster orders by createdAt, oldest first.
-      list: () => [child, main],
-      get: (id: SessionId) => [main, child].find((session) => session.id === id),
-    }
-    const subagents = { listChildren: async () => [] }
-    return createAgentHandler({ sessions, subagents, ...agents === undefined ? {} : { agents } })
+    return createAgentHandler({
+      sessions: { get: (id: SessionId) => [main, child].find((session) => session.id === id) },
+      subagents: {
+        listDescendants: async () => [{
+          kind: 'child',
+          id: childId,
+          activity: 'running',
+          mode: 'continuable',
+          label: 'doer-1',
+          hasChildren: false,
+          parentId: callerId,
+          depth: 1,
+        }],
+      },
+      sessionPersistence: { inspect: async () => undefined },
+      ...agents === undefined ? {} : { agents },
+    })
   }
 
-  it('renders the spec columns: id/status/kind/parent/last activity', async () => {
-    const handler = rosterHandler({ get: (id) => id === mainId ? { status: 'running' } : undefined })
-    const roster = await handler.resolve({}, '')
+  it('renders the family columns: id(label)/status/parent/last activity', async () => {
+    const handler = rosterHandler({ get: (id) => id === childId ? { status: 'running' } : undefined })
+    const roster = await handler.resolve({ agent: { id: callerId } }, '')
     expect(roster).toEqual([
-      'id\tstatus\tkind\tparent\tlast activity',
-      `sess-main\trunning\tmain\t-\t${new Date(mainTime).toISOString()}`,
-      `sess-child\t-\tsubagent\tsess-main\t${new Date(childTime).toISOString()}`,
+      'id\tstatus\tparent\tlast activity',
+      `doer-1\trunning\tsess-main\t${new Date(childTime).toISOString()}`,
     ].join('\n'))
   })
 
-  it('renders status as `-` for every row when no agent registry is wired', async () => {
+  it('renders an empty roster for a caller with no descendants', async () => {
+    const handler = createAgentHandler({
+      sessions: { get: () => undefined },
+      subagents: { listDescendants: async () => [] },
+      sessionPersistence: { inspect: async () => undefined },
+    })
+    await expect(handler.resolve({ agent: { id: callerId } }, '')).resolves.toBe('no agents')
+  })
+
+  it('requires the calling agent in the resolver env', async () => {
     const handler = rosterHandler()
-    const roster = await handler.resolve({}, '')
-    expect(roster).toContain('sess-main\t-\tmain\t-')
-    expect(roster).not.toMatch(/\t(idle|running)\t/)
+    await expect(handler.resolve({}, '')).rejects.toThrowError(/requires the calling agent/)
   })
 })

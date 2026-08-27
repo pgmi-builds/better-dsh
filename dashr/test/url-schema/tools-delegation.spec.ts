@@ -329,6 +329,7 @@ describe('captureNativeTools', () => {
     const lookups: Array<{ name: string; scope: unknown }> = []
     const ctx = {
       tools: {
+        schemas: () => Object.keys(defs).map(name => ({ name })),
         get(name: string, scope?: unknown) {
           lookups.push({ name, scope })
           return defs[name]
@@ -349,7 +350,9 @@ describe('captureNativeTools', () => {
     expect(set.write).toBe(writeDef)
     expect(set.grep).toBe(grepDef)
     expect(set.glob).toBeUndefined() // host did not deploy native glob
-    expect(lookups.length).toBe(3)
+    // The full-snapshot capture resolves every VISIBLE name once (write and
+    // grep here; glob was never deployed so it is not enumerated).
+    expect(lookups.length).toBe(2)
     for (const { scope } of lookups) expect(scope).toBe(agent)
   })
 
@@ -362,13 +365,13 @@ describe('captureNativeTools', () => {
     const second = captureNativeTools(ctx, agent)
 
     expect(second).toBe(first)
-    expect(lookups.length).toBe(3) // one pass, not two
+    expect(lookups.length).toBe(1) // one pass over the single visible name, not two
 
     // A different agent captures independently.
     const other = { id: 'a2' } as unknown as Agent
     const otherSet = captureNativeTools(ctx, other)
     expect(otherSet).not.toBe(first)
-    expect(lookups.length).toBe(6)
+    expect(lookups.length).toBe(2)
   })
 
   it('degrades to an all-undefined set when no native tool is deployed', () => {

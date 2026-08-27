@@ -1,7 +1,7 @@
 {
   "name": "@pgmi-builds/dashr",
   "description": "DASHR: a persistent Python-kernel REPL for DeepSeek Harness (dsh) — the `eval` tool with `tool.*` bindings, sub-agents, and snapshots",
-  "version": "0.1.8-d",
+  "version": "0.1.8-e",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -80,8 +80,16 @@
     "@deepseek-ai/schemastery": "^3.18.1",
     "diff": "^8.0.2",
     "file-type": "^21.3.0",
+    "puppeteer-core": "25.3.0",
     "xxhash-wasm": "^1.1.0",
     "zeromq": "^6.6.0"
+  },
+  "optionalDependencies": {
+    "@oh-my-pi/pi-natives-linux-x64": "18.0.6",
+    "@oh-my-pi/pi-natives-linux-arm64": "18.0.6",
+    "@oh-my-pi/pi-natives-darwin-x64": "18.0.6",
+    "@oh-my-pi/pi-natives-darwin-arm64": "18.0.6",
+    "@oh-my-pi/pi-natives-win32-x64": "18.0.6"
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "^4.0.1",
