@@ -20,11 +20,17 @@
 - `run_code` 不可 restrict（:2782）——本就要保留。
 - 否决的备选：`system-prompt/assemble` waterfall 过滤 wire 数组（软掩码）——只掩 wire 一面，catalog/SDK 仍显示该工具 → 模型看到却调不到的不一致面，维护成本高。
 
-**deny 名单（默认，可配置；bridge 原则——只掩被替代了呈现面的，不 jail 原生能力）**：`skill`（→ `read skill://`）、`send_message` 上游（→ `agent_message` 桥）、`report`（→ 桥的 receiver='parent'）、`list_agents`（→ `agent://` 名册）。**保持可见**：`subagent`/`subagent_fork`/`interrupt_agent`/`workflow`/`ralph`——spawn 家族原生直通（label 参数、run_in_background 等原生语义零重包装），REPL 自动绑定照常覆盖。
+**deny 名单（默认，可配置；全部 registry 掩码 visible=false）**：`skill`、上游 `send_message`、`report`、`list_agents`、`subagent`、`subagent_fork`、`interrupt_agent`、`workflow`、`ralph`。
+
+**能力保留靠工具层桥，不靠 registry 豁免**（源码事实，`dsh-subagent`/`dsh-tool-subagent-*`）：
+- native `send_message` = `ctx.subagents.followup(parent, childId, ...)`；recipient 约束 `authorizeLineage`（`dsh-subagent/lib/index.js:1336-1339`）强制 `childId.parentSession === parent.id`——**只能给自己的 direct child 发，peer/sibling send 原生不存在**（非被 jail，上游即无此能力）。
+- native `report` 只向上 direct parent（无 recipient 参数），注册在 child scope（对父与 sibling 不可见）。
+- **服务层授权不可绕过**：`authorizeLineage` 另验 `this.ctx.agents.get(parent.id) !== parent → UNAUTHORIZED`（:1337）——即使桥在服务层直调 `followup/reportFrom` 绕过工具 registry 的 restrict，服务内部仍校验 exact live parent。桥的透传**不会**打开越权面。
+- **peer/sibling 增强是新增能力，非透传**（原生 `followup` 对非 direct child 直接 UNAUTHORIZED）——另开 change，不混入本轮。
 
 ### D2. 捕获定义仅供 DASHR 内部（被掩名对 LLM 全链路消失）
 
-**Decision**：被掩名对 LLM 是**全链路不可达**——wire/catalog/SDK/REPL 绑定/按名 dispatch 五面一致消失（restrict 的 `visible` 投影就是唯一源）。session-start 在 restrict **之前**的全量捕获（per-agent WeakMap `Map<name, ToolDefinition>`）**只服务于 DASHR 内部**：URL wrapper 的非 URL 委托、`agent_message` 桥的下行内部分发（原 `binding('send_message')` 按名，restrict 后必须走捕获定义）。REPL 绑定**不绑被掩名**——「LLM 直调 = REPL 桥接」是同一投影源的结构保证，不需要（也不应该）向 LLM 解释这个对应关系。
+**Decision**：被掩名对 LLM 是**全链路不可达**——wire/catalog/SDK/REPL 绑定/按名 dispatch 五面一致消失（restrict 的 `visible` 投影就是唯一源）。session-start 在 restrict **之前**的全量捕获（per-agent WeakMap `Map<name, ToolDefinition>`）**只服务于 DASHR 内部**：URL wrapper 的非 URL 委托、`agent_message` 桥（child 下行透传捕获的 `send_message.execute`，parent 上行透传捕获的 `report.execute`——语义与原生一致，含投递模式：内容以 user-role 投递为目标的下一轮 turn，工具返回 messageId 确认，非工具结果）。REPL 绑定**不绑被掩名**——「LLM 直调 = REPL 桥接」是同一投影源的结构保证，不需要（也不应该）向 LLM 解释这个对应关系。
 
 ### D3. REPL 自动映射（废除 allowlist，单态）
 
