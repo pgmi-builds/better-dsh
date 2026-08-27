@@ -105,8 +105,7 @@ import type { DASHRSdkSchema } from './py-sdk.ts'
 import { snapshotJsonValue } from './snapshot-json.ts'
 import type { JsonValue } from './snapshot-json.ts'
 import type { Agent } from '@deepseek-ai/dsh-agent'
-import type { DASHRSubagentsSurface } from './subagents-surface.ts'
-import { getCapturedTools } from './url-schema/native-capture.ts'
+import type { DASHRSubagentsSurface, DASHRWorkflowEngine } from './subagents-surface.ts'
 import { AGENT_BRIDGE_SCHEMAS, createAgentBridgeBindings } from './bridges/index.ts'
 import { readFileSync } from 'node:fs'
 
@@ -434,15 +433,13 @@ export interface RunCellBridgeOptions {
    */
   requireSubagents?: () => DASHRSubagentsSurface | undefined
   /**
-   * Resolves the captured native `workflow`/`ralph` tool definitions (or
-   * undefined when this composition registered neither) for the
-   * `agent_workflow` bridge. The workflowEngine service is entry-local to the
-   * preset's delegation realm — invisible to any outside ctx — so the bridge
-   * passes through the captured definitions instead of resolving the service.
+   * Resolves the calling agent's preset-mounted `workflowEngine` service (or
+   * undefined when this composition provides none) for the `agent_workflow`
+   * bridge. The service is entry-local to the preset delegation group's
+   * realm — invisible to any outside ctx — so this resolver goes through the
+   * host's `serviceForAgent` read-addressing, the api-proxy's own channel.
    */
-  resolveCapturedWorkflow?: (agent: ToolRunContext['agent']) => ToolDefinition | undefined
-  /** Ralph variant of {@link RunCellBridgeOptions.resolveCapturedWorkflow}. */
-  resolveCapturedRalph?: (agent: ToolRunContext['agent']) => ToolDefinition | undefined
+  requireWorkflowEngine?: (agent: ToolRunContext['agent']) => DASHRWorkflowEngine | undefined
 }
 
 /**
@@ -459,7 +456,7 @@ export interface RunCellBridgeOptions {
  * @returns the registry-ready definition.
  */
 export function createRunCellTool(registry: ToolRuntime, options: RunCellBridgeOptions): ToolDefinition {
-  const { requireRuntime, maxParallel, shapeDispatchLog, requireSubagents, resolveCapturedWorkflow, resolveCapturedRalph } = options
+  const { requireRuntime, maxParallel, shapeDispatchLog, requireSubagents, requireWorkflowEngine } = options
   return defineTool({
     name: EVAL_NAME,
     description: EVAL_DESCRIPTION,
@@ -759,8 +756,7 @@ export function createRunCellTool(registry: ToolRuntime, options: RunCellBridgeO
       // value, never a crash.
       const bridgeBindings = createAgentBridgeBindings(exec, {
         requireSubagents,
-        resolveCapturedWorkflow: () => resolveCapturedWorkflow?.(exec.agent),
-        resolveCapturedRalph: () => resolveCapturedRalph?.(exec.agent),
+        requireWorkflowEngine: () => requireWorkflowEngine?.(exec.agent),
       })
 
       try {
@@ -942,11 +938,30 @@ export function apply(ctx: Context, config: Config): void {
     // records the reservation delta). Registered through the injected
     // runtime context so the tool's lifetime follows the runtime service's.
     const requireSubagents = (): DASHRSubagentsSurface | undefined => runtimeCtx.get('subagents')
-    const resolveCapturedWorkflow = (agent: ToolRunContext['agent']): ToolDefinition | undefined =>
-      agent === undefined ? undefined : getCapturedTools(agent)?.get('workflow')
-    const resolveCapturedRalph = (agent: ToolRunContext['agent']): ToolDefinition | undefined =>
-      agent === undefined ? undefined : getCapturedTools(agent)?.get('ralph')
-    runtimeCtx.tools.register(createRunCellTool(registry, { requireRuntime, maxParallel, shapeDispatchLog, requireSubagents, resolveCapturedWorkflow, resolveCapturedRalph }))
+    // The `agent_workflow` engine resolver: workflowEngine is entry-local to
+    // the preset delegation group's realm, so plain ctx.get can never see it.
+    // `serviceForAgent` from the host's preset framework is the sanctioned
+    // read-addressing for a caller that already holds the agent (the
+    // api-proxy's own channel). Optional peer: preloaded once; an absent
+    // framework leaves the bridge answering a structured unavailable.
+    let serviceForAgent: ((ctx: Context, agent: Agent, name: string) => unknown) | undefined
+    {
+      const specifier = '@deepseek-ai/dsh-agent-presets'
+      void import(/* @vite-ignore */ specifier).then(
+        mod => { serviceForAgent = (mod as { serviceForAgent?: typeof serviceForAgent }).serviceForAgent },
+        () => { /* framework absent: the bridge degrades to unavailable */ },
+      )
+    }
+    const requireWorkflowEngine = (agent: ToolRunContext['agent']): DASHRWorkflowEngine | undefined => {
+      if (agent !== undefined && serviceForAgent !== undefined) {
+        const preset = serviceForAgent(runtimeCtx, agent, 'workflowEngine') as DASHRWorkflowEngine | undefined
+        if (preset !== undefined) return preset
+      }
+      // Root-realm fallback: a host that mounts the engine globally (and the
+      // test harness, whose fake provides it at the root) resolves here.
+      return runtimeCtx.get('workflowEngine') as DASHRWorkflowEngine | undefined
+    }
+    runtimeCtx.tools.register(createRunCellTool(registry, { requireRuntime, maxParallel, shapeDispatchLog, requireSubagents, requireWorkflowEngine }))
 
     // ①½ The wire mask (design D1): deny the displaced delegation names on
     // the agent's OWN scope layer at session-start. Ordering is the mount

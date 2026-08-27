@@ -43,8 +43,7 @@ interface DelegationCalls {
   followups: { childId: string, message: string, sourceKind: string, senderId: string }[]
   interrupts: { targetId: string, authorityKind: string, authorityAgent: Agent }[]
   reports: { message: string }[]
-  workflowExecs: { script: string, metaName: string, args: unknown }[]
-  ralphExecs: { objective: string, maxRounds: unknown }[]
+  workflowStarts: { script: string, metaName: string, objective: unknown, subagentProvider: unknown, maxTotalAgents: unknown, args: unknown }[]
 }
 
 /**
@@ -56,7 +55,7 @@ async function fakeDelegationServices(
   ctx: Context,
   overrides: { startStopReason?: string, reportFrom?: (call: { message: string }) => Promise<string> } = {},
 ): Promise<DelegationCalls> {
-  const calls: DelegationCalls = { starts: [], continuableStarts: [], followups: [], interrupts: [], reports: [], workflowExecs: [], ralphExecs: [] }
+  const calls: DelegationCalls = { starts: [], continuableStarts: [], followups: [], interrupts: [], reports: [], workflowStarts: [] }
   const fiber = await ctx.plugin({ name: 'fake-delegation-services', apply(c) {
     c.provide('subagents', {
       start: (provider: string, request: { label: string, prompt: { text: string }[], parent: Agent, maxDepth: number, signal: AbortSignal }) => {
@@ -83,42 +82,22 @@ async function fakeDelegationServices(
         return overrides.reportFrom !== undefined ? overrides.reportFrom({ message: content[0]!.text }) : Promise.resolve('mid-1')
       },
     })
+    c.provide('workflowEngine', {
+      start: (request: { script: string, meta: { name: string }, args?: { objective?: unknown }, subagentProvider?: unknown, maxTotalAgents?: unknown }) => {
+        calls.workflowStarts.push({ script: request.script, metaName: request.meta.name, objective: request.args?.objective, subagentProvider: request.subagentProvider, maxTotalAgents: request.maxTotalAgents, args: request.args })
+        return {
+          id: 'wf-1',
+          result: Promise.resolve({ value: { ok: true }, stopReason: 'completed', agentsStarted: 2 }),
+          cancel: () => {},
+          dispose: () => Promise.resolve(),
+        }
+      },
+    })
   } })
   onTestFinished(() => fiber.dispose())
   return calls
 }
 
-/**
- * Register fake native `workflow`/`ralph` registry tools and CAPTURE them the
- * way session-start does, so the `agent_workflow` bridge resolves them. The
- * fakes record the exact args the bridge passed through and answer the native
- * result shapes.
- */
-function registerCapturedWorkflowTools(ctx: Context, agent: Agent, calls: DelegationCalls): void {
-  ctx.tools.register(defineTool({
-    name: 'workflow',
-    description: 'Fake native workflow tool.',
-    parameters: { script: { type: 'string', required: true }, meta: { type: 'json', required: true } },
-    output: { schema: { type: 'json' }, render: (_args, value) => [{ type: 'text', text: JSON.stringify(value) }] },
-    execute(args) {
-      const a = args as { script: string, meta: { name: string }, args?: unknown }
-      calls.workflowExecs.push({ script: a.script, metaName: a.meta.name, args: a.args })
-      return Promise.resolve({ runId: 'wf-1', agentsStarted: 2, result: { ok: true } }) as Promise<never>
-    },
-  }))
-  ctx.tools.register(defineTool({
-    name: 'ralph',
-    description: 'Fake native ralph tool.',
-    parameters: { objective: { type: 'string', required: true }, maxRounds: { type: 'number' } },
-    output: { schema: { type: 'json' }, render: (_args, value) => [{ type: 'text', text: JSON.stringify(value) }] },
-    execute(args) {
-      const a = args as { objective: string, maxRounds?: number }
-      calls.ralphExecs.push({ objective: a.objective, maxRounds: a.maxRounds })
-      return Promise.resolve({ runId: 'ralph-1', agentsStarted: 3, result: 'done', rounds: 2 }) as Promise<never>
-    },
-  }))
-  captureAllTools(ctx, agent)
-}
 
 describe('agent bridge — spawn/fork unified', () => {
   it("mode 'delegate' with run_in_background false starts a ONE-SHOT child on the spawn provider with the native request fields", async () => {
@@ -246,11 +225,10 @@ describe('agent_message bridge — followup / report / interrupt', () => {
   })
 })
 
-describe('agent_workflow bridge — captured native definitions', () => {
-  it("mode 'script' passes script/meta/args through to the captured workflow tool", async () => {
+describe('agent_workflow bridge — engine via serviceForAgent addressing', () => {
+  it("mode 'script' passes script/meta/args through to workflowEngine.start", async () => {
     const { ctx, agent } = await setupPresentation(fakeRuntime)
     const calls = await fakeDelegationServices(ctx)
-    registerCapturedWorkflowTools(ctx, agent.agent, calls)
     const runtime = ctx.get('replRuntime') as FakeCellRuntime
     runtime.behavior = async (request) => {
       const result = await callableOf(request, 'agent_workflow')({ mode: 'script', script: 'return 1', meta: { name: 'audit', description: 'Audit the repo' }, args: { files: ['a'] } })
@@ -258,40 +236,43 @@ describe('agent_workflow bridge — captured native definitions', () => {
     }
     const result = await cell(ctx, agent.agent, 'program')
     expect(result.value.result).toEqual({ runId: 'wf-1', agentsStarted: 2, result: { ok: true } })
-    expect(calls.workflowExecs).toHaveLength(1)
-    expect(calls.workflowExecs[0]!.script).toBe('return 1')
-    expect(calls.workflowExecs[0]!.metaName).toBe('audit')
-    expect(calls.workflowExecs[0]!.args).toEqual({ files: ['a'] })
+    expect(calls.workflowStarts).toHaveLength(1)
+    expect(calls.workflowStarts[0]!.script).toBe('return 1')
+    expect(calls.workflowStarts[0]!.metaName).toBe('audit')
+    expect(calls.workflowStarts[0]!.args).toEqual({ files: ['a'] })
   })
 
-  it("mode 'rfc' passes the objective (and an explicit maxRounds) through to the captured ralph tool", async () => {
+  it("mode 'rfc' routes the fixed Ralph loop with the objective and defaults", async () => {
     const { ctx, agent } = await setupPresentation(fakeRuntime)
     const calls = await fakeDelegationServices(ctx)
-    registerCapturedWorkflowTools(ctx, agent.agent, calls)
     const runtime = ctx.get('replRuntime') as FakeCellRuntime
     runtime.behavior = async (request) => {
-      const result = await callableOf(request, 'agent_workflow')({ mode: 'rfc', objective: 'finish the migration', maxRounds: 5 })
+      const result = await callableOf(request, 'agent_workflow')({ mode: 'rfc', objective: 'finish the migration' })
       return { logs: [], value: result }
     }
     await cell(ctx, agent.agent, 'program')
-    expect(calls.ralphExecs).toHaveLength(1)
-    expect(calls.ralphExecs[0]!.objective).toBe('finish the migration')
-    expect(calls.ralphExecs[0]!.maxRounds).toBe(5)
+    expect(calls.workflowStarts).toHaveLength(1)
+    const start = calls.workflowStarts[0]!
+    expect(start.metaName).toBe('ralph-loop')
+    expect(start.objective).toBe('finish the migration')
+    expect(start.subagentProvider).toBe('spawn')
+    expect(start.maxTotalAgents).toBe(256)
+    expect(start.script).toContain('Ralph round: ')
   })
 
-  it('answers a structured unavailable when neither native tool was captured in this composition', async () => {
+  it('answers a structured unavailable when no engine is resolvable for the agent', async () => {
     const { ctx, agent } = await setupPresentation(fakeRuntime)
-    await fakeDelegationServices(ctx)
+    // The services plugin provides subagents but deliberately NO workflowEngine.
+    const fiber = await ctx.plugin({ name: 'fake-no-engine', apply() {} })
+    onTestFinished(() => fiber.dispose())
     const runtime = ctx.get('replRuntime') as FakeCellRuntime
     runtime.behavior = async (request) => {
       const script = await callableOf(request, 'agent_workflow')({ mode: 'script', script: 'return 1', meta: { name: 'x', description: 'x' } })
-      const rfc = await callableOf(request, 'agent_workflow')({ mode: 'rfc', objective: 'do it' })
-      return { logs: [], value: { script, rfc } }
+      return { logs: [], value: { script } }
     }
     const result = await cell(ctx, agent.agent, 'program')
     const errors = result.value.result as Record<string, { error: unknown }>
-    expect(errors['script']).toEqual({ error: expect.stringContaining('the native workflow tool is not registered') })
-    expect(errors['rfc']).toEqual({ error: expect.stringContaining('the native ralph tool is not registered') })
+    expect(errors['script']).toEqual({ error: expect.stringContaining('no workflowEngine service is mounted') })
   })
 })
 
