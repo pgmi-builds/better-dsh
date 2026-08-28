@@ -8,6 +8,8 @@ import type { Agent } from '@deepseek-ai/dsh-agent'
 import type { ToolDefinition, ToolRunContext } from '@deepseek-ai/dsh-tools'
 
 import { captureNativeTools } from '../../src/url-schema/native-capture.ts'
+import { buildLspWriteFeedback } from '../../src/url-schema/index.ts'
+import { listDvcDevices, registerDvcDevice } from '../../src/url-schema/handlers/dvc.ts'
 import { UrlResolver } from '../../src/url-schema/resolver.ts'
 import type { ResolverEnv, SchemeHandler } from '../../src/url-schema/resolver.ts'
 import { UrlSchemaError } from '../../src/url-schema/selector.ts'
@@ -378,5 +380,90 @@ describe('captureNativeTools', () => {
     const { ctx } = fakeToolsCtx({})
     const agent = { id: 'a1' } as unknown as Agent
     expect(captureNativeTools(ctx, agent)).toEqual({})
+  })
+})
+
+describe('write tool — lsp feedback loop (native-tools Wave3)', () => {
+  it('attaches the post-write diagnostics summary to the result', async () => {
+    const { tool: nativeWrite, calls } = fakeNative()
+    const write = createWriteTool({
+      nativeWrite,
+      postWrite: async () => '1 error(s) — first: TS2345: bad type',
+    })
+    const result = await write.execute({ file_path: 'src/a.ts', content: 'const x: number = "s"' }, fakeExec())
+    expect(calls).toHaveLength(1)
+    expect(result).toEqual({ ok: true, diagnostics: '1 error(s) — first: TS2345: bad type' })
+  })
+
+  it('omits the diagnostics field when the hook answers undefined (serverless language)', async () => {
+    const { tool: nativeWrite } = fakeNative()
+    const write = createWriteTool({ nativeWrite, postWrite: async () => undefined })
+    const result = await write.execute({ file_path: 'notes.txt', content: 'plain' }, fakeExec())
+    expect(result).toEqual({ ok: true })
+  })
+
+  it('survives a throwing post-write hook — the write has already landed', async () => {
+    const { tool: nativeWrite } = fakeNative()
+    const write = createWriteTool({
+      nativeWrite,
+      postWrite: async () => { throw new Error('server exploded') },
+    })
+    const result = await write.execute({ file_path: 'a.ts', content: 'x' }, fakeExec())
+    expect(result).toEqual({ ok: true })
+  })
+
+  it('formats the content before the single native write, and keeps identity when formatting changes nothing', async () => {
+    const { tool: nativeWrite, calls } = fakeNative(async args => ({ ok: true, path: args.file_path }))
+    const write = createWriteTool({
+      nativeWrite,
+      preWriteFormat: async (_path, content) => (content.includes('let ') ? content.replace(/let /g, 'const ') : undefined),
+    })
+    // formatted: the native write receives the REPLACED content
+    await write.execute({ file_path: 'a.ts', content: 'let a = 1' }, fakeExec())
+    expect((calls[0]!.args as { content: string }).content).toBe('const a = 1')
+    // unchanged: the native write receives the SAME arguments object
+    const args = { file_path: 'b.ts', content: 'const b = 2' }
+    await write.execute(args, fakeExec())
+    expect(calls[1]!.args).toBe(args)
+  })
+
+  it('routes both hooks through the mounted lsp device with the exact content (integration)', async () => {
+    const seen: Array<{ action: string, file: string, content: string }> = []
+    const originalLsp = listDvcDevices().get('lsp')
+    registerDvcDevice('lsp', {
+      summary: 'fake lsp',
+      async execute(args: unknown) {
+        const record = args as { action: string, file: string, content: string }
+        seen.push({ action: record.action, file: record.file, content: record.content })
+        if (record.action === 'format') {
+          return { ok: true, server: 'fake', file: record.file, formatted: record.content.trimEnd() + '\n', changed: record.content !== record.content.trimEnd() + '\n' }
+        }
+        return {
+          ok: true,
+          server: 'fake',
+          file: record.file,
+          diagnostics: [{ severityName: 'error', message: 'boom: bad import' }],
+          summary: '1 error(s)',
+        }
+      },
+    })
+    const { preWriteFormat, postWrite } = buildLspWriteFeedback()
+    const { tool: nativeWrite, calls } = fakeNative()
+    const write = createWriteTool({ nativeWrite, preWriteFormat, postWrite })
+    const result = await write.execute({ file_path: 'src/x.ts', content: 'import x from "x"  ' }, fakeExec())
+    // format saw the raw content; diagnostics saw the FORMATTED content
+    expect(seen.map(entry => entry.action)).toEqual(['format', 'diagnostics'])
+    expect(seen[0]!.content).toBe('import x from "x"  ')
+    expect(seen[1]!.content).toBe('import x from "x"\n')
+    expect((calls[0]!.args as { content: string }).content).toBe('import x from "x"\n')
+    expect((result as { diagnostics?: string }).diagnostics).toBe('1 error(s) — first: boom: bad import')
+    // restore the module registry: other tests must not see this fake
+    registerDvcDevice('lsp', originalLsp ?? (undefined as never))
+  })
+
+  it('reads as no feedback when no lsp device is mounted', async () => {
+    const { preWriteFormat, postWrite } = buildLspWriteFeedback()
+    expect(await preWriteFormat('a.ts', 'x')).toBeUndefined()
+    expect(await postWrite('a.ts', 'x')).toBeUndefined()
   })
 })

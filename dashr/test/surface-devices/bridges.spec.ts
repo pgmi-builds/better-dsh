@@ -336,4 +336,25 @@ describe('bridge binding surface', () => {
       expect(toolMembers).toContain(bridge)
     }
   })
+
+  it('three-surface name equality: bindings ≡ registry visible set (minus eval)', async () => {
+    const { ctx, agent } = await setupPresentation(fakeRuntime)
+    const runtime = ctx.get('replRuntime') as FakeCellRuntime
+    runtime.behavior = async (request) => {
+      const toolMembers = Object.keys(request.bindings.find(binding => binding.global === 'tool')?.functions ?? {}).sort()
+      return { logs: [], value: { toolMembers } }
+    }
+    const result = await cell(ctx, agent.agent, 'program')
+    const { toolMembers } = result.value.result as { toolMembers: string[] }
+    const registryNames = ctx.tools.schemas(agent.agent)
+      .map(schema => schema.name)
+      .filter(name => name !== 'eval')
+      .sort()
+    expect(toolMembers).toEqual(registryNames)
+    // The catalog derives from the same single source: every registry name
+    // with an output schema appears, bridges included.
+    for (const bridge of ['agent', 'agent_message', 'agent_workflow']) {
+      expect(registryNames).toContain(bridge)
+    }
+  })
 })

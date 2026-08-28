@@ -18,6 +18,12 @@ export interface Position {
   character: number
 }
 
+/** A server-returned whole-document text edit (textDocument/formatting result item). */
+export interface TextEdit {
+  range: Range
+  newText: string
+}
+
 export interface Range {
   start: Position
   end: Position

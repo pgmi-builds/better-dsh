@@ -17,14 +17,16 @@
  * - `agent_message`    ← `send_message` (followup) + `report` (reportFrom) + `interrupt_agent` (interrupt)
  * - `agent_workflow`   ← `workflow` (script) + `ralph` (rfc loop)
  *
- * Each bridge is a flat-name callable returned by {@link createAgentBridgeBindings};
- * the presentation binds them as members of the `tool` namespace beside the
- * auto-mapped registry tools (the post-restrict visible set), and declares
- * their model-facing shapes via {@link AGENT_BRIDGE_SCHEMAS}.
+ * Each bridge is a REAL registry tool (same host layer as `eval`), built by
+ * {@link createAgentBridgeTools}: the registry projection is the single
+ * source for the wire tools array, the tool catalog, and the REPL `tool.*`
+ * bindings (via the mechanical auto-bridge).
  * @module dashr-repl/bridges
  */
 
-import type { ToolDefinition, ToolRunContext } from '@deepseek-ai/dsh-tools'
+import { defineTool } from '@deepseek-ai/dsh-tools'
+import type { ObjectValueSchemaSpec, ToolDefinition, ToolRunContext } from '@deepseek-ai/dsh-tools'
+import type { ContentBlock } from '@deepseek-ai/dsh-llm'
 import type {
   DASHRSubagentsSurface,
   DASHRSubagentDelegation,
@@ -32,8 +34,7 @@ import type {
   DASHRWorkflowMeta,
   DASHRWorkflowRun,
 } from '../subagents-surface.ts'
-import type { ReplBindingFunction, ReplJsonValue } from '../runtime-surface.ts'
-import type { DASHRSdkSchema } from '../py-sdk.ts'
+import type { ReplJsonValue } from '../runtime-surface.ts'
 import type { SessionId } from '@deepseek-ai/dsh-session'
 
 /**
@@ -183,85 +184,22 @@ return { status: 'budget-limited', roundsStarted: args.maxRounds, report: previo
 `
 
 /**
- * The model-facing declarations for the three bridge tools, fed to the SAME
- * `renderReplBridgeInstructions` renderer as registry tools so they show one
- * flat `tool.name(args)` surface. The bridge enforces these shapes per call;
- * the schemas here are the model-facing declaration only.
+ * Host-level service resolvers the bridge executors close over: the
+ * host-plane `ctx.subagents` surface, and the preset-realm workflowEngine
+ * reached through `serviceForAgent` read-addressing (see the resolver in
+ * `index.ts`; the engine is entry-local to the preset's delegation realm,
+ * invisible to any outside ctx).
  */
-export const AGENT_BRIDGE_SCHEMAS: DASHRSdkSchema[] = [
-  {
-    name: 'agent',
-    description: 'Start a child agent. Runs in the background by default: returns a durable subagent id immediately and keeps the child conversation open for agent_message follow-ups. Set run_in_background false to run a ONE-SHOT child instead — the call waits for the result and the child ends with the run. mode "delegate" (default) starts a fresh child; mode "fork" seeds the child with this agent\'s completed conversation turns.',
-    parameters: {
-      type: 'object',
-      properties: {
-        description: { type: 'string', description: 'A short (3-5 word) description of the delegated task, for display.' },
-        prompt: { type: 'string', description: 'The task prompt for the child agent.' },
-        run_in_background: { type: 'boolean', description: 'Default true: return a durable subagent id immediately (continuable, agent_message can follow up). Explicit false: one-shot — wait for the child\'s result here.' },
-        mode: { type: 'string', description: "'delegate' (default: a fresh child) or 'fork' (a child seeded with this agent's completed conversation turns)." },
-      },
-      required: ['description', 'prompt'],
-      additionalProperties: false,
-    },
-    output: { type: 'object', properties: {}, additionalProperties: true },
-  },
-  {
-    name: 'agent_message',
-    description: 'The single agent-to-agent channel, three ways: receiver "child" delivers a follow-up message down to a child (subagent_id required); receiver "parent" reports up to this agent\'s parent (live continuable children only; a root agent gets a structured UNAUTHORIZED instead); receiver "interrupt" stops a child\'s current turn (target_session_id required).',
-    parameters: {
-      type: 'object',
-      properties: {
-        receiver: { type: 'string', description: "'child' (deliver down), 'parent' (report up), or 'interrupt' (stop a child's current turn)." },
-        message: { type: 'string', description: "The message text (required for receiver 'child' and 'parent')." },
-        subagent_id: { type: 'string', description: "The child's durable id (required when receiver is 'child')." },
-        target_session_id: { type: 'string', description: "The target agent's session id to interrupt (required when receiver is 'interrupt')." },
-      },
-      required: ['receiver'],
-      additionalProperties: false,
-    },
-    output: { type: 'object', properties: {}, additionalProperties: true },
-  },
-  {
-    name: 'agent_workflow',
-    description: 'Run a multi-agent orchestration: mode "script" runs a plain-JS orchestration script (script/meta required); mode "rfc" runs the fixed fresh-agent Ralph loop toward one objective (objective required, maxRounds optional).',
-    parameters: {
-      type: 'object',
-      properties: {
-        mode: { type: 'string', description: "'script' (default: an orchestration script) or 'rfc' (a fixed fresh-agent Ralph loop)." },
-        script: { type: 'string', description: "The plain-JS workflow script body (required when mode is 'script')." },
-        meta: { type: 'object', description: "The workflow identity block (required when mode is 'script')." },
-        args: { type: 'object', description: 'Optional JSON input exposed to the script as the args global.' },
-        objective: { type: 'string', description: "The immutable completion objective for the Ralph loop (required when mode is 'rfc')." },
-        maxRounds: { type: 'number', description: 'Optional round cap for the Ralph loop, bounded by the deployment ceiling.' },
-      },
-      required: ['mode'],
-      additionalProperties: false,
-    },
-    output: { type: 'object', properties: {}, additionalProperties: true },
-  },
-]
+export interface AgentBridgeDeps {
+  requireSubagents?: () => DASHRSubagentsSurface | undefined
+  requireWorkflowEngine?: (agent: ToolRunContext['agent']) => DASHRWorkflowEngine | undefined
+}
 
-/**
- * Build the three bridge callables for one `eval` run, closing over the run's
- * execution context and the use-time resolvers.
- * @param exec - the run's tool-execution context (carries `agent` and `signal`).
- * @param deps - the service resolver (`ctx.subagents`) and the captured
- * native workflow/ralph definitions (the workflowEngine service lives inside
- * the preset's delegation realm — entry-local, invisible to any outside ctx —
- * so the workflow bridge passes through the CAPTURED tool definitions, whose
- * execute closures resolve the engine from inside that realm).
- * @returns the flat-name callables, keyed by their model-facing names.
- */
-export function createAgentBridgeBindings(
-  exec: ToolRunContext,
-  deps: {
-    requireSubagents?: () => DASHRSubagentsSurface | undefined
-    requireWorkflowEngine?: () => DASHRWorkflowEngine | undefined
-  },
-): Record<string, ReplBindingFunction> {
-  const { requireSubagents, requireWorkflowEngine } = deps
+/** One bridge executor: a pure (args, exec, deps) function returning a JSON value (errors included). */
+type AgentBridgeExecutor = (rawArgs: unknown, exec: ToolRunContext, deps: AgentBridgeDeps) => Promise<ReplJsonValue>
 
-  const agentCallable: ReplBindingFunction = async (rawArgs): Promise<ReplJsonValue> => {
+const agentExecutor: AgentBridgeExecutor = async (rawArgs, exec, deps): Promise<ReplJsonValue> => {
+
     const parsed = flatBridgeToolArgs(rawArgs)
     if (!parsed.ok) return { error: parsed.error }
     const a = parsed.args
@@ -283,7 +221,7 @@ export function createAgentBridgeBindings(
     if (!exec.agent) {
       return { error: 'agent() requires a calling agent (this run has no agent to delegate from)' }
     }
-    const subagents = requireSubagents?.()
+    const subagents = deps.requireSubagents?.()
     if (!subagents) {
       return { error: 'agent() is unavailable: no ctx.subagents service is mounted in this composition' }
     }
@@ -324,7 +262,7 @@ export function createAgentBridgeBindings(
     }
   }
 
-  const agentMessageCallable: ReplBindingFunction = async (rawArgs): Promise<ReplJsonValue> => {
+const agentMessageExecutor: AgentBridgeExecutor = async (rawArgs, exec, deps): Promise<ReplJsonValue> => {
     const parsed = flatBridgeToolArgs(rawArgs)
     if (!parsed.ok) return { error: parsed.error }
     const a = parsed.args
@@ -347,7 +285,7 @@ export function createAgentBridgeBindings(
       if (!exec.agent) {
         return { error: "agent_message(receiver='child') requires an agent session (this run has no agent to deliver from)" }
       }
-      const subagents = requireSubagents?.()
+      const subagents = deps.requireSubagents?.()
       if (!subagents) {
         return { error: "agent_message(receiver='child') is unavailable: no ctx.subagents service is mounted in this composition" }
       }
@@ -369,7 +307,7 @@ export function createAgentBridgeBindings(
       if (!exec.agent) {
         return { error: "agent_message(receiver='parent') requires an agent session (this run has no agent to report from)" }
       }
-      const subagents = requireSubagents?.()
+      const subagents = deps.requireSubagents?.()
       if (!subagents) {
         return { error: "agent_message(receiver='parent') is unavailable: no ctx.subagents service is mounted in this composition" }
       }
@@ -392,7 +330,7 @@ export function createAgentBridgeBindings(
       if (!exec.agent) {
         return { error: "agent_message(receiver='interrupt') requires a calling agent (this run has no agent to authorize the interrupt)" }
       }
-      const subagents = requireSubagents?.()
+      const subagents = deps.requireSubagents?.()
       if (!subagents) {
         return { error: "agent_message(receiver='interrupt') is unavailable: no ctx.subagents service is mounted in this composition" }
       }
@@ -409,7 +347,7 @@ export function createAgentBridgeBindings(
     return { error: `agent_message() unknown receiver ${JSON.stringify(receiver)}: expected 'child', 'parent', or 'interrupt'` }
   }
 
-  const agentWorkflowCallable: ReplBindingFunction = async (rawArgs): Promise<ReplJsonValue> => {
+const agentWorkflowExecutor: AgentBridgeExecutor = async (rawArgs, exec, deps): Promise<ReplJsonValue> => {
     const parsed = flatBridgeToolArgs(rawArgs)
     if (!parsed.ok) return { error: parsed.error }
     const a = parsed.args
@@ -436,7 +374,7 @@ export function createAgentBridgeBindings(
     // realm — invisible to any outside ctx — so the caller supplies the
     // engine through `serviceForAgent` read-addressing (the host api-proxy's
     // own channel for a caller that already holds the agent).
-    const engine = requireWorkflowEngine?.()
+    const engine = deps.requireWorkflowEngine?.(exec.agent)
     if (!engine) {
       return { error: 'agent_workflow() is unavailable: no workflowEngine service is mounted for this agent\'s preset' }
     }
@@ -492,9 +430,85 @@ export function createAgentBridgeBindings(
     }
   }
 
-  return {
-    agent: agentCallable,
-    agent_message: agentMessageCallable,
-    agent_workflow: agentWorkflowCallable,
-  }
+/**
+ * Build the three delegation bridge TOOLS: real registry registrations whose
+ * execute runs the pure executors with the host-level service resolvers.
+ * Register once at the same host layer as `eval`; the registry projection is
+ * then the single source for the wire tools array, the tool catalog, and the
+ * REPL `tool.*` bindings (via the mechanical auto-bridge). Runtime argument
+ * validation stays inside the executors; the schemas below are the declared
+ * model-facing contract, and a structured `{ error }` value — not a thrown
+ * exception — is the failure form.
+ */
+export function createAgentBridgeTools(deps: AgentBridgeDeps): ToolDefinition[] {
+  const jsonRender = (_args: unknown, value: unknown): ContentBlock[] => [{ type: 'text', text: JSON.stringify(value, null, 2) }]
+  const errorVariant: ObjectValueSchemaSpec = { type: 'object', properties: { error: { type: 'string' } }, additionalProperties: false }
+  return [
+    defineTool({
+      name: 'agent',
+      description: 'Start a child agent. Runs in the background by default: returns a durable subagent id immediately and keeps the child conversation open for agent_message follow-ups. Set run_in_background false to run a ONE-SHOT child instead — the call waits for the result and the child ends with the run. mode "delegate" (default) starts a fresh child; mode "fork" seeds the child with this agent\'s completed conversation turns.',
+      parameters: {
+        description: { type: 'string', description: 'A short (3-5 word) description of the delegated task, for display.' },
+        prompt: { type: 'string', description: 'The task prompt for the child agent.' },
+        run_in_background: { type: 'boolean', description: 'Default true: return a durable subagent id immediately (continuable, agent_message can follow up). Explicit false: one-shot — wait for the child\'s result here.' },
+        mode: { type: 'string', description: "'delegate' (default: a fresh child) or 'fork' (a child seeded with this agent's completed conversation turns)." },
+      },
+      output: {
+        schema: {
+          oneOf: [
+            { type: 'object', properties: { kind: { type: 'string', enum: ['continuable'] }, subagentId: { type: 'string' } }, additionalProperties: false },
+            { type: 'object', properties: { kind: { type: 'string', enum: ['foreground'] }, runId: { type: 'string' }, output: { type: 'json' } }, additionalProperties: false },
+            errorVariant,
+          ],
+        },
+        render: jsonRender,
+      },
+      // The executors return their schema shapes at runtime; the cast mirrors the test-fixture convention for inferred tool outputs.
+      execute: (args, exec) => agentExecutor(args, exec, deps) as Promise<never>,
+    }),
+    defineTool({
+      name: 'agent_message',
+      description: 'The single agent-to-agent channel, three ways: receiver "child" delivers a follow-up message down to a child (subagent_id required); receiver "parent" reports up to this agent\'s parent (live continuable children only; a root agent gets a structured UNAUTHORIZED instead); receiver "interrupt" stops a child\'s current turn (target_session_id required).',
+      parameters: {
+        receiver: { type: 'string', description: "'child' (deliver down), 'parent' (report up), or 'interrupt' (stop a child's current turn)." },
+        message: { type: 'string', description: "The message text (required for receiver 'child' and 'parent')." },
+        subagent_id: { type: 'string', description: "The child's durable id (required when receiver is 'child')." },
+        target_session_id: { type: 'string', description: "The target agent's session id to interrupt (required when receiver is 'interrupt')." },
+      },
+      output: {
+        schema: {
+          oneOf: [
+            { type: 'object', properties: { messageId: { type: 'string' } }, additionalProperties: false },
+            { type: 'object', properties: { delivered: { type: 'boolean', enum: [true] }, message_id: { type: 'string' } }, additionalProperties: false },
+            { type: 'object', properties: { accepted: { type: 'boolean', enum: [true] } }, additionalProperties: false },
+            errorVariant,
+          ],
+        },
+        render: jsonRender,
+      },
+      execute: (args, exec) => agentMessageExecutor(args, exec, deps) as Promise<never>,
+    }),
+    defineTool({
+      name: 'agent_workflow',
+      description: 'Run a multi-agent orchestration: mode "script" runs a plain-JS orchestration script (script/meta required); mode "rfc" runs the fixed fresh-agent Ralph loop toward one objective (objective required, maxRounds optional).',
+      parameters: {
+        mode: { type: 'string', description: "'script' (default: an orchestration script) or 'rfc' (a fixed fresh-agent Ralph loop)." },
+        script: { type: 'string', description: 'The plain-JS workflow script body (required when mode is "script").' },
+        meta: { type: 'json', description: 'The workflow identity block (required when mode is "script").' },
+        args: { type: 'json', description: 'Optional JSON input exposed to the script as the args global.' },
+        objective: { type: 'string', description: 'The immutable completion objective for the Ralph loop (required when mode is "rfc").' },
+        maxRounds: { type: 'number', description: 'Optional round cap for the Ralph loop, bounded by the deployment ceiling.' },
+      },
+      output: {
+        schema: {
+          oneOf: [
+            { type: 'object', properties: { runId: { type: 'string' }, agentsStarted: { type: 'number' }, result: { type: 'json' } }, additionalProperties: false },
+            errorVariant,
+          ],
+        },
+        render: jsonRender,
+      },
+      execute: (args, exec) => agentWorkflowExecutor(args, exec, deps) as Promise<never>,
+    }),
+  ]
 }

@@ -547,6 +547,32 @@ export async function ensureFileOpen(client: LspClientState, filePath: string): 
   client.openFiles.set(uri, { version: 1, languageId })
 }
 
+/**
+ * Sync one file's server-side text to EXACTLY `content`: didOpen when the
+ * server does not track the file yet, a full-text didChange when it does
+ * (bumping the tracked version). Post-write diagnostics and pre-write
+ * formatting both need the SERVER's copy to match content that may not
+ * match what a stale didOpen captured.
+ */
+export async function syncFileContent(client: LspClientState, filePath: string, content: string): Promise<void> {
+  const uri = fileToUri(filePath)
+  const languageId = client.config.languageId ?? detectLanguageId(filePath)
+  const tracked = client.openFiles.get(uri)
+  if (tracked === undefined) {
+    await sendNotification(client, 'textDocument/didOpen', {
+      textDocument: { uri, languageId, version: 1, text: content },
+    })
+    client.openFiles.set(uri, { version: 1, languageId })
+    return
+  }
+  const version = tracked.version + 1
+  await sendNotification(client, 'textDocument/didChange', {
+    textDocument: { uri, version },
+    contentChanges: [{ text: content }],
+  })
+  client.openFiles.set(uri, { version, languageId: tracked.languageId })
+}
+
 // =============================================================================
 // Waits (upstream waitForDiagnostics / waitForProjectLoaded)
 // =============================================================================

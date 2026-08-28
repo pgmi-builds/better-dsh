@@ -47,6 +47,7 @@ import { createGlobTool } from './tools/glob.ts'
 import { createGrepTool } from './tools/grep.ts'
 import { createReadTool } from './tools/read.ts'
 import { createWriteTool } from './tools/write.ts'
+import { listDvcDevices } from './handlers/dvc.ts'
 
 /** Cordis plugin name. */
 export const name = 'dsh-url-schema'
@@ -64,6 +65,43 @@ export const inject = ['tools', 'fs', 'skills', 'subagents', 'sessions', 'settin
 export type Config = unknown
 
 /** Register the four URL-aware tools on one agent's own scope layer. */
+/**
+ * The lsp feedback loop (native-tools Wave3): both hooks route through the
+ * mounted `lsp` device with the EXACT content the write lands, so
+ * diagnostics describe what was just written (not a stale didOpen) and
+ * formatting sees the pre-write text. Every failure — no device, no server
+ * for this language, cold-start noise — reads as "no feedback"; a
+ * serverless write is byte-identical to the pre-change behavior.
+ */
+export function buildLspWriteFeedback(): { preWriteFormat: import('./tools/write.ts').PreWriteFormat, postWrite: import('./tools/write.ts').PostWriteFeedback } {
+  const lspFeedback = async (action: 'diagnostics' | 'format', filePath: string, content: string): Promise<string | undefined> => {
+    try {
+      const device = listDvcDevices().get('lsp')
+      if (device === undefined) return undefined
+      const result = await device.execute({ action, file: filePath, content }) as {
+        ok?: boolean
+        summary?: string
+        diagnostics?: Array<{ severityName: string, message: string }>
+        formatted?: string
+        changed?: boolean
+      }
+      if (result?.ok !== true) return undefined
+      if (action === 'format') {
+        return result.changed === true && typeof result.formatted === 'string' ? result.formatted : undefined
+      }
+      if (typeof result.summary !== 'string' || result.summary === 'no diagnostics') return undefined
+      const first = result.diagnostics?.find(record => record.severityName === 'error' || record.severityName === 'warning')
+      return first === undefined ? result.summary : `${result.summary} — first: ${first.message.slice(0, 200)}`
+    } catch {
+      return undefined
+    }
+  }
+  return {
+    preWriteFormat: (filePath, content) => lspFeedback('format', filePath, content),
+    postWrite: (filePath, content) => lspFeedback('diagnostics', filePath, content),
+  }
+}
+
 function installAgentTools(rootCtx: Context, agent: Agent, resolver: UrlResolver): void {
   agent.ctx.effect(async () => {
     // Capture the agent's FULL inherited surface BEFORE any wrapper
@@ -77,8 +115,12 @@ function installAgentTools(rootCtx: Context, agent: Agent, resolver: UrlResolver
     // the vendored hashline pipeline, not a native delegate.
     const native = captureNativeTools(rootCtx, agent)
     const disposers: Array<() => void> = []
+
     disposers.push(agent.ctx.tools.register(createReadTool({ resolver, fs: rootCtx.fs, ctx: rootCtx })))
-    disposers.push(agent.ctx.tools.register(createWriteTool({ nativeWrite: native.write })))
+    disposers.push(agent.ctx.tools.register(createWriteTool({
+      nativeWrite: native.write,
+      ...buildLspWriteFeedback(),
+    })))
     disposers.push(agent.ctx.tools.register(createGrepTool({ resolver, nativeGrep: native.grep })))
     disposers.push(agent.ctx.tools.register(createGlobTool({ resolver, nativeGlob: native.glob })))
     return () => {

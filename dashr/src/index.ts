@@ -106,7 +106,8 @@ import { snapshotJsonValue } from './snapshot-json.ts'
 import type { JsonValue } from './snapshot-json.ts'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import type { DASHRSubagentsSurface, DASHRWorkflowEngine } from './subagents-surface.ts'
-import { AGENT_BRIDGE_SCHEMAS, createAgentBridgeBindings } from './bridges/index.ts'
+import { createAgentBridgeTools } from './bridges/index.ts'
+import { createLlmCompletionTool } from './llm-completion.ts'
 import { readFileSync } from 'node:fs'
 
 /** The control prompt text, loaded at module time from the sibling markdown file (editable without touching TS). */
@@ -431,15 +432,6 @@ export interface RunCellBridgeOptions {
    * later still becomes visible; absent means the bridge answers with a
    * structured "unavailable" error, never a crash.
    */
-  requireSubagents?: () => DASHRSubagentsSurface | undefined
-  /**
-   * Resolves the calling agent's preset-mounted `workflowEngine` service (or
-   * undefined when this composition provides none) for the `agent_workflow`
-   * bridge. The service is entry-local to the preset delegation group's
-   * realm — invisible to any outside ctx — so this resolver goes through the
-   * host's `serviceForAgent` read-addressing, the api-proxy's own channel.
-   */
-  requireWorkflowEngine?: (agent: ToolRunContext['agent']) => DASHRWorkflowEngine | undefined
 }
 
 /**
@@ -456,7 +448,7 @@ export interface RunCellBridgeOptions {
  * @returns the registry-ready definition.
  */
 export function createRunCellTool(registry: ToolRuntime, options: RunCellBridgeOptions): ToolDefinition {
-  const { requireRuntime, maxParallel, shapeDispatchLog, requireSubagents, requireWorkflowEngine } = options
+  const { requireRuntime, maxParallel, shapeDispatchLog } = options
   return defineTool({
     name: EVAL_NAME,
     description: EVAL_DESCRIPTION,
@@ -743,22 +735,6 @@ export function createRunCellTool(registry: ToolRuntime, options: RunCellBridgeO
         toolFunctions[schema.name] = async (args: unknown) => binding(schema.name)(args)
       }
 
-      // The three delegation bridges (Wave5): flat-name callables built per
-      // run, closing over this run's exec context and the use-time resolvers.
-      // `agent` / `agent_message` route straight to the host-plane service
-      // layer (ctx.subagents start / followup / reportFrom / interrupt); the
-      // workflowEngine service is entry-local to the preset's delegation
-      // realm, so `agent_workflow` passes through the CAPTURED native
-      // workflow/ralph definitions, whose execute closures resolve the engine
-      // from inside that realm. Native parameter semantics are unchanged and
-      // every service's own authorization is preserved verbatim. Validation
-      // failures and service rejections answer with a structured `{ error }`
-      // value, never a crash.
-      const bridgeBindings = createAgentBridgeBindings(exec, {
-        requireSubagents,
-        requireWorkflowEngine: () => requireWorkflowEngine?.(exec.agent),
-      })
-
       try {
         let result: ReplRunResult
         try {
@@ -769,7 +745,6 @@ export function createRunCellTool(registry: ToolRuntime, options: RunCellBridgeO
                 global: 'tool',
                 functions: {
                   ...toolFunctions,
-                  ...bridgeBindings,
                 },
                 errorClass: TOOL_CALL_ERROR_CLASS,
               },
@@ -961,7 +936,20 @@ export function apply(ctx: Context, config: Config): void {
       // test harness, whose fake provides it at the root) resolves here.
       return runtimeCtx.get('workflowEngine') as DASHRWorkflowEngine | undefined
     }
-    runtimeCtx.tools.register(createRunCellTool(registry, { requireRuntime, maxParallel, shapeDispatchLog, requireSubagents, requireWorkflowEngine }))
+    runtimeCtx.tools.register(createRunCellTool(registry, { requireRuntime, maxParallel, shapeDispatchLog }))
+    // ①¼ The three delegation bridges as REAL registry tools (same host
+    // layer as `eval`): the registry projection becomes the single source
+    // for wire, catalog, and REPL bindings alike — the auto-bridge picks
+    // them up with zero per-name wiring, and direct wire calls dispatch
+    // through the normal kernel pipeline with the usual audit events.
+    for (const bridgeTool of createAgentBridgeTools({ requireSubagents, requireWorkflowEngine })) {
+      runtimeCtx.tools.register(bridgeTool)
+    }
+    // ①⅙ `llm_completion`: the first tool BORN in the registry-native form
+    // (no bridge phase ever existed for it) — a one-shot, toolless, historyless
+    // LLM call over the host-plane `ctx.llm` service, routed on the calling
+    // agent's own provider/model selection.
+    runtimeCtx.tools.register(createLlmCompletionTool({ requireLlm: () => runtimeCtx.get('llm') }))
 
     // ①½ The wire mask (design D1): deny the displaced delegation names on
     // the agent's OWN scope layer at session-start. Ordering is the mount
@@ -1033,7 +1021,7 @@ export function apply(ctx: Context, config: Config): void {
     systemPrompt.section({
       name: 'dashr:tool-catalog',
       order: SDK_SECTION_ORDER,
-      text: context => renderReplBridgeInstructions([...collectSdkSchemas(registry, context.scope), ...AGENT_BRIDGE_SCHEMAS]),
+      text: context => renderReplBridgeInstructions(collectSdkSchemas(registry, context.scope)),
     })
 
   })

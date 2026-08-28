@@ -41,7 +41,7 @@ describe('assembly — the DASHR row collapses its scope, and only its scope', (
     const { ctx, agent } = await setupPresentation(fakeRuntime)
     registerEcho(ctx)
     const assembly = await ctx.systemPrompt.assemble({ scope: agent.agent })
-    expect(assembly.tools.map(tool => tool.name)).toEqual(['echo', 'eval'])
+    expect(assembly.tools.map(tool => tool.name)).toEqual(['agent', 'agent_message', 'agent_workflow', 'echo', 'eval', 'llm_completion'])
     const catalog = assembly.sections.find(section => section.name === 'dashr:tool-catalog')
     expect(catalog).toBeDefined()
     // v0.1.8e: the catalog is REPL bridge instructions for the scripting
@@ -98,7 +98,7 @@ describe('assembly — the DASHR row collapses its scope, and only its scope', (
     // And the joining agent's own view of the registry still names every
     // tool — the collapse lives in the assembly, not in dispatch visibility.
     expect(ctx.tools.schemas(other.agent).map(tool => tool.name)).toEqual(['echo'])
-    expect(ctx.tools.schemas(agent.agent).map(tool => tool.name).sort()).toEqual(['echo', 'eval'])
+    expect(ctx.tools.schemas(agent.agent).map(tool => tool.name).sort()).toEqual(['agent', 'agent_message', 'agent_workflow', 'echo', 'eval', 'llm_completion'])
   })
 
   it('a global assembly (no scope) is untouched by the preset-scope row', async () => {

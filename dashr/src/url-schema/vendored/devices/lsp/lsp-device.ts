@@ -43,6 +43,7 @@ import { UrlSchemaError } from '../../../selector.ts'
 import {
   ensureFileOpen,
   fileToUri,
+  syncFileContent,
   getOrCreateClient,
   sendRequest,
   setIdleTimeoutMs,
@@ -51,7 +52,7 @@ import {
   waitForDiagnostics,
   waitForProjectLoaded,
 } from './lsp-client.ts'
-import type { Diagnostic, Hover, LspClientState, Location, LocationLink, ServerConfig } from './lsp-types.ts'
+import type { Diagnostic, Hover, LspClientState, Location, LocationLink, ServerConfig, TextEdit } from './lsp-types.ts'
 import {
   findWorkspaceRoot,
   installHintFor,
@@ -60,7 +61,7 @@ import {
   serverByName,
 } from './lsp-server-registry.ts'
 
-const ACTIONS = new Set(['diagnostics', 'definition', 'references', 'hover'])
+const ACTIONS = new Set(['diagnostics', 'definition', 'references', 'hover', 'format'])
 
 const SEVERITY_NAMES: Record<number, string> = { 1: 'error', 2: 'warning', 3: 'info', 4: 'hint' }
 
@@ -255,6 +256,28 @@ function diagnosticsSummary(records: Array<{ severityName: string }>): string {
   return parts.length > 0 ? parts.join(', ') : 'no diagnostics'
 }
 
+/** Apply whole-document TextEdits to `content`: edits sorted by descending start position so earlier offsets stay valid. */
+function applyTextEdits(content: string, edits: TextEdit[]): string {
+  const sorted = [...edits].sort((a, b) => {
+    const lineDiff = b.range.start.line - a.range.start.line
+    return lineDiff !== 0 ? lineDiff : b.range.start.character - a.range.start.character
+  })
+  const lines = content.split('\n')
+  // Offset conversion is line/character based (LSP UTF-16 code units ≈ JS string indices for the BMP-heavy sources this serves).
+  const offsetOf = (line: number, character: number): number => {
+    let offset = 0
+    for (let i = 0; i < line && i < lines.length; i += 1) offset += lines[i]!.length + 1
+    return offset + character
+  }
+  let result = content
+  for (const edit of sorted) {
+    const start = offsetOf(edit.range.start.line, edit.range.start.character)
+    const end = offsetOf(edit.range.end.line, edit.range.end.character)
+    result = result.slice(0, start) + edit.newText + result.slice(end)
+  }
+  return result
+}
+
 /** Cold-start retry budget for empty position results (upstream references-retry shape, device-side bound). */
 const COLD_START_RETRY_WINDOW_MS = 5_000
 const COLD_START_RETRY_DELAY_MS = 400
@@ -322,7 +345,7 @@ const lspDevice: DvcDevice = {
     if (typeof action !== 'string' || !ACTIONS.has(action)) {
       throw new UrlSchemaError(
         'LSP_BAD_ARGS',
-        `lsp device: unknown action ${JSON.stringify(action ?? null)} — expected "diagnostics", "definition", "references", or "hover"`,
+        `lsp device: unknown action ${JSON.stringify(action ?? null)} — expected "diagnostics", "definition", "references", "hover", or "format"`,
       )
     }
 
@@ -336,12 +359,23 @@ const lspDevice: DvcDevice = {
     }
 
     const position = requirePosition(record)
+    const content = record.content
+    if (content !== undefined && typeof content !== 'string') {
+      throw new UrlSchemaError('LSP_BAD_ARGS', 'lsp device: "content" override must be a string')
+    }
     const { name, client } = await obtainClient(record, filePath)
     const base = { ok: true as const, server: name, file: filePath, root: client.root }
     const uri = fileToUri(filePath)
     const wirePosition = { line: position.line - 1, character: position.character - 1 }
 
-    await ensureFileOpen(client, filePath)
+    if (content === undefined) {
+      await ensureFileOpen(client, filePath)
+    } else {
+      // An explicit content override syncs the server's copy to it —
+      // post-write diagnostics and pre-write formatting both carry content
+      // that a stale didOpen may not match.
+      await syncFileContent(client, filePath, content)
+    }
 
     // Project-aware servers answer position queries with empty results until
     // their initial index is built; upstream gates the indexed actions on
@@ -381,6 +415,23 @@ const lspDevice: DvcDevice = {
         }, retryCold)) as Hover | null
         const text = result === null || result === undefined ? '' : extractHoverText(result.contents)
         return { ...base, position, text }
+      }
+      case 'format': {
+        if (content === undefined) {
+          throw new UrlSchemaError('LSP_BAD_ARGS', 'lsp device: "format" requires a "content" string to format')
+        }
+        const formatting = client.serverCapabilities?.formattingProvider
+        if (formatting === undefined || formatting === false || formatting === null) {
+          return { ...base, formatted: content, changed: false, reason: 'server declares no formatting capability' }
+        }
+        const edits = (await sendRequest(client, 'textDocument/formatting', {
+          textDocument: { uri },
+          options: { tabSize: 2, insertSpaces: true },
+        })) as TextEdit[] | null
+        if (edits === null || edits.length === 0) {
+          return { ...base, formatted: content, changed: false }
+        }
+        return { ...base, formatted: applyTextEdits(content, edits), changed: true }
       }
       default:
         // Unreachable: ACTIONS gate above.

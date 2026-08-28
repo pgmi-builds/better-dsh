@@ -18,21 +18,21 @@ The system SHALL let bare `agent://` return the roster of every live session, ol
 - **THEN** its `status` column renders `-`
 
 ### Requirement: Agent output addressing
-The system SHALL let `agent://<id>` return that agent's output artifact: the rendered content of its last non-empty assistant message (matching `SubagentResult.output` semantics), or empty text when the agent produced no non-empty assistant output. Unknown ids return `AGENT_UNKNOWN_ID`.
+The system SHALL let `agent://<id>` return that agent's output artifact: the rendered content of its last non-empty assistant message (matching `SubagentResult.output` semantics), or empty text when the agent produced no non-empty assistant output. Addressing is scoped to the caller's own family (the caller itself and its descendant children) — ids outside the family return `AGENT_UNKNOWN_ID`.
 
 #### Scenario: Reading a completed agent's output
-- **WHEN** the model reads `agent://<finished agent id>`
+- **WHEN** the model reads `agent://<finished agent id>` from within its family
 - **THEN** the system returns the rendered text of that agent's last non-empty assistant message
 
 #### Scenario: Reading an unknown agent
-- **WHEN** the model reads `agent://<unknown id>`
+- **WHEN** the model reads `agent://<unknown id>` (or an id outside the caller's family)
 - **THEN** the system returns the structured `AGENT_UNKNOWN_ID` error
 
 ### Requirement: Agent transcript addressing
-The system SHALL let `agent://<id>/transcript` return the agent's full derived message history in order, each message headed by its role (`assistant`, `user`, `tool result`, `system`), with tool calls rendered as `[tool: name] arguments` and errors as `[tool error] …`.
+The system SHALL let `agent://<id>/transcript` return the agent's full derived message history in order, each message headed by its role (`assistant`, `user`, `tool result`, `system`), with tool calls rendered as `[tool: name] arguments` and errors as `[tool error] …`. Addressing follows the same family scoping as output addressing.
 
 #### Scenario: Reading an agent's session history
-- **WHEN** the model reads `agent://<id>/transcript`
+- **WHEN** the model reads `agent://<id>/transcript` for an agent in the caller's family
 - **THEN** the system returns every message of that session in order, role-headed
 
 ### Requirement: Nested output addressing

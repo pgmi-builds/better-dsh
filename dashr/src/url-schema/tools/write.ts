@@ -41,12 +41,24 @@ export interface WriteOutcome {
   before: string | null
   /** The written content (`dvc://` writes carry the device result, JSON-rendered). */
   after: string
+  /** Lsp diagnostics summary for the written content (present only when a language server applied). */
+  diagnostics?: string
 }
+
+/** Post-write feedback: a diagnostics summary string for the JUST-WRITTEN content, or undefined when none applies. */
+export type PostWriteFeedback = (filePath: string, content: string) => Promise<string | undefined>
+
+/** Pre-write formatting: the formatted replacement for `content`, or undefined to keep it as-is. */
+export type PreWriteFormat = (filePath: string, content: string) => Promise<string | undefined>
 
 /** Dependencies captured by the write tool. */
 export interface WriteToolDeps {
   /** Native write definition captured before this wrapper registered. */
   nativeWrite?: ToolDefinition
+  /** Optional lsp feedback hook (write/edit loop closure): diagnostics summary attached to the result. */
+  postWrite?: PostWriteFeedback
+  /** Optional lsp format hook: formats the content before the single native write lands. */
+  preWriteFormat?: PreWriteFormat
   /** Optional per-scheme write dispatch; defaults to the dvc-dispatching built-in. */
   writeScheme?: (
     scheme: string,
@@ -114,7 +126,7 @@ async function defaultSchemeWrite(scheme: string, path: string, content: string)
  * write definition with args and exec passed through untouched.
  */
 export function createWriteTool(deps: WriteToolDeps): ToolDefinition {
-  const { nativeWrite } = deps
+  const { nativeWrite, postWrite, preWriteFormat } = deps
   const writeScheme = deps.writeScheme ?? defaultSchemeWrite
   return defineTool({
     name: 'write',
@@ -141,6 +153,7 @@ export function createWriteTool(deps: WriteToolDeps): ToolDefinition {
           operation: { type: 'string', required: true, enum: ['create', 'update', 'execute'] as const },
           before: { required: true, oneOf: [{ type: 'string' }, { type: 'null' }] },
           after: { type: 'string', required: true },
+          diagnostics: { type: 'string' },
         },
       },
       render: (_args, value) => {
@@ -159,7 +172,24 @@ export function createWriteTool(deps: WriteToolDeps): ToolDefinition {
           'the host did not deploy a native write tool — URL-aware write cannot delegate filesystem writes',
         )
       }
-      return nativeWrite.execute(args, exec) as Promise<WriteOutcome>
+      // The lsp feedback loop (native-tools Wave3): format BEFORE the single
+      // native write (one write-intent audit, before/after stay truthful),
+      // then attach the post-write diagnostics summary for what just landed.
+      // Both hooks fail silent — a serverless language changes nothing.
+      let content = args.content
+      try {
+        const formatted = await preWriteFormat?.(args.file_path, content)
+        if (formatted !== undefined && formatted !== content) content = formatted
+      } catch { /* formatting is best-effort; the write itself must land */ }
+      // Identity-preserving passthrough: an unchanged (or formatterless)
+      // write forwards the SAME arguments object the caller supplied.
+      const writeArgs = content === args.content ? args : { ...args, content }
+      const outcome = await nativeWrite.execute(writeArgs, exec) as WriteOutcome
+      try {
+        const diagnostics = await postWrite?.(args.file_path, content)
+        if (diagnostics !== undefined) return { ...outcome, diagnostics }
+      } catch { /* diagnostics are best-effort feedback, never a write failure */ }
+      return outcome
     },
   })
 }
