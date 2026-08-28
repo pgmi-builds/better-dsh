@@ -12,6 +12,21 @@ function tools(functions: Record<string, CodeBindingFunction>): CodeBindingNames
 }
 
 describe('DashrRuntime — host bindings over the comm bridge', () => {
+  it('dir(<namespace>) lists exactly the bound names (F9: introspection tells the truth)', async () => {
+    const { runtime } = await setupRuntime()
+    const result = await runtime.run({
+      program: 'sorted(__import__("builtins").dir(tools))',
+      bindings: tools({
+        alpha: async () => 1,
+        beta: async () => 2,
+        gamma: async () => 3,
+      }),
+    })
+    expect(result.error).toBeUndefined()
+    expect(result.value).toEqual(['alpha', 'beta', 'gamma'])
+  })
+
+
   it('carries a kernel-side call to the host fn and its resolution back', async () => {
     const { runtime } = await setupRuntime()
     const received: unknown[] = []

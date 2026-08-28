@@ -548,6 +548,17 @@ export async function ensureFileOpen(client: LspClientState, filePath: string): 
 }
 
 /**
+ * Signal the standard save notification for a file whose text was just
+ * synced — the protocol's on-save trigger. Save-triggered checkers
+ * (rust-analyzer's checkOnSave → flycheck) re-run on THIS, not on didChange,
+ * so the write-feedback path sends it to refresh compiler-source diagnostics.
+ */
+export async function notifyDidSave(client: LspClientState, filePath: string): Promise<void> {
+  const uri = fileToUri(filePath)
+  await sendNotification(client, 'textDocument/didSave', { textDocument: { uri } })
+}
+
+/**
  * Sync one file's server-side text to EXACTLY `content`: didOpen when the
  * server does not track the file yet, a full-text didChange when it does
  * (bumping the tracked version). Post-write diagnostics and pre-write
@@ -587,7 +598,7 @@ export async function waitForDiagnostics(
   client: LspClientState,
   uri: string,
   options: { timeoutMs?: number; minVersion?: number } = {},
-): Promise<Diagnostic[]> {
+): Promise<{ diagnostics: Diagnostic[]; timedOut: boolean }> {
   const { timeoutMs = DIAGNOSTICS_WAIT_MS, minVersion } = options
   const deadline = Date.now() + timeoutMs
   let settledRef: { diagnostics: Diagnostic[] } | undefined
@@ -601,21 +612,21 @@ export async function waitForDiagnostics(
     const published = client.diagnostics.get(uri)
     if (published !== undefined && versionOk) {
       // didOpen always sends version 1, so an exact match is authoritative.
-      if (published.version === 1) return published.diagnostics
+      if (published.version === 1) return { diagnostics: published.diagnostics, timedOut: false }
       // Unversioned/mismatched publish: wait for the stream to go quiet so an
       // in-flight pre-open publish is superseded by the fresh one.
       if (settledRef !== published) {
         settledRef = published
         settledAt = Date.now()
       } else if (Date.now() - settledAt >= DIAGNOSTICS_SETTLE_MS) {
-        return published.diagnostics
+        return { diagnostics: published.diagnostics, timedOut: false }
       }
     }
     await new Promise(resolve => setTimeout(resolve, DIAGNOSTICS_POLL_MS))
   }
 
   const published = client.diagnostics.get(uri)
-  return published?.diagnostics ?? []
+  return { diagnostics: published?.diagnostics ?? [], timedOut: true }
 }
 
 /**

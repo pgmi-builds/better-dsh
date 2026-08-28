@@ -16,6 +16,9 @@
 import * as fs from 'node:fs'
 
 const LOG = process.env.FAKE_LSP_LOG ?? '/dev/null'
+// 'no-didsave': ignore didSave entirely (the slow-checker simulation for the
+// F2 timeout-degradation test — the last didOpen/didChange publish stands).
+const MODE = process.argv[2] ?? ''
 
 const append = line => {
   try {
@@ -126,6 +129,25 @@ function handleNotification(message) {
       }
       return
     }
+    case 'textDocument/didSave': {
+      if (MODE === 'no-didsave') return
+      const uri = message.params?.textDocument?.uri ?? 'file:///unknown'
+      const text = openTexts.get(uri) ?? ''
+      // The on-save checker stand-in: content carrying BROKEN re-checks to an
+      // error, anything else re-checks CLEAN — didSave is the only trigger
+      // that refreshes this (didChange alone leaves the old publish standing).
+      send({
+        jsonrpc: '2.0',
+        method: 'textDocument/publishDiagnostics',
+        params: {
+          uri,
+          diagnostics: text.includes('BROKEN')
+            ? [{ range: { start: { line: 0, character: 0 }, end: { line: 0, character: 6 } }, severity: 1, source: 'rustc', message: 'fake flycheck: BROKEN marker present' }]
+            : [],
+        },
+      })
+      return
+    }
     case 'textDocument/didOpen': {
       const uri = message.params?.textDocument?.uri ?? 'file:///unknown'
       if (typeof message.params?.textDocument?.text === 'string') openTexts.set(uri, message.params.textDocument.text)
@@ -139,7 +161,7 @@ function handleNotification(message) {
             {
               range: { start: { line: 0, character: 0 }, end: { line: 0, character: 3 } },
               severity: 1,
-              source: 'fake-lsp',
+              source: 'rustc',
               message: 'fake error: unresolved symbol `foo`',
             },
             {

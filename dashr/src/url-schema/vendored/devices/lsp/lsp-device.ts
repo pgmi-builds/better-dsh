@@ -43,6 +43,7 @@ import { UrlSchemaError } from '../../../selector.ts'
 import {
   ensureFileOpen,
   fileToUri,
+  notifyDidSave,
   syncFileContent,
   getOrCreateClient,
   sendRequest,
@@ -278,6 +279,9 @@ function applyTextEdits(content: string, edits: TextEdit[]): string {
   return result
 }
 
+/** Write-feedback diagnostics budget: on-save checkers get this long before the honest-degradation path. */
+const DIAGNOSTICS_FEEDBACK_WAIT_MS = 3000
+
 /** Cold-start retry budget for empty position results (upstream references-retry shape, device-side bound). */
 const COLD_START_RETRY_WINDOW_MS = 5_000
 const COLD_START_RETRY_DELAY_MS = 400
@@ -357,6 +361,13 @@ const lspDevice: DvcDevice = {
     if (content !== undefined && typeof content !== 'string') {
       throw new UrlSchemaError('LSP_BAD_ARGS', 'lsp device: "content" override must be a string')
     }
+    const saved = record.saved
+    if (saved !== undefined && typeof saved !== 'boolean') {
+      throw new UrlSchemaError('LSP_BAD_ARGS', 'lsp device: "saved" flag must be a boolean')
+    }
+    if (saved === true && content === undefined) {
+      throw new UrlSchemaError('LSP_BAD_ARGS', 'lsp device: "saved" requires a "content" override (the save signal rides a content sync)')
+    }
     const filePath = path.resolve(file)
     // A content override makes the on-disk state irrelevant — pre-write
     // formatting of a file that does not exist yet (F11, 0.1.9-c) syncs the
@@ -372,6 +383,10 @@ const lspDevice: DvcDevice = {
     const uri = fileToUri(filePath)
     const wirePosition = { line: position.line - 1, character: position.character - 1 }
 
+    // Diagnostics wait baseline, captured BEFORE the content sync so the
+    // publish the sync itself triggers (didOpen/didChange) satisfies the
+    // immediate-face phase instead of tripping its version gate.
+    const diagnosticsBaseline = client.diagnosticsVersion
     if (content === undefined) {
       await ensureFileOpen(client, filePath)
     } else {
@@ -392,11 +407,36 @@ const lspDevice: DvcDevice = {
 
     switch (action) {
       case 'diagnostics': {
-        const minVersion = client.diagnosticsVersion
-        const diagnostics = await waitForDiagnostics(client, uri, { minVersion })
-        const records = diagnostics.map(diagnosticRecord)
-        return { ...base, diagnostics: records, summary: diagnosticsSummary(records) }
+        // F2-f (v0.2.0-a), two-phase wait for a `saved` call:
+        //   phase 1 — settle the immediate-face publish the content sync
+        //   itself triggers (didOpen/didChange); the didOpen version=1
+        //   authority rule may end this phase at once. Phase 1 must not
+        //   satisfy phase 2: the save checker has not run yet.
+        //   phase 2 — signal the standard save notification (the on-save
+        //   checkers' trigger: rust-analyzer's flycheck re-runs on didSave,
+        //   not didChange), then await a publish STRICTLY AFTER it. On
+        //   timeout the save-triggered compiler-source (rustc) records are
+        //   PROVABLY stale (the check never finished) and are dropped —
+        //   under-reporting beats mis-reporting.
+        if (saved !== true) {
+          const waited = await waitForDiagnostics(client, uri, { minVersion: diagnosticsBaseline })
+          const records = waited.diagnostics.map(diagnosticRecord)
+          return { ...base, diagnostics: records, summary: diagnosticsSummary(records) }
+        }
+        await waitForDiagnostics(client, uri, { minVersion: diagnosticsBaseline, timeoutMs: DIAGNOSTICS_FEEDBACK_WAIT_MS })
+        await notifyDidSave(client, filePath)
+        const waited = await waitForDiagnostics(client, uri, { minVersion: client.diagnosticsVersion, timeoutMs: DIAGNOSTICS_FEEDBACK_WAIT_MS })
+        const kept = waited.diagnostics
+          .filter(diagnostic => !(waited.timedOut && diagnostic.source === 'rustc'))
+          .map(diagnosticRecord)
+        return {
+          ...base,
+          diagnostics: kept,
+          summary: diagnosticsSummary(kept),
+          check: waited.timedOut ? 'timeout-dropped-rustc' : 'completed',
+        }
       }
+
       case 'definition': {
         const result = await lspPositionRequest(client, 'textDocument/definition', {
           textDocument: { uri },

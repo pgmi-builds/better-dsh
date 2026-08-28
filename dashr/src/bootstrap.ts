@@ -159,11 +159,17 @@ def _dashr_make_proxy(global_name, function_name, error_class_name, member_prope
     return _dashr_proxy
 
 
-def _dashr_make_holder(global_name, error_class_name, member_property):
+def _dashr_make_holder(global_name, error_class_name, member_property, members):
     # Attribute misses travel to the host instead of raising AttributeError
     # here: the host owns the namespace, so IT rejects an unknown member as an
     # unknown binding rather than the kernel inventing a local error class.
     class _DashrBindingHolder:
+        def __dir__(self):
+            # F9 (v0.2.0-a): introspection tells the truth — dir(tool) lists
+            # exactly the bound names. A custom __dir__ fully replaces the
+            # default object.__dir__, so no dunder noise leaks in.
+            return list(members)
+
         def __getattr__(self, function_name):
             return _dashr_make_proxy(
                 global_name,
@@ -323,6 +329,7 @@ def _dashr_install_bindings(spec_json):
                 global_name,
                 error_class['name'] if error_class else None,
                 error_class['memberNameProperty'] if error_class else None,
+                sorted(namespace['functions']),
             )
         if error_class and error_class['name'] not in error_classes:
             cls = _dashr_make_error_class(

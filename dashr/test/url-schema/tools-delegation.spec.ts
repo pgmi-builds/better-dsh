@@ -471,6 +471,33 @@ describe('write tool — lsp feedback loop (native-tools Wave3)', () => {
     expect(withoutDiagnostics[0]!.text).toBe('Created src/b.rs')
   })
 
+  it('drops diagnostics whose line lies beyond the written content (F2-d span guard)', async () => {
+    const originalLsp = listDvcDevices().get('lsp')
+    registerDvcDevice('lsp', {
+      summary: 'fake lsp with stale span',
+      async execute(args: unknown) {
+        const record = args as { action: string, file: string, content: string }
+        if (record.action !== 'diagnostics') return { ok: true, formatted: record.content, changed: false }
+        return {
+          ok: true,
+          server: 'fake',
+          file: record.file,
+          diagnostics: [
+            { severityName: 'error', message: 'ghost from an older, longer file', line: 99, endLine: 99, source: 'rustc' },
+            { severityName: 'warning', message: 'real one on line 1', line: 1, endLine: 1 },
+          ],
+          summary: '1 error(s), 1 warning(s)',
+          check: 'completed',
+        }
+      },
+    })
+    const { preWriteFormat, postWrite } = buildLspWriteFeedback()
+    const summary = await postWrite('src/x.rs', 'fn one_line() {}\n')
+    // The line-99 error cannot refer to a 2-line file: dropped; counts recomputed.
+    expect(summary).toBe('1 warning(s) — first: real one on line 1')
+    registerDvcDevice('lsp', originalLsp ?? (undefined as never))
+  })
+
   it('reads as no feedback when no lsp device is mounted', async () => {
     const { preWriteFormat, postWrite } = buildLspWriteFeedback()
     expect(await preWriteFormat('a.ts', 'x')).toBeUndefined()

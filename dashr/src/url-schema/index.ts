@@ -78,20 +78,39 @@ export function buildLspWriteFeedback(): { preWriteFormat: import('./tools/write
     try {
       const device = listDvcDevices().get('lsp')
       if (device === undefined) return undefined
-      const result = await device.execute({ action, file: filePath, content }) as {
+      const result = await device.execute({ action, file: filePath, content, ...(action === 'diagnostics' ? { saved: true } : {}) }) as {
         ok?: boolean
         summary?: string
-        diagnostics?: Array<{ severityName: string, message: string }>
+        diagnostics?: Array<{ severityName: string, message: string, line?: number }>
         formatted?: string
         changed?: boolean
+        check?: string
       }
       if (result?.ok !== true) return undefined
       if (action === 'format') {
         return result.changed === true && typeof result.formatted === 'string' ? result.formatted : undefined
       }
-      if (typeof result.summary !== 'string' || result.summary === 'no diagnostics') return undefined
-      const first = result.diagnostics?.find(record => record.severityName === 'error' || record.severityName === 'warning')
-      return first === undefined ? result.summary : `${result.summary} — first: ${first.message.slice(0, 200)}`
+      // F2-d (v0.2.0-a): a diagnostic whose line lies beyond the just-written
+      // content's line count cannot refer to what was written — drop it and
+      // recompute the counts so the summary reflects only the retained set.
+      const lineCount = content.split('\n').length
+      const retained = (result.diagnostics ?? []).filter(record => record.line === undefined || record.line <= lineCount)
+      if (retained.length === 0) return undefined
+      const severityOrder = ['error', 'warning', 'info', 'hint'] as const
+      const counts = new Map<string, number>()
+      for (const record of retained) counts.set(record.severityName, (counts.get(record.severityName) ?? 0) + 1)
+      const parts: string[] = []
+      for (const name of severityOrder) {
+        const count = counts.get(name)
+        if (count !== undefined) parts.push(`${count} ${name}(s)`)
+      }
+      const summary = parts.length > 0 ? parts.join(', ') : 'no diagnostics'
+      if (summary === 'no diagnostics') return undefined
+      const first = retained.find(record => record.severityName === 'error' || record.severityName === 'warning')
+      const suffix = result.check === 'timeout-dropped-rustc' ? ' (slow check: compiler diagnostics pending)' : ''
+      return first === undefined
+        ? `${summary}${suffix}`
+        : `${summary}${suffix} — first: ${first.message.slice(0, 200)}`
     } catch {
       return undefined
     }

@@ -94,6 +94,7 @@ async function waitForLog(predicate: (lines: string[]) => boolean, timeoutMs: nu
 beforeAll(() => {
   writeFileSync(fakeLog, '')
   mkdirSync(path.join(workDir, 'src'), { recursive: true })
+  mkdirSync(path.join(workDir, 'slowcheck'), { recursive: true })
   mkdirSync(path.join(workDir, 'rsproj'), { recursive: true })
 
   writeFileSync(path.join(workDir, 'src', 'main.fake'), 'let foo = bar\nlet unused = 1\n')
@@ -185,6 +186,27 @@ describe('dvc://lsp format action (F3: documentFormattingProvider is the LSP spe
     expect(result.ok).toBe(true)
     expect(result.changed).toBe(true)
     expect(result.formatted).toBe('pub fn fresh( x:i32 )->i32 {\n x + 1\n}\n')
+  })
+
+  it('F2-f honest degradation: a checker that never answers didSave times out and drops rustc-source diagnostics', async () => {
+    // A dedicated no-didsave server (different args => its own client): the
+    // last didOpen publish stands, the save signal is ignored, and the 3s
+    // feedback budget expires — the provably-stale rustc error is dropped,
+    // the immediately-computed warning is kept.
+    const slowCheckerArgs = { command: process.execPath, args: [FAKE_SERVER, 'no-didsave'] }
+    const result = (await device.execute({
+      action: 'diagnostics',
+      file: path.join(workDir, 'slowcheck', 'slow.rs'),
+      content: 'fn fixed_but_slow_checker() {}\n',
+      saved: true,
+      ...slowCheckerArgs,
+    })) as { ok: boolean, summary: string, check: string, diagnostics: Array<{ source?: string, severityName: string }> }
+
+    expect(result.ok).toBe(true)
+    expect(result.check).toBe('timeout-dropped-rustc')
+    expect(result.diagnostics.some(record => record.source === 'rustc')).toBe(false)
+    expect(result.diagnostics.some(record => record.severityName === 'warning')).toBe(true)
+    expect(result.summary).toBe('1 warning(s)')
   })
 
   it('still rejects a disk-backed call on a nonexistent file (gate only relaxes with content)', async () => {
@@ -484,4 +506,38 @@ describe('dvc://lsp against the real rust-analyzer', { timeout: 120_000 }, () =>
       expect(error.message).toContain('npm install -g typescript-language-server')
     },
   )
+
+  it('F2-f main line: saved diagnostics refresh through didSave (the stale publish is superseded)', async () => {
+    // didOpen published the rustc error (the flycheck-cache stand-in); the
+    // content sync + didSave must supersede it with the CLEAN re-check.
+    const result = (await device.execute({
+      action: 'diagnostics',
+      file: fakeMain,
+      content: 'fn after_fix() {}\n',
+      saved: true,
+      ...fakeServerArgs,
+    })) as { ok: boolean, diagnostics: unknown[], summary: string, check: string }
+
+    expect(result.ok).toBe(true)
+    expect(result.diagnostics).toHaveLength(0)
+    expect(result.summary).toBe('no diagnostics')
+    expect(result.check).toBe('completed')
+  })
+
+  it('F2-f main line: saved diagnostics report the BROKEN re-check', async () => {
+    const result = (await device.execute({
+      action: 'diagnostics',
+      file: fakeMain,
+      content: 'fn broken() { BROKEN }\n',
+      saved: true,
+      ...fakeServerArgs,
+    })) as { ok: boolean, summary: string, check: string, diagnostics: Array<{ message: string, source: string }> }
+
+    expect(result.ok).toBe(true)
+    expect(result.summary).toBe('1 error(s)')
+    expect(result.check).toBe('completed')
+    expect(result.diagnostics[0]!.message).toContain('BROKEN marker')
+    expect(result.diagnostics[0]!.source).toBe('rustc')
+  })
+
 })
