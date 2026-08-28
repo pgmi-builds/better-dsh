@@ -47,6 +47,14 @@ import { createGlobTool } from './tools/glob.ts'
 import { createGrepTool } from './tools/grep.ts'
 import { createReadTool } from './tools/read.ts'
 import { createWriteTool } from './tools/write.ts'
+import { ctxFsIO } from './vendored/hashline/fs-bridge.js'
+import { FsSandboxController } from './vendored/hashline/sandbox.js'
+import { registerEditTool } from './vendored/hashline/tool-edit.js'
+import { registerUndoTool } from './vendored/hashline/tool-undo.js'
+import { registerWriteHook } from './vendored/hashline/write-hook.js'
+import { composeSections, ensurePresetGuidance, GUIDANCE_SECTIONS } from './vendored/hashline/guidance.js'
+import { configDir } from './vendored/hashline/paths.js'
+import { initHasher } from './vendored/hashline/hashline/hash-assign.js'
 import { listDvcDevices } from './handlers/dvc.ts'
 
 /** Cordis plugin name. */
@@ -140,6 +148,65 @@ function installAgentTools(rootCtx: Context, agent: Agent, resolver: UrlResolver
       nativeWrite: native.write,
       ...buildLspWriteFeedback(),
     })))
+
+    // The hashline EDIT family (v0.2.0-b): vendored since v0.1.8c, wired here
+    // for the first time — same own-layer pattern as the wrappers above, so
+    // `edit` shadows the preset's built-in and unwinds with the agent.
+    // `read` needs no registration: the DASHR read wrapper already runs the
+    // vendored hashline read pipeline.
+    const hashlineIo = ctxFsIO(rootCtx.fs, rootCtx)
+    const hashlineSandbox = new FsSandboxController(rootCtx)
+    disposers.push(registerEditTool(rootCtx, agent.ctx, hashlineIo, hashlineSandbox))
+    disposers.push(registerUndoTool(rootCtx, agent.ctx, hashlineIo, hashlineSandbox))
+    disposers.push(registerWriteHook(rootCtx, agent.ctx, hashlineIo))
+    // The lsp feedback loop rides edit too — but NOT through the write
+    // wrapper (edit lands through hashline's own fs-write). A post-execute
+    // listener covers every successful edit with an explicit path; `write`
+    // is skipped here because the wrapper already owns its feedback pair.
+    {
+      // The lsp feedback loop rides edit (hashline's own fs-write bypasses
+      // the write wrapper): after a successful edit with an explicit path,
+      // read the landed content back and attach the diagnostics summary —
+      // same contract as the write wrapper's post-write hook (EXACT content,
+      // didSave freshness, span guard). `write` is skipped: the wrapper
+      // already owns its feedback pair. Anchor-only edits (path: null) skip
+      // silently — the resolved path lives inside hashline's own logic.
+      const diagnosticsHook = buildLspWriteFeedback().postWrite
+      disposers.push(agent.ctx.on('tools/post-execute', async (exec, result, next) => {
+        const decision = await next()
+        if (exec.name !== 'edit' || result.isError) return decision
+        const args = exec.arguments as { path?: string | null } | undefined
+        const rawPath = args?.path
+        if (typeof rawPath !== 'string' || rawPath === '') return decision
+        try {
+          const content = await hashlineIo.readText(rawPath, exec.signal)
+          if (typeof content !== 'string') return decision
+          const summary = await diagnosticsHook(rawPath, content)
+          if (summary === undefined) return decision
+          const decisionRecord = decision as { kind?: string, content?: Array<{ type: string, text?: string }> }
+          if (decisionRecord.kind !== 'accept') return decision
+          const base = decisionRecord.content ?? (result.content as Array<{ type: string, text?: string }> | undefined) ?? []
+          decisionRecord.content = [...base, { type: 'text', text: `\n${summary}` }]
+          return decision
+        } catch {
+          return decision
+        }
+      }))
+    }
+    // Guidance sections shadow the preset's built-in tool guidance on the
+    // agent's own layer (same names win). agentPresets present → per-preset
+    // overrides; absent or failing → compiled defaults, never a failed boot.
+    try {
+      const agentPresets = rootCtx.get('agentPresets') as { composedPreset: (ctx: unknown) => string } | undefined
+      let sections = GUIDANCE_SECTIONS.map(section => ({ name: section.name, order: section.defaultOrder, text: section.renderDefault() }))
+      if (agentPresets !== undefined) {
+        try {
+          const resolved = await composeSections(agentPresets.composedPreset(agent.ctx), configDir())
+          sections = resolved.map(section => ({ name: section.name, order: section.order, text: section.text }))
+        } catch { /* compiled defaults already in place */ }
+      }
+      for (const section of sections) disposers.push(agent.ctx.systemPrompt.section(section))
+    } catch { /* guidance is best-effort; the tools stand alone */ }
     disposers.push(agent.ctx.tools.register(createGrepTool({ resolver, nativeGrep: native.grep })))
     disposers.push(agent.ctx.tools.register(createGlobTool({ resolver, nativeGlob: native.glob })))
     return () => {
@@ -150,6 +217,11 @@ function installAgentTools(rootCtx: Context, agent: Agent, resolver: UrlResolver
 
 /** Mount the resolver + scheme handlers, then install the tools per agent. */
 export function apply(ctx: Context, config: Config): void {
+  // Hashline one-time init (v0.2.0-b): warm the hasher and materialize the
+  // editable per-preset guidance overrides (idempotent; failures are noise,
+  // never a failed boot).
+  void initHasher().catch(() => {})
+  void ensurePresetGuidance(configDir()).catch(() => {})
   const resolver = new UrlResolver()
 
   resolver.register('skill', createSkillHandler({ skills: ctx.skills, fs: ctx.fs }))
