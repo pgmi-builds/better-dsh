@@ -461,6 +461,16 @@ describe('write tool — lsp feedback loop (native-tools Wave3)', () => {
     registerDvcDevice('lsp', originalLsp ?? (undefined as never))
   })
 
+  it('renders the diagnostics summary into the result text (F4: wire face sees the feedback)', async () => {
+    const { tool: nativeWrite } = fakeNative()
+    const write = createWriteTool({ nativeWrite, postWrite: async () => '1 error(s) — first: E0308: mismatched types' })
+    const render = (write as unknown as { output: { render: (args: unknown, value: unknown) => Array<{ type: string, text: string }> } }).output.render
+    const withDiagnostics = render({}, { path: 'src/a.rs', operation: 'update', before: 'old', after: 'new', diagnostics: '1 error(s) — first: E0308: mismatched types' })
+    expect(withDiagnostics[0]!.text).toBe('Updated src/a.rs\n1 error(s) — first: E0308: mismatched types')
+    const withoutDiagnostics = render({}, { path: 'src/b.rs', operation: 'create', before: null, after: 'new' })
+    expect(withoutDiagnostics[0]!.text).toBe('Created src/b.rs')
+  })
+
   it('reads as no feedback when no lsp device is mounted', async () => {
     const { preWriteFormat, postWrite } = buildLspWriteFeedback()
     expect(await preWriteFormat('a.ts', 'x')).toBeUndefined()

@@ -420,7 +420,11 @@ const lspDevice: DvcDevice = {
         if (content === undefined) {
           throw new UrlSchemaError('LSP_BAD_ARGS', 'lsp device: "format" requires a "content" string to format')
         }
-        const formatting = client.serverCapabilities?.formattingProvider
+        // F3 hot-fix (v0.1.9-b): the LSP spec field is documentFormattingProvider
+        // (the client stores initResult.capabilities verbatim); keep the short
+        // alias as a tolerated fallback.
+        const formatting = client.serverCapabilities?.documentFormattingProvider
+          ?? client.serverCapabilities?.formattingProvider
         if (formatting === undefined || formatting === false || formatting === null) {
           return { ...base, formatted: content, changed: false, reason: 'server declares no formatting capability' }
         }

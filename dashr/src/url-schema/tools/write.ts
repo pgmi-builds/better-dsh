@@ -158,7 +158,13 @@ export function createWriteTool(deps: WriteToolDeps): ToolDefinition {
       },
       render: (_args, value) => {
         const verb = value.operation === 'update' ? 'Updated' : value.operation === 'execute' ? 'Executed' : 'Created'
-        return [{ type: 'text', text: `${verb} ${value.path}` }]
+        // F4 hot-fix (v0.1.9-b): the diagnostics summary rides the RESULT TEXT
+        // too — the wire face renders text, and the feedback loop must reach
+        // the model on a direct call, not only inside a cell's raw JSON.
+        const text = value.diagnostics === undefined
+          ? `${verb} ${value.path}`
+          : `${verb} ${value.path}\n${value.diagnostics}`
+        return [{ type: 'text', text }]
       },
     },
     async execute(args, exec): Promise<WriteOutcome> {

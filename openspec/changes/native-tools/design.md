@@ -38,7 +38,7 @@
 - 钩子形态：`preWriteFormat`（写前一次性格式化——单次 write-intent 审计，before/after 保真）+ `postWrite`（写后诊断摘要附加）。两个钩子带 EXACT content 走设备（lsp-client 新增 `syncFileContent`：didOpen/didChange 全量，杜绝 stale didOpen 的旧内容诊断——正确性关键点）。
 - 行为：目标文件的语言有 language server 在位 → write/edit 返回值附 diagnostics 摘要（error/warning 计数 + 首条明细）+ format-on-write（有 formatter 时）。
 - 语言判定按扩展名映射 lsp 设备的 server 能力面；无 server 的语言零行为变化（钩子跳过）。
-- 诊断拉取走既有 `xd://lsp` 设备通道（surface-and-devices 已落地的四件之一），不新建服务。
+- 诊断拉取走既有 `dvc://lsp` 设备通道（surface-and-devices 已落地的四件之一），不新建服务。
 
 ## D3 — `llm_completion` 新工具
 
@@ -47,8 +47,8 @@
 **语义**（与 omp `completion()` 对齐，oneshot stateless）：
 - 参数：`{prompt, system?, maxTokens?}`。
 - 实现：`ctx.get('llm')` → `createUserMessage` → `llm.stream` 迭代 → `BlockAssembler` → finish 检查（非 stop 报错；出现 tool-call 块报错——裸调用不该产生）→ 拼接 text 返回。
-- **路由**：继承 calling agent 的 `ModelSelection`（agent-scoped，judge 用同级模型才有意义）；agent 不可得时回落 dsh-agent-default-model settings。
-- 审计：`purpose: 'completion'`、`sessionId` 归属 calling agent 的 session；护栏 = maxTokens 默认上限。
+- **路由**：继承 calling agent 的 `ModelSelection`（`agent.options.provider/model`，judge 用同级模型才有意义）；无路由（agentless 或未选模型）返回**结构化 error**，不猜隐藏默认路由（实测后定案：default-model 回落从设计里撤除——诚实报错优于静默换挡）。
+- 审计：宿主 `GenerateOptions.purpose` 是封闭枚举（'compaction'/'session-title'），本调用**不传 purpose**——归因靠 calling agent 的 `sessionId` + 工具级 dispatch 审计（`tool/call`/`code-dispatch` 事件全参数落日志）。护栏 = maxTokens 默认上限 4096。
 - 结构化错误为返回值不抛异常，与三桥一致。
 - 注册形态：**出生即真工具**（D1 模式），不经历桥阶段——它就是 D1 的活体验收用例。
 

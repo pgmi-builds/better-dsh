@@ -27,6 +27,8 @@ const append = line => {
 
 let buffer = ''
 let initCount = 0
+/** Latest synced text per uri (didOpen/didChange full) — the formatting probe reads it. */
+const openTexts = new Map()
 
 const send = message => {
   const body = JSON.stringify(message)
@@ -54,7 +56,7 @@ function handleRequest(message) {
         params: { items: [{ scopeUri: 'file:///probe' }] },
       })
       reply(id, {
-        capabilities: { hoverProvider: true, definitionProvider: true, referencesProvider: true, textDocumentSync: 1 },
+        capabilities: { hoverProvider: true, definitionProvider: true, referencesProvider: true, documentFormattingProvider: true, textDocumentSync: 1 },
       })
       return
     }
@@ -91,6 +93,22 @@ function handleRequest(message) {
       reply(id, { contents: { kind: 'markdown', value: '```rust\nfn fake_hover() -> Answer\n```' } })
       return
     }
+    case 'textDocument/formatting': {
+      // Deterministic whole-document edit: collapse ALL runs of spaces/tabs
+      // to a single space per line (proves the client synced the exact
+      // content we were handed and the device applied the edit offsets).
+      const text = openTexts.get(params.textDocument?.uri ?? '') ?? ''
+      const formatted = text
+        .split('\n')
+        .map(line => line.replace(/[ \t]+/g, ' ').trimEnd())
+        .join('\n')
+      if (formatted === text) {
+        reply(id, [])
+        return
+      }
+      reply(id, [{ range: { start: { line: 0, character: 0 }, end: { line: text.split('\n').length, character: 0 } }, newText: formatted }])
+      return
+    }
     default:
       send({ jsonrpc: '2.0', id, error: { code: -32601, message: `no such method: ${String(message.method)}` } })
   }
@@ -101,8 +119,16 @@ function handleNotification(message) {
     case 'initialized':
       append('initialized')
       return
+    case 'textDocument/didChange': {
+      if (typeof message.params?.textDocument?.uri === 'string' && Array.isArray(message.params.contentChanges)) {
+        const last = message.params.contentChanges[message.params.contentChanges.length - 1]
+        if (last !== undefined && typeof last.text === 'string') openTexts.set(message.params.textDocument.uri, last.text)
+      }
+      return
+    }
     case 'textDocument/didOpen': {
       const uri = message.params?.textDocument?.uri ?? 'file:///unknown'
+      if (typeof message.params?.textDocument?.text === 'string') openTexts.set(uri, message.params.textDocument.text)
       send({
         jsonrpc: '2.0',
         method: 'textDocument/publishDiagnostics',

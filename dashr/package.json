@@ -1,7 +1,7 @@
 {
   "name": "@pgmi-builds/dashr",
   "description": "DASHR: a persistent Python-kernel REPL for DeepSeek Harness (dsh) — the `eval` tool with `tool.*` bindings, sub-agents, and snapshots",
-  "version": "0.1.9-a",
+  "version": "0.1.9-b",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",

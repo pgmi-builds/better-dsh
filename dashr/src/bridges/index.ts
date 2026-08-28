@@ -59,6 +59,21 @@ function flatBridgeToolArgs(rawArgs: unknown): { ok: true, args: Record<string, 
   return { ok: true, args: rawArgs as Record<string, unknown> }
 }
 
+/**
+ * The wire layer delivers `type:'json'` parameters as JSON STRINGS (the cell
+ * path delivers parsed objects); accept either form. An unparseable string
+ * falls through untouched — the caller's object check turns it into the
+ * structured error.
+ */
+function coerceJsonField(value: unknown): unknown {
+  if (typeof value !== 'string') return value
+  try {
+    return JSON.parse(value)
+  } catch {
+    return value
+  }
+}
+
 /** Reject unexpected keys on one bridge call's arguments object. */
 function rejectUnknownKeys(tool: string, args: Record<string, unknown>, allowed: readonly string[]): { error: string } | undefined {
   const unknownKeys = Object.keys(args).filter(key => !allowed.includes(key))
@@ -360,14 +375,19 @@ const agentWorkflowExecutor: AgentBridgeExecutor = async (rawArgs, exec, deps): 
     if (!exec.agent) {
       return { error: 'agent_workflow() requires a calling agent (this run has no agent to attribute the workflow to)' }
     }
+    // F1 hot-fix (v0.1.9-b): the wire delivers the type:'json' fields
+    // (meta/args) as JSON strings; normalize BOTH forms to values BEFORE any
+    // validation so wire ≡ REPL holds on this tool.
+    const meta = coerceJsonField(a['meta'])
+    const argsField = coerceJsonField(a['args'])
     if (mode === 'script') {
       if (typeof a['script'] !== 'string' || a['script'].length === 0) {
         return { error: 'agent_workflow() mode "script" requires {"script": "..."} — the plain-JS workflow script body' }
       }
-      if (typeof a['meta'] !== 'object' || a['meta'] === null || Array.isArray(a['meta'])) {
+      if (typeof meta !== 'object' || meta === null || Array.isArray(meta)) {
         return { error: 'agent_workflow() mode "script" requires {"meta": {...}} — the workflow identity block' }
       }
-    } else if (typeof a['objective'] !== 'string' || a['objective'].trim().length === 0) {
+    } else if (typeof a['objective'] !== 'string' || (a['objective'] as string).trim().length === 0) {
       return { error: 'agent_workflow() mode "rfc" requires {"objective": "..."} — the immutable completion objective' }
     }
     // The workflowEngine service is entry-local to the preset's delegation
@@ -400,8 +420,8 @@ const agentWorkflowExecutor: AgentBridgeExecutor = async (rawArgs, exec, deps): 
       if (mode === 'script') {
         const run = engine.start({
           script: a['script'] as string,
-          meta: a['meta'] as DASHRWorkflowMeta,
-          ...(a['args'] !== undefined ? { args: a['args'] } : {}),
+          meta: meta as DASHRWorkflowMeta,
+          ...(argsField !== undefined ? { args: argsField } : {}),
           parent: exec.agent,
           signal: exec.signal,
         })

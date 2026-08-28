@@ -242,6 +242,42 @@ describe('agent_workflow bridge — engine via serviceForAgent addressing', () =
     expect(calls.workflowStarts[0]!.args).toEqual({ files: ['a'] })
   })
 
+  it('wire-form string meta/args coerce to objects (F1: wire delivers type:json fields as JSON strings)', async () => {
+    const { ctx, agent } = await setupPresentation(fakeRuntime)
+    const calls = await fakeDelegationServices(ctx)
+    const runtime = ctx.get('replRuntime') as FakeCellRuntime
+    runtime.behavior = async (request) => {
+      const result = await callableOf(request, 'agent_workflow')({
+        mode: 'script',
+        script: 'return 1',
+        meta: JSON.stringify({ name: 'wireform', description: 'Arrived as a string' }),
+        args: JSON.stringify({ files: ['a'] }),
+      })
+      return { logs: [], value: result }
+    }
+    const result = await cell(ctx, agent.agent, 'program')
+    expect(result.value.result).toEqual({ runId: 'wf-1', agentsStarted: 2, result: { ok: true } })
+    expect(calls.workflowStarts).toHaveLength(1)
+    expect(calls.workflowStarts[0]!.metaName).toBe('wireform')
+    expect(calls.workflowStarts[0]!.args).toEqual({ files: ['a'] })
+  })
+
+  it('an unparseable string meta stays the structured error (coercion is not a bypass)', async () => {
+    const { ctx, agent } = await setupPresentation(fakeRuntime)
+    await fakeDelegationServices(ctx)
+    const runtime = ctx.get('replRuntime') as FakeCellRuntime
+    runtime.behavior = async (request) => {
+      const result = await callableOf(request, 'agent_workflow')({
+        mode: 'script',
+        script: 'return 1',
+        meta: 'not-json{',
+      })
+      return { logs: [], value: result }
+    }
+    const result = await cell(ctx, agent.agent, 'program')
+    expect(result.value.result).toEqual({ error: expect.stringContaining('requires {"meta": {...}}') })
+  })
+
   it("mode 'rfc' routes the fixed Ralph loop with the objective and defaults", async () => {
     const { ctx, agent } = await setupPresentation(fakeRuntime)
     const calls = await fakeDelegationServices(ctx)

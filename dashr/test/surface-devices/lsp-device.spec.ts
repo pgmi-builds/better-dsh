@@ -141,9 +141,52 @@ describe('dvc://lsp registration and vendored registry', () => {
   })
 })
 
-// =============================================================================
 // JSON-RPC loop against the fake stdio server
 // =============================================================================
+
+describe('dvc://lsp format action (F3: documentFormattingProvider is the LSP spec key)', () => {
+  it('formats through the spec capability key and syncs the exact content', async () => {
+    const messy = 'pub fn   probe( x:i32 )->i32 {\n    x +  1\n}\n'
+    const result = (await device.execute({
+      action: 'format',
+      file: fakeMain,
+      content: messy,
+      ...fakeServerArgs,
+    })) as { ok: boolean, formatted: string, changed: boolean }
+
+    expect(result.ok).toBe(true)
+    expect(result.changed).toBe(true)
+    expect(result.formatted).toBe('pub fn probe( x:i32 )->i32 {\n x + 1\n}\n')
+  })
+
+  it('answers changed:false when the content is already formatted', async () => {
+    const clean = 'pub fn probe() {}\n'
+    const result = (await device.execute({
+      action: 'format',
+      file: fakeMain,
+      content: clean,
+      ...fakeServerArgs,
+    })) as { ok: boolean, formatted: string, changed: boolean }
+    expect(result.ok).toBe(true)
+    expect(result.changed).toBe(false)
+    expect(result.formatted).toBe(clean)
+  })
+
+  it('reports the post-write diagnostics of the EXACT synced content (syncFileContent path)', async () => {
+    // The fake server publishes its fixed error+warning pair on didOpen; the
+    // content override must reach it (openTexts) and the summary must come
+    // back for that content — the wire the write-feedback hook rides.
+    const result = (await device.execute({
+      action: 'diagnostics',
+      file: fakeMain,
+      content: 'fn synced_exact() {}\n',
+      ...fakeServerArgs,
+    })) as { ok: boolean, summary: string }
+    expect(result.ok).toBe(true)
+    expect(result.summary).toBe('1 error(s), 1 warning(s)')
+  })
+})
+
 
 describe('dvc://lsp against the fake stdio server', () => {
   it(
