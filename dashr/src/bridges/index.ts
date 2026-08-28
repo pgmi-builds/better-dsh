@@ -514,7 +514,7 @@ export function createAgentBridgeTools(deps: AgentBridgeDeps): ToolDefinition[] 
       parameters: {
         mode: { type: 'string', description: "'script' (default: an orchestration script) or 'rfc' (a fixed fresh-agent Ralph loop)." },
         script: { type: 'string', description: 'The plain-JS workflow script body (required when mode is "script").' },
-        meta: { type: 'json', description: 'The workflow identity block (required when mode is "script").' },
+        meta: { type: 'json', description: 'The workflow identity block (required when mode is "script"); must carry non-empty name and description (host invariant).' },
         args: { type: 'json', description: 'Optional JSON input exposed to the script as the args global.' },
         objective: { type: 'string', description: 'The immutable completion objective for the Ralph loop (required when mode is "rfc").' },
         maxRounds: { type: 'number', description: 'Optional round cap for the Ralph loop, bounded by the deployment ceiling.' },
