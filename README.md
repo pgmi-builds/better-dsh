@@ -3,8 +3,8 @@
 <p align="center">
   <a href="https://github.com/deepseek-ai/deepseek-harness"><img src="https://img.shields.io/badge/plugin%20for-dsh-blueviolet.svg?style=flat-square" alt="dsh plugin" /></a>
   <a href="https://npmjs.com/package/@pgmi-builds/better-dsh"><img src="https://img.shields.io/badge/npm-%40pgmi--builds%2Fbetter--dsh-CB3837.svg?style=flat-square&logo=npm" alt="npm package" /></a>
-  <a href="https://github.com/pgmi-builds/dashr"><img src="https://img.shields.io/badge/github-pgmi--builds%2Fdashr-black.svg?style=flat-square&logo=github" alt="Repository" /></a>
-  <a href="https://github.com/pgmi-builds/dashr/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square" alt="License" /></a>
+  <a href="https://github.com/pgmi-builds/better-dsh"><img src="https://img.shields.io/badge/github-pgmi--builds%2Fbetter--dsh-black.svg?style=flat-square&logo=github" alt="Repository" /></a>
+  <a href="https://github.com/pgmi-builds/better-dsh/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square" alt="License" /></a>
 </p>
 
 **Dashr** (*/ˈdæʃ.ɚ/*) makes your native [`dsh`](https://github.com/deepseek-ai/deepseek-harness) ready for serious coding. It's a plugin — not a fork — so you keep the official runtime and marketplace, and gain a lighter, higher-capacity way to work.
@@ -32,7 +32,7 @@
 ## ⚡ Quick Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/pgmi-builds/dashr/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/pgmi-builds/better-dsh/main/install.sh | bash
 ```
 
 Or via npm:

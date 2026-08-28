@@ -1,7 +1,7 @@
 {
   "name": "@pgmi-builds/better-dsh",
   "description": "Better Dsh (Dashr): a persistent Python-kernel REPL for DeepSeek Harness (dsh) — eval cells with tool.* bindings, scheme:// resource addressing, and a wired-in IDE (LSP, AST, hashline edit)",
-  "version": "0.2.0-c",
+  "version": "0.2.0-d",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -240,7 +240,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/pgmi-builds/dashr.git"
+    "url": "git+https://github.com/pgmi-builds/better-dsh.git"
   },
   "keywords": [
     "dsh",
