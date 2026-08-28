@@ -353,16 +353,20 @@ const lspDevice: DvcDevice = {
     if (typeof file !== 'string' || file === '') {
       throw new UrlSchemaError('LSP_BAD_ARGS', 'lsp device: this action requires a non-empty "file" string')
     }
-    const filePath = path.resolve(file)
-    if (!existsSync(filePath)) {
-      throw new UrlSchemaError('LSP_BAD_ARGS', `lsp device: file not found: ${filePath}`)
-    }
-
-    const position = requirePosition(record)
     const content = record.content
     if (content !== undefined && typeof content !== 'string') {
       throw new UrlSchemaError('LSP_BAD_ARGS', 'lsp device: "content" override must be a string')
     }
+    const filePath = path.resolve(file)
+    // A content override makes the on-disk state irrelevant — pre-write
+    // formatting of a file that does not exist yet (F11, 0.1.9-c) syncs the
+    // server to the incoming text, so the existence gate only guards
+    // disk-backed calls.
+    if (content === undefined && !existsSync(filePath)) {
+      throw new UrlSchemaError('LSP_BAD_ARGS', `lsp device: file not found: ${filePath}`)
+    }
+
+    const position = requirePosition(record)
     const { name, client } = await obtainClient(record, filePath)
     const base = { ok: true as const, server: name, file: filePath, root: client.root }
     const uri = fileToUri(filePath)

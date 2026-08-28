@@ -172,6 +172,30 @@ describe('dvc://lsp format action (F3: documentFormattingProvider is the LSP spe
     expect(result.formatted).toBe(clean)
   })
 
+  it('formats a file that does not exist yet (F11: content override bypasses the existence gate)', async () => {
+    const notYetCreated = path.join(workDir, 'src', 'brand-new-format-target.rs')
+    const messy = 'pub fn   fresh( x:i32 )->i32 {\n    x  + 1\n}\n'
+    const result = (await device.execute({
+      action: 'format',
+      file: notYetCreated,
+      content: messy,
+      ...fakeServerArgs,
+    })) as { ok: boolean, formatted: string, changed: boolean }
+
+    expect(result.ok).toBe(true)
+    expect(result.changed).toBe(true)
+    expect(result.formatted).toBe('pub fn fresh( x:i32 )->i32 {\n x + 1\n}\n')
+  })
+
+  it('still rejects a disk-backed call on a nonexistent file (gate only relaxes with content)', async () => {
+    const missing = path.join(workDir, 'src', 'no-such-file.rs')
+    await expect(device.execute({
+      action: 'diagnostics',
+      file: missing,
+      ...fakeServerArgs,
+    })).rejects.toThrow('file not found')
+  })
+
   it('reports the post-write diagnostics of the EXACT synced content (syncFileContent path)', async () => {
     // The fake server publishes its fixed error+warning pair on didOpen; the
     // content override must reach it (openTexts) and the summary must come
