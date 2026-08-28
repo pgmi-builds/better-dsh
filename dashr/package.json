@@ -1,6 +1,6 @@
 {
-  "name": "@pgmi-builds/dashr",
-  "description": "DASHR: a persistent Python-kernel REPL for DeepSeek Harness (dsh) — the `eval` tool with `tool.*` bindings, sub-agents, and snapshots",
+  "name": "@pgmi-builds/better-dsh",
+  "description": "Better Dsh (Dashr): a persistent Python-kernel REPL for DeepSeek Harness (dsh) — eval cells with tool.* bindings, scheme:// resource addressing, and a wired-in IDE (LSP, AST, hashline edit)",
   "version": "0.2.0-c",
   "type": "module",
   "main": "lib/index.js",

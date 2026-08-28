@@ -12,7 +12,7 @@
 # explicit interpreter (DASHR_KERNEL_PYTHON) is verified; the bare
 - insert:
     - id: dashr-repl
-      name: '@pgmi-builds/dashr'
+      name: '@pgmi-builds/better-dsh'
       config:
         python: !!js process.env.DASHR_KERNEL_PYTHON ?? 'python3'
 

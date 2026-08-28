@@ -97,7 +97,7 @@ fi
 # version instead of a cached older one (pnpm's own cache TTL can lag a fresh
 # publish by minutes-to-hours).
 rm -rf "${XDG_CACHE_HOME:-$HOME/.cache}/pnpm" 2>/dev/null || true
-if "$DSH" plugin --profile "$DSH_PROFILE" add --config.auto-install-peers=false @pgmi-builds/dashr@latest; then
+if "$DSH" plugin --profile "$DSH_PROFILE" add --config.auto-install-peers=false @pgmi-builds/better-dsh@latest; then
   info "installed dashr from the npm registry"
 else
   # Offline / registry-blocked fallback: build the pinned release from source.
@@ -125,7 +125,7 @@ else
   fi
   (cd "$SRC/dashr" && npm pack --pack-destination "$TMP_ROOT" >/dev/null)
   "$DSH" plugin --profile "$DSH_PROFILE" add --config.auto-install-peers=false \
-    "$TMP_ROOT/dashr-"*.tgz
+    "$TMP_ROOT/pgmi-builds-better-dsh-"*.tgz
 fi
 
 # ------------------------------------------------------------- restart note
