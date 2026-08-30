@@ -1,0 +1,79 @@
+/* Conversation fallback-switch line (plan fallbacks-aux-seams T2, D1+D2):
+ * a compact system-style transcript row. Geometry mirrors the upstream chat
+ * system rows — the compaction boundary notice (title + 2px separator +
+ * ellipsized tertiary summary, `chat/MessageItem.module.css:38-122`) and the
+ * retry status line's dim placement. Every color resolves through a
+ * `--dsw-alias-*` token (light/dark adaptive); bare `--border` / `--surface`
+ * / `--text-*` names, which nothing in this app defines, would render the
+ * light-mode literals and stay light under the dark theme. */
+
+.switchRow {
+  display: flex;
+  align-items: center;
+  padding: 2px 0;
+  font-size: 14px;
+  line-height: 24px;
+}
+
+/* Warning-tone title (feedback round fallbacks-feedback-round T1): the
+ * line announces a model DOWNGRADE, not a neutral switch — the host
+ * warning-state alias (--dsw-alias-state-warn-*, verified in the dsh
+ * alias set) carries the tone; geometry is unchanged. */
+.switchTitle {
+  flex: none;
+  color: var(--dsw-alias-state-warn-primary);
+}
+
+.switchSep {
+  flex: none;
+  width: 2px;
+  height: 2px;
+  margin: 0 8px;
+  border-radius: 1px;
+  background: var(--dsw-alias-label-caption);
+}
+
+/* One-line summary: tertiary tone, ellipsis when it outgrows the row. */
+.switchSummary {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+/* Role badge (AC-5): a compact, non-interactive chip distinct from the
+ * surrounding text — same pill geometry as the card/general-row status
+ * badge (`GeneralFallbacksRow.module.css .badge`, `FallbacksCard.module.css`
+ * `:107-113`), surfaced on the module-platform tone so it reads as a tag
+ * rather than inline summary copy. */
+.roleBadge {
+  flex: none;
+  max-width: 96px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  line-height: 20px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: var(--dsw-alias-bg-module-platform);
+  color: var(--dsw-alias-label-primary);
+}
+
+/* Explicit `role → model` mapping segment (AC-5): sits after the badge on
+ * the secondary tone, making the role's resolved chain-head model explicit
+ * and separated from the summary that follows. `flex: 0 1 auto` lets the
+ * segment SHRINK (and ellipsize via min-width/overflow/text-overflow) before
+ * the primary summary is starved on narrow panes — `flex: none` made the
+ * ellipsis inert and pushed all shrink onto `.switchSummary` (qc3 S-1). */
+.roleModelMap {
+  flex: 0 1 auto;
+  min-width: 0;
+  margin-left: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--dsw-alias-label-secondary);
+}

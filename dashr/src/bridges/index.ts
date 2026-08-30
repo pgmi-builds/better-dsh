@@ -327,7 +327,7 @@ const agentMessageExecutor: AgentBridgeExecutor = async (rawArgs, exec, deps): P
         return { error: "agent_message(receiver='parent') is unavailable: no ctx.subagents service is mounted in this composition" }
       }
       try {
-        const messageId = await subagents.reportFrom(exec.agent, [{ type: 'text', text: message }], { delivery: 'wakeup', signal: exec.signal })
+        const messageId = await subagents.reportFrom(exec.agent, [{ type: 'text', text: message }], { delivery: 'next-step', signal: exec.signal })
         return { delivered: true, message_id: messageId }
       } catch (error: unknown) {
         if ((error as { code?: unknown }).code === 'UNAUTHORIZED') {

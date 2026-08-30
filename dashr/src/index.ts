@@ -74,7 +74,6 @@ import DshUrlSchema from './url-schema/index.ts'
 import z from '@deepseek-ai/schemastery'
 import { defineTool, TOOL_RUNTIME_SCHEDULER } from '@deepseek-ai/dsh-tools'
 import type {
-  CodeDispatchLog,
   JsonSchemaNode,
   ToolDefinition,
   ToolExecutionInput,
@@ -84,10 +83,11 @@ import type {
 } from '@deepseek-ai/dsh-tools'
 // Type-only: brings the `ctx.tools` Context merge into this program.
 import type {} from '@deepseek-ai/dsh-tools'
-import { CallId, HarnessError } from '@deepseek-ai/dsh-llm'
+import { HarnessError } from '@deepseek-ai/dsh-llm'
+import { toolCallId, type ToolCallId } from './tool-call-id.ts'
 import type { ContentBlock } from '@deepseek-ai/dsh-llm'
 import { scopeTarget } from '@deepseek-ai/dsh-scope'
-import type { ScopeKey } from '@deepseek-ai/dsh-scope'
+import type { ScopeKey, Scoped } from '@deepseek-ai/dsh-scope'
 // Type-only: brings the `ctx.systemPrompt` Context merge and the
 // `system-prompt/assemble` event typing into this program.
 import type {} from '@deepseek-ai/dsh-system-prompt'
@@ -109,9 +109,11 @@ import type { DASHRSubagentsSurface, DASHRWorkflowEngine } from './subagents-sur
 import { createAgentBridgeTools } from './bridges/index.ts'
 import { createLlmCompletionTool } from './llm-completion.ts'
 import { readFileSync } from 'node:fs'
+import { installFallbacks } from './fallbacks/index.ts'
 
 /** The control prompt text, loaded at module time from the sibling markdown file (editable without touching TS). */
 const CONTROL_PROMPT_TEXT = readFileSync(new URL('../control-prompt.md', import.meta.url), 'utf8')
+const { version: DASHR_VERSION } = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { version: string }
 
 
 
@@ -124,6 +126,8 @@ export const name = 'dashr-repl'
  * execution path re-reads the service at use time with an actionable error.
  */
 export const inject = ['tools']
+/** Services this plugin PROVIDES to the composition (the `llm-fallbacks` named service). */
+export const provide = ['llm-fallbacks']
 
 /** Plugin config. */
 export interface Config extends RuntimeConfig {
@@ -406,6 +410,48 @@ function renderValue(value: JsonValue): string {
 type RunCellOutput = { logs: string[]; result?: JsonValue }
 
 /**
+ * One settled `eval` sub-dispatch about to be logged, as seen by the
+ * `dashr/repl-dispatch-log` waterfall — dashr's OWN dispatch-log event,
+ * self-registered via the cordis Events merge below. Decoupled from
+ * upstream's `tools/ptc-dispatch-log` (PTC `run_code` sub-dispatches): `eval`
+ * is a broader session-persistent REPL (IPython kernel) than upstream's
+ * `run_code` TS-worker tool, so its durable-log reshape extension point is
+ * dashr-owned and version-independent — no coupling to upstream's
+ * `CodeDispatchLog`/`PtcDispatchLog` rename or the PTC tool's event name.
+ */
+export interface ReplDispatchLog {
+  /** The outer `eval` execution. */
+  readonly exec: ToolRunContext
+  /** The calling agent (scope routing key + spill owner), when present. */
+  readonly agent?: Agent
+  /** Deterministic sub-call id (`<parent>:code:<n>`). */
+  readonly subCallId: ToolCallId
+  /** The dispatched sub-tool name. */
+  readonly name: string
+  /** Whether the sub-call settled as an error. */
+  readonly isError: boolean
+  /** The sub-call's complete model-facing content (the settle event's default payload). */
+  readonly content: ContentBlock[]
+}
+
+declare module '@deepseek-ai/cordis' {
+  interface Events {
+    /**
+     * Allow a listener to replace content in the DURABLE LOG COPY of one
+     * `eval` sub-dispatch outcome before the bridge appends its
+     * `tool/code-dispatch` event. `next()` keeps the content unchanged; a
+     * listener may return replacement blocks (e.g. the spill policy's preview
+     * + locator for an oversized text result). Scope-filtered dispatch
+     * (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only that
+     * agent's dispatches.
+     * @param dispatch - the parent execution, sub-call identity, and settled content to log.
+     * @mode waterfall
+     */
+    'dashr/repl-dispatch-log'(this: Scoped<ToolRuntime>, dispatch: ReplDispatchLog, next: () => Promise<ContentBlock[]>): Promise<ContentBlock[]>
+  }
+}
+
+/**
  * Capabilities the `eval` bridge closes over, mirroring upstream's
  * `RunCodeBridgeOptions` (the `requireRuntime` idiom): the registry-private
  * staged scheduler travels through the exported `TOOL_RUNTIME_SCHEDULER`
@@ -418,13 +464,12 @@ export interface RunCellBridgeOptions {
   /** The run's overlap cap for parallel-classified sub-calls (validated config). */
   maxParallel: number
   /**
-   * Runs the `tools/code-dispatch-log` waterfall over one settled
-   * sub-dispatch and returns the content the bridge should log — the
-   * consumer-side stand-in for the registry-private `shapeDispatchLog`
-   * invoker upstream mints for its own bridge (same carrier, same
-   * containment). Built in {@link apply}.
+   * Runs the `dashr/repl-dispatch-log` waterfall over one settled
+   * sub-dispatch and returns the content the bridge should log — dashr's own
+   * dispatch-log reshape extension point (self-registered, decoupled from
+   * upstream's PTC `tools/ptc-dispatch-log`). Built in {@link apply}.
    */
-  shapeDispatchLog: (dispatch: CodeDispatchLog) => Promise<ContentBlock[]>
+  shapeDispatchLog: (dispatch: ReplDispatchLog) => Promise<ContentBlock[]>
   /**
    * Resolves the host-plane `ctx.subagents` service (or undefined when this
    * composition has no subagent capability) for the `agent` /
@@ -599,7 +644,7 @@ export function createRunCellTool(registry: ToolRuntime, options: RunCellBridgeO
         }
         const normalized = jsonNormalizeArgs(rawArgs)
         const n = ++dispatches
-        const subCallId = CallId(`${String(exec.callId)}:code:${n}`)
+        const subCallId = toolCallId(`${String(exec.callId)}:code:${n}`)
         const input: ToolExecutionInput = {
           callId: subCallId,
           rootCallId: exec.rootCallId,
@@ -860,6 +905,12 @@ export function apply(ctx: Context, config: Config): void {
   // before the merge; one row now owns the whole lifecycle.
   ctx.plugin(DashrRuntime, pickRuntimeConfig(config))
   ctx.plugin(DshUrlSchema, config)
+  // Global LLM fallback (vendored from dsh-llm-fallbacks@0.3.5): host-plane
+  // root-context waterfalls over `agent/request` / `agent/request-error`, the
+  // `llm-fallbacks` named service, and the `fallbacks` settings gateway. All
+  // its downstream services (settings/typert/llm/commands) are conditional
+  // injects, so it degrades to a no-op on compositions without them.
+  installFallbacks(ctx, undefined, DASHR_VERSION)
   const logger = ctx.logger('dashr-repl')
   const maxParallel = resolveMaxParallelSubCalls(config.maxParallelSubCalls)
 
@@ -892,20 +943,21 @@ export function apply(ctx: Context, config: Config): void {
       throw new Error('dashr-repl: ctx.systemPrompt is required beside ctx.tools (the tools service itself depends on it) — this composition mounted tools without a system prompt registry')
     }
 
-    // The consumer-side stand-in for the registry-private shapeDispatchLog
-    // invoker: same scope-targeted carrier over the published
-    // `tools/code-dispatch-log` waterfall, same containment — a throwing
-    // listener logs a warning and the original settled content is logged.
-    const shapeDispatchLog = async (dispatch: CodeDispatchLog): Promise<ContentBlock[]> => {
+    // The dispatch-log reshape extension point is dashr's OWN event
+    // (`dashr/repl-dispatch-log`, self-registered), decoupled from upstream's
+    // PTC `tools/ptc-dispatch-log`: same scope-targeted carrier, same
+    // containment — a throwing listener logs a warning and the original
+    // settled content is logged.
+    const shapeDispatchLog = async (dispatch: ReplDispatchLog): Promise<ContentBlock[]> => {
       try {
         return await runtimeCtx.waterfall(
           scopeTarget(registry, dispatch.agent),
-          'tools/code-dispatch-log',
+          'dashr/repl-dispatch-log',
           dispatch,
           () => Promise.resolve(dispatch.content),
         )
       } catch (error: unknown) {
-        logger.warn(`dashr-repl: code-dispatch-log listener failed for ${dispatch.name}: ${error instanceof Error ? error.message : String(error)}; logging the original settled content`)
+        logger.warn(`dashr-repl: repl-dispatch-log listener failed for ${dispatch.name}: ${error instanceof Error ? error.message : String(error)}; logging the original settled content`)
         return dispatch.content
       }
     }

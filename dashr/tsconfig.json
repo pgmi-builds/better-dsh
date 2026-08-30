@@ -14,5 +14,6 @@
     "skipLibCheck": true,
     "resolveJsonModule": true,
   },
-  "include": ["src", "test", "vitest.config.ts", "tsdown.config.ts"]
+  "include": ["src", "test", "vitest.config.ts", "tsdown.config.ts"],
+  "exclude": ["src/fallbacks/client"]
 }

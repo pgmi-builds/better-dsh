@@ -7,41 +7,43 @@
   <a href="https://github.com/pgmi-builds/better-dsh/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square" alt="License" /></a>
 </p>
 
-**Dashr** (*/ˈdæʃ.ɚ/*) makes your native [`dsh`](https://github.com/deepseek-ai/deepseek-harness) ready for serious coding. It's a plugin — not a fork — so you keep the official runtime and marketplace, and gain a lighter, higher-capacity way to work.
+**Dashr** (*/ˈdæʃ.ɚ/*) makes your native [`dsh`](https://github.com/deepseek-ai/deepseek-harness) ready for serious coding.
 
 ---
 
 ## Why
 
-1. **Make your native `dsh` ready for serious coding** — keep the official DeepSeek Harness, add the pieces that turn it into a real development environment.
-2. **Light context injection, maximal capacity** — state lives in the kernel instead of the chat window, so long tasks stop paying token costs to re-derive what already exists. *A cognition-frictionless setup.*
+- **$(\text{Tools} \times \text{URL schemas})^{\text{REPL}}$** - a concise, cognitively frictionless setup delivering maximal capacity.
+- Universal **Tools** - `read`, `write`, `grep`, `glob`.
+- **URL schemas** - `skill://`, `ctx://`, `agent://`, `dvc://`, `dsh://`, an intuitive, unified interface for runtime resources.
+- Session-persistent **REPL Kernel** - IPython (compared with the native ephemeral TS REPL).
+
+- **Context as Variables** - full session transcripts are accessible as variables, even cross compactions.
+- **Full Context Revive** — full-namespace `dill` snapshots save and restore kernel state across restarts.
 
 ---
 
-## ✨ Features
+## ✨ Other Features
 
-- 🐍 **Session-persistent IPython kernel** — better than the native one-shot REPL engine: one kernel per session, where variables, imports, and definitions survive across turns. *Context as variables.*
-- 🔗 **Unified `scheme://` addressing** — one intuitive interface to runtime resources: `skill://`, `ctx://`, `agent://`, `dvc://`, `dsh://` (plus `http(s)://`).
-- 🧰 **Wired-in IDE** — LSP diagnostics on write/edit, AST codemods (`ast_edit` / `ast_grep`), and hash-anchored `edit` / `undo_last_edit` with write previews.
-- 🤝 **Agent swarm as resources** — sub-agents, workflows, and Ralph loops are first-class calls inside a cell (`subagent`, `workflow`, `ralph`, `send_message`).
-- 💾 **Snapshots** — full-namespace `dill` snapshots save and restore kernel state across restarts.
-- 🛡️ **Self-managed kernel environment** — the runtime provisions its own CPython 3.11 venv (`ipykernel` + `dill`); no blind trust in a host `python3`.
+- **Agent swarm as resources** — sub-agents, workflows, and Ralph loops are first-class calls inside a cell (`subagent`, `workflow`, `ralph`, `send_message`).
+- Global fallback LLM provider/model which is absent in the native build (safeguard for long range, unattended tasks).
+- 3~4K system prompt usage.
+- **`dvc://broswer`** - browser use ready.
+
+
+## Recommended Companion Plugin(s)
+
+- `dsh-better-sidebar`
+- `corti` multi agent memory plugin
 
 ---
 
 ## ⚡ Quick Install
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/pgmi-builds/better-dsh/main/install.sh | bash
-```
-
-Or via npm:
 
 ```bash
 dsh plugin --profile web add --config.auto-install-peers=false @pgmi-builds/better-dsh@latest
 ```
-
-> Code inside a cell runs with the permissions of the local user running `dsh` — run Dashr where you trust the agent's code execution (or inside a container).
 
 ---
 

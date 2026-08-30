@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 import type { Context } from '@deepseek-ai/cordis'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { PostToolDecision } from '@deepseek-ai/dsh-tools'
-import { CallId, createUserMessage } from '@deepseek-ai/dsh-llm'
+import { createUserMessage } from '@deepseek-ai/dsh-llm'
+import { toolCallId } from '../src/tool-call-id.ts'
 import type { ToolExecutionToken } from '@deepseek-ai/dsh-tools'
 import { createRunCellTool } from '../src/index.ts'
 import { FakeCellRuntime, fakeRuntime, runCell, setupPresentation } from './helpers.ts'
@@ -391,10 +392,10 @@ describe('the eval dispatch bridge (result shaping)', () => {
       .toEqual(['context for call-1:code:1', 'context for call-1:code:2'])
   })
 
-  it('a throwing tools/code-dispatch-log listener is contained: the original settled content is logged', async () => {
+  it('a throwing dashr/repl-dispatch-log listener is contained: the original settled content is logged', async () => {
     const { ctx, agent } = await setupPresentation(fakeRuntime)
     registerEcho(ctx)
-    ctx.on('tools/code-dispatch-log', () => { throw new Error('log-content listener failed') })
+    ctx.on('dashr/repl-dispatch-log', () => { throw new Error('log-content listener failed') })
     const runtime = ctx.get('replRuntime') as FakeCellRuntime
     runtime.behavior = async (request) => {
       const flatTool = (name: string) => tool(request, name)
@@ -407,10 +408,10 @@ describe('the eval dispatch bridge (result shaping)', () => {
     expect(settle?.data).toMatchObject({ name: 'echo', isError: false, content: [{ type: 'text', text: 'echo:x' }] })
   })
 
-  it('a tools/code-dispatch-log listener may replace the durable copy without touching the program value', async () => {
+  it('a dashr/repl-dispatch-log listener may replace the durable copy without touching the program value', async () => {
     const { ctx, agent } = await setupPresentation(fakeRuntime)
     registerEcho(ctx)
-    ctx.on('tools/code-dispatch-log', (dispatch, next) => {
+    ctx.on('dashr/repl-dispatch-log', (dispatch, next) => {
       if (dispatch.name !== 'echo') return next()
       return Promise.resolve([{ type: 'text', text: 'spilled: locator' }])
     })
@@ -485,8 +486,8 @@ describe('the eval dispatch bridge (result shaping)', () => {
     const output = await tool.execute(
       { cell: 'program', description: 'agentless cell' },
       {
-        callId: CallId('agentless-call'),
-        rootCallId: CallId('agentless-call'),
+        callId: toolCallId('agentless-call'),
+        rootCallId: toolCallId('agentless-call'),
         token: Symbol('agentless-token') as ToolExecutionToken,
         name: 'eval',
         arguments: {},

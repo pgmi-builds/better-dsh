@@ -17,7 +17,7 @@ import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import ToolRuntime from '@deepseek-ai/dsh-tools'
 import type { ToolExecutionResult } from '@deepseek-ai/dsh-tools'
-import { CallId } from '@deepseek-ai/dsh-llm'
+import { toolCallId } from '../../src/tool-call-id.ts'
 import { agentEvents } from '@deepseek-ai/dsh-agent'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import { createScope } from '@deepseek-ai/dsh-scope'
@@ -127,7 +127,7 @@ function registerGlobalFake(ctx: Context, name: string, execute?: (args: unknown
 async function modelDirect(surface: Surface, name: string, args: unknown): Promise<ToolExecutionResult> {
   return await surface.ctx.tools.execute({
     signal: new AbortController().signal,
-    callId: CallId('call-direct'),
+    callId: toolCallId('call-direct'),
     name,
     arguments: args,
     agent: surface.agent,

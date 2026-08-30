@@ -36,12 +36,14 @@ import type { SessionId } from '@deepseek-ai/dsh-session'
 
 /**
  * The subset of upstream `SubagentReportOptions` the bridge constructs.
- * `delivery` is FIXED at `'wakeup'` (the upstream default): it is a parent
- * scheduling policy, deliberately not exposed to the model.
+ * `delivery` is the parent scheduling policy (always `'next-step'` — 0.1.2+
+ * renamed the RC `'wakeup'`), deliberately not exposed to the model. The field
+ * type stays a supertype of `SubagentRuntime.reportFrom`'s `'quiet' | 'next-step'`
+ * so this local surface casts cleanly.
  */
 export interface DASHRSubagentReportOptions {
-  /** Already-resolved parent scheduling policy (always `'wakeup'` from this bridge). */
-  readonly delivery: 'wakeup'
+  /** Already-resolved parent scheduling policy (always `'next-step'`). */
+  readonly delivery: 'quiet' | 'next-step'
   /** Caller cancellation, owning authorization and admission until acceptance. */
   readonly signal: AbortSignal
 }

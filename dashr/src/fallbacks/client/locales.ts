@@ -1,0 +1,506 @@
+/**
+ * Fallbacks settings section dictionaries (zh source of truth) plus the
+ * `fallbacks` LocaleNamespaceMap merge — the registration's `locale:` seat
+ * (`PropsLocale<'fallbacks'>` puts the typed `t` on the section props).
+ *
+ * Label conventions follow spec §4 用户直观性: enumerable config values
+ * (triggerCodes / revertPolicy) render readable labels, never raw enum
+ * strings.
+ */
+import { defaultFallbacksConfig } from '../config.ts'
+import type { FallbackSwitchReason } from '../events.ts'
+
+/** Simplified Chinese dictionary (the key-set source of truth). */
+export const zh = {
+  'title': 'Fallbacks',
+  'intro': '模型故障自动降级',
+  'collapse': '收起设置',
+  'expand': '展开设置',
+  'unsaved': '未保存',
+  'discard': '放弃修改',
+  'retry': '重试',
+  'readOnly': '当前环境中的设置为只读。',
+  'enabled.label': '启用故障降级',
+  'enabled.hint': '关闭后插件完全不介入',
+  'enabled.tooltip': '关闭后插件完全不介入；开启但未配置 rootChain 时行为与未安装插件一致。',
+  'enabled.off': '功能未开启：打开 enabled 开关以显示配置界面。',
+  'triggerCodes.label': '触发失败码',
+  'triggerCodes.hint': '命中这些失败码时进入降级决策',
+  'triggerCodes.tooltip': '命中这些失败码时进入降级链决策；可重试型故障（如 5xx）由 llm-retry 先行退避，预算耗尽后同样进入决策。',
+  'triggerCodes.RATE_LIMIT': '限流（429）',
+  'triggerCodes.QUOTA': '配额超限',
+  'triggerCodes.AUTH': '权限/认证失败',
+  'triggerCodes.extra': '此外还保留了 {codes} 等自定义失败码。',
+  'revertPolicy.label': '冷却结束后',
+  'revertPolicy.cooldown-expiry': '冷却到期后回主模型',
+  'revertPolicy.never': '保持备用模型（会话内不回）',
+  'revertPolicy.hint': '冷却到期后是否回主模型',
+  'revertPolicy.tooltip': '被切换离的模型在冷却期内不再入选；到期后按此策略决定是否回主。',
+  'cooldownMs.label': '冷却时长（毫秒）',
+  'cooldownMs.hint': '冷却期内模型不再入选',
+  'cooldownMs.tooltip': '被切离/失败的模型在冷却期内不再入选。',
+  'maxSwitchesPerStep.label': '单步最大切换次数',
+  'maxSwitchesPerStep.hint': '超过后停止切换',
+  'maxSwitchesPerStep.tooltip': '超过后停止切换，以原始错误语义结束当前步，防止链循环放大延迟。',
+  'alwaysModeRetryCap.label': 'always 模式重试上限',
+  'alwaysModeRetryCap.hint': '达到上限次数后切换；0 表示禁用',
+  'alwaysModeRetryCap.tooltip': 'retryPolicy 为 always 的模型在同一请求内重试达到该次数后切换；0 表示禁用。',
+  'advanced.label': '高级选项',
+  'advanced.expand': '展开高级选项',
+  'advanced.collapse': '收起高级选项',
+  'roleAutoMatch.label': '启用角色自动匹配',
+  'roleAutoMatch.hint': '规则未命中时，由模型自选最贴近的已声明角色',
+  'roleAutoMatch.tooltip': '规则未命中时，模型会自动从已声明角色（id + persona）中选择最匹配者并注入该角色的链；关闭后未命中规则时按现状回落（inherit / rootChain）。',
+  // PR #62 feedback round: 默认降级链 is the all-day fallback chain as a
+  // configurable selector list (no Flash|Pro radio — that panel moved to
+  // 默认模型); the preemption hints are removed.
+  'rootChain.label': '默认降级链',
+  'rootChain.tooltip': '未命中任何分时槽时先走这条降级链；全部失败后落到下面的默认模型。',
+  'defaultModel.label': '默认模型',
+  'chains.selector.remove': '删除该选择器',
+  'chains.selector.providerPlaceholder': '选择 provider',
+  'chains.selector.modelPlaceholder': '选择 model',
+  'chains.selector.wildcardLegacy': '该条目为通配（provider/*）：选择具体模型后将转为精确条目',
+  'chains.selector.noModelsStrict': '该 provider 暂无可用模型（目录查询失败），请改选其他 provider。',
+  // PR #62 feedback: the main-agent section heading groups the time-slot
+  // rows + the all-day chooser; the subagents heading groups roles list +
+  // rules.
+  'mainAgent.label': '主代理',
+  'subagents.label': '子代理',
+  // Time-slot rows (plan fallbacks-timeslots Task 3; PR #62 feedback
+  // round): the extra-row list sits under the 主代理 section; preset
+  // Timezone picker lives inside expanded custom rows only; preset
+  // windows stay frozen UTC+8. The label carries the UTC± cue.
+  'timeSlots.label': '分时槽设置',
+  'timeSlots.hint': '自上而下第一条命中生效；全时段行固定最后',
+  'timeSlots.tz.label': '时区（UTC±）',
+  'timeSlots.drag': '拖拽排序（或使用上下按钮）',
+  // PR #62 feedback round: collapsible slot rows — collapsed shows the
+  // row name + its first model; custom rows carry an editable name.
+  'timeSlots.name': '名称',
+  'timeSlots.expand': '展开该行',
+  'timeSlots.collapse': '收起该行',
+  'timeSlots.tooltip': '命中行的模型链成为 root 生效链（取代全时段链）；未命中任何行时使用全时段链。分时切换是路由种子而非失败决策：不消耗冷却、不计入单步切换上限。',
+  'timeSlots.addPreset': '添加预设',
+  'timeSlots.addCustom': '添加自定义时段',
+  'timeSlots.presetPlaceholder': '选择预设',
+  'timeSlots.remove': '删除该时段行',
+  'timeSlots.moveUp': '上移该时段行',
+  'timeSlots.moveDown': '下移该时段行',
+  'timeSlots.start': '开始（HH:mm）',
+  'timeSlots.end': '结束（HH:mm）',
+  'timeSlots.days': '星期',
+  'timeSlots.days.hint': '不勾选 = 每天；可跨午夜',
+  'timeSlots.preset.name': '预设',
+  'timeSlots.preset.windowLabel': '时段（只读）',
+  'timeSlots.preset.chainsOnly': '预设窗口已锁定：仅可编辑模型链',
+  'timeSlots.preset.liang-peak.label': '梁文峰',
+  'timeSlots.preset.liang-peak.window': '09:00–12:00 与 14:00–18:00（周一至周五，UTC+8）',
+  'timeSlots.preset.liang-valley.label': '梁文谷',
+  'timeSlots.preset.liang-valley.window': 'Liang Peak 之外的所有时间（UTC+8）',
+  'timeSlots.preset.glm-peak.label': 'GLM峰',
+  'timeSlots.preset.glm-peak.window': '周一至周五 14:00–18:00（UTC+8）',
+  'timeSlots.preset.glm-valley.label': 'GLM谷',
+  'timeSlots.preset.glm-valley.window': 'GLM Peak 之外的所有时间（UTC+8）',
+  // PR #62 feedback: the GLM presets route to zai-coding-cn models — the
+  // caveat rides every GLM preset row (shared by both GLM presets).
+  'timeSlots.preset.glm.note': '仅配置了 zai-coding-cn 时有效',
+  // PR #62 UX round 4: cost/multiplier tags on the peak preset rows (red
+  // 高消耗 + yellow x2/x3) and the active-slot indicator — literal product
+  // strings, zh source of truth.
+  'timeSlots.preset.highCost': '高消耗',
+  'timeSlots.preset.multiplier': 'x{n}',
+  'timeSlots.active': '激活',
+  // PR #62 UX round 4 part B: the GLM presets route to zai-coding-cn — the
+  // suffix explains why the option is disabled until the provider is
+  // configured (the note wording: 仅配置了 zai-coding-cn 时有效).
+  'timeSlots.preset.glm.unconfigured': '（需配置 zai-coding-cn）',
+  'timeSlots.day.sun': '日',
+  'timeSlots.day.mon': '一',
+  'timeSlots.day.tue': '二',
+  'timeSlots.day.wed': '三',
+  'timeSlots.day.thu': '四',
+  'timeSlots.day.fri': '五',
+  'timeSlots.day.sat': '六',
+  'timeSlots.selector.add': '添加选择器',
+  // All-day head (plan fallbacks-timeslots Task 3; PR #62 feedback round):
+  // the 默认模型 panel is the official V4 Flash XOR Pro head of the
+  // default fallback chain — separate from the 默认降级链 selector list.
+  'allDay.hint': '全天链的最后一档兜底：官方 V4 Flash 或 V4 Pro 二选一',
+  'allDay.flash': '官方 V4 Flash（deepseek-official/deepseek-v4-flash）',
+  'allDay.pro': '官方 V4 Pro（deepseek-official/deepseek-v4-pro）',
+  'allDay.nonconforming': '当前默认模型不合法：请选择官方 V4 Flash 或 V4 Pro 后保存',
+  'roles.list.label': '角色实体',
+  'roles.list.hint': '先声明角色，规则才能引用',
+  'roles.list.tooltip': '角色 id 须匹配 /^[a-z0-9-]{1,32}$/ 且唯一；"inherit" 为保留字，不能用作角色 id。',
+  'roles.id': 'id',
+  'roles.id.hint': '小写字母/数字/连字符，1–32 字符',
+  'roles.idPlaceholder': '例如 reviewer',
+  'roles.persona': '人格提示',
+  'roles.personaPlaceholder': '例如：你是资深代码审查员',
+  'roles.seedDefault': 'seed 默认',
+  'roles.seedOverride': 'seed 覆盖',
+  'roles.revertPersona': '还原 Seed 默认',
+  'roles.seedChainOptional': '角色 "{id}" 为 seed 角色：链可留空，保存不会被拦截',
+  'roles.fallback': '链拼接策略',
+  'roles.fallback.inherit-root': '继承 root（角色链后追加 rootChain）',
+  'roles.fallback.none': '仅角色链（不追加 rootChain）',
+  'roles.add': '添加角色',
+  'roles.remove': '删除该角色',
+  // PR #62 feedback round: collapsible role panels — collapsed shows the
+  // role id + its first chain model (or inherit-root when the chain is
+  // empty under the inherit-root strategy).
+  'roles.expand': '展开该角色',
+  'roles.collapse': '收起该角色',
+  'roles.selector.add': '添加选择器',
+  'roles.rules': '角色规则',
+  // PR #62 feedback: rules are subagent-only — no origin constraint; root
+  // requests never match rules (inherit → rootChain).
+  'roles.rules.hint': '仅对子代理生效：顺序匹配 provider/model，未命中 → inherit（root 链）',
+  'roles.rules.tooltip': '规则仅对子代理生效（root 请求不匹配规则）：命中后走对应角色的链；未命中走内置 inherit（rootChain）。',
+  'roles.rule.provider': 'provider',
+  'roles.rule.provider.any': '任意',
+  'roles.rule.model': 'model',
+  'roles.rule.model.any': '任意',
+  'roles.rule.role': '角色',
+  'roles.rule.role.inherit': 'inherit（内置：root 链）',
+  'roles.rule.roleSelectPlaceholder': '选择角色',
+  'roles.rule.roleUndeclared.short': '（未声明）',
+  'roles.addRule': '添加规则',
+  'roles.removeRule': '删除该规则',
+  'validation.blocked': '配置校验未通过，保存被拦截：',
+  'validation.roleIdFormat': '角色 id "{id}" 不符合格式 /^[a-z0-9-]{1,32}$/',
+  'validation.roleIdReserved': '"inherit" 为保留角色 id，不能用于角色实体',
+  'validation.roleIdDuplicate': '角色 id "{id}" 重复',
+  'validation.ruleRoleUndeclared': '规则引用了未声明的角色 "{role}"',
+  'validation.ruleRoleRequired': '规则未选择角色：请选择目标角色，或删除该行',
+  'validation.roleChainRequired': '角色 "{id}" 未配置模型：请至少添加一条链选择器（模型配置）',
+  'validation.allDayRequired': '默认模型必须二选一：官方 V4 Flash 或 V4 Pro',
+  'validation.slotChainRequired': '分时槽未配置模型：请至少添加一条链选择器',
+  'validation.slotWindow': '分时槽开始/结束时间须为 HH:mm 格式',
+  'validation.slotDays': '星期取值须为 0–6 的整数',
+  'validation.slotKind': '分时槽 kind 须为 "preset" 或 "custom"',
+  'validation.slotPresetUnknown': '未知的分时槽预设 "{preset}"',
+  'validation.slotPresetDuplicate': '预设 "{preset}" 已存在：每个预设只能添加一行',
+  'validation.slotPresetFrozen': '预设窗口是冻结代码常量：预设行不能携带 start/end/days',
+  'validation.selector': '选择器 "{entry}" 非法：{message}',
+  'legacy.banner': '检测到旧格式配置字段（{keys}）：已按新模型展示，请按 docs/configuration.md 迁移表手工改写；插件不会自动改写配置。',
+  'catalog.empty': '暂无可用模型：请先在模型页添加模型，添加后此处将自动可选。',
+  'catalog.error': '模型目录读取失败：{message}',
+  'catalog.partial': '部分 provider 模型查询失败：{message}',
+  'catalog.outside.hint': '目录外，可保留原值',
+  'catalog.outside.tooltip': '不在当前模型目录，可保留原值并保存；新增条目仅可从目录选择。',
+  'catalog.outside.short': ' （目录外）',
+  'catalog.unconfigured.short': ' （未配置）',
+  'status.title': '运行状态（只读）',
+  'status.switches.label': '最近切换：',
+  'status.switches.empty': '本会话暂无 fallback 切换。',
+  'status.switches.error': '切换历史读取失败：{message}',
+  'status.switches.compact': '最近 {count} 次 · {from} → {to}（{role} · {reason}）',
+  // Task 5 (direction 3): the role-inject line reads naturally as the
+  // resolved role → its chain-head model (`{to}`) instead of the generic
+  // `({role} · {reason})` parenthetical — role + reason stay visible.
+  // The destination `{to}` appears once (as its role→model mapping), not
+  // twice: the leading `{from} → {to}` is dropped.
+  'status.switches.compact.roleInject': '最近 {count} 次 · {role} → {to}（{reason}）',
+  'status.switches.reason.trigger-code': '触发失败码',
+  'status.switches.reason.always-cap': 'always 模式上限',
+  // One shared reason key family for every seat (qc1 F-004): role-inject
+  // resolves from the same `status.switches.reason.*` family as the other
+  // reasons — the conversation node reads it through the same shared map.
+  'status.switches.reason.role-inject': '角色注入',
+  'general.title': '模型故障降级',
+  'general.enabled': '已启用',
+  'general.disabled': '未启用',
+  'general.unknown': '未知',
+  'general.unavailable': '状态通道暂不可达',
+  'general.switch': '最近切换：{from} → {to}（{role} · {reason}）',
+  // Task 5 (direction 3): same dedupe as `status.switches.compact.roleInject`.
+  'general.switch.roleInject': '最近切换：{role} → {to}（{reason}）',
+  'general.switch.empty': '本会话暂无切换',
+  'general.error': '状态读取失败：{message}',
+  'chat.switch.title': '模型已降级',
+  'chat.switch.summary': '{from} → {to}（{reason}）',
+  // Role-mapped (role-inject) summary on the conversation node (qc1 F-002 /
+  // qc2 F-003 dedupe): the `role → model` mapping is the primary info, so
+  // the summary carries only the reason — `{to}` does not appear twice.
+  'chat.switch.summary.roleInject': '（{reason}）',
+  'chat.switch.roleMap': '{role} → {model}',
+  'defaults.prefix': '默认值',
+  'save': '保存',
+  'save.saving': '保存中…',
+  'save.error': '保存失败：{message}',
+  'close': '关闭',
+  'loading': '加载中…',
+  'unavailable': 'fallbacks 配置通道暂不可达：以下显示默认配置（或上次读取值），可尝试保存；保存失败会在此处如实提示。',
+  'error.generic': '出错：{message}',
+} satisfies Record<string, string>
+
+/** The fallbacks dictionary key union. */
+export type FallbacksKey = keyof typeof zh
+
+/** English dictionary, checked complete against the zh key set. */
+export const en = {
+  'title': 'Fallbacks',
+  'intro': 'Automatic fallback on model failures',
+  'collapse': 'Hide settings',
+  'expand': 'Show settings',
+  'unsaved': 'Unsaved',
+  'discard': 'Discard',
+  'retry': 'Retry',
+  'readOnly': 'Settings are read-only in this environment.',
+  'enabled.label': 'Enable failure fallback',
+  'enabled.hint': 'Plugin never intervenes when off',
+  'enabled.tooltip': 'When off the plugin never intervenes; when on with no rootChain configured behavior is identical to an uninstalled plugin.',
+  'enabled.off': 'Feature disabled: turn on the enabled switch to show the configuration interface.',
+  'triggerCodes.label': 'Trigger failure codes',
+  'triggerCodes.hint': 'Failures with these codes enter fallback decision',
+  'triggerCodes.tooltip': 'Failures with these codes enter chain decision; retryable failures (e.g. 5xx) back off via llm-retry first and reach the decision only when its budget is exhausted.',
+  'triggerCodes.RATE_LIMIT': 'Rate limit (429)',
+  'triggerCodes.QUOTA': 'Quota exceeded',
+  'triggerCodes.AUTH': 'Auth / permission failure',
+  'triggerCodes.extra': 'Custom codes are preserved: {codes}.',
+  'revertPolicy.label': 'After cooldown',
+  'revertPolicy.cooldown-expiry': 'Return to the primary model',
+  'revertPolicy.never': 'Keep the fallback model (until session end)',
+  'revertPolicy.hint': 'Whether to return to the primary model after cooldown',
+  'revertPolicy.tooltip': 'A model switched away from stays out of candidacy during its cooldown; this policy decides whether it returns afterwards.',
+  'cooldownMs.label': 'Cooldown (milliseconds)',
+  'cooldownMs.hint': 'Models stay out of candidacy during cooldown',
+  'cooldownMs.tooltip': 'Switched-away or failed models stay out of candidacy during the cooldown window.',
+  'maxSwitchesPerStep.label': 'Max switches per step',
+  'maxSwitchesPerStep.hint': 'Stops switching beyond the cap',
+  'maxSwitchesPerStep.tooltip': 'Beyond this the step stops switching and ends with the original error semantics, preventing chain loops from amplifying latency.',
+  'alwaysModeRetryCap.label': 'Always-mode retry cap',
+  'alwaysModeRetryCap.hint': 'Switches after the cap; 0 disables',
+  'alwaysModeRetryCap.tooltip': 'Models whose retryPolicy is always switch after this many retries within one request; 0 disables.',
+  'advanced.label': 'Advanced options',
+  'advanced.expand': 'Show advanced options',
+  'advanced.collapse': 'Hide advanced options',
+  'roleAutoMatch.label': 'Enable role auto-match',
+  'roleAutoMatch.hint': 'On rules-miss, the model picks the closest declared role',
+  'roleAutoMatch.tooltip': 'When no rule matches, the model auto-selects the best-fit declared role (id + persona) and uses its chain; turn off to keep today\'s fallback (inherit / rootChain) on a rules-miss.',
+  // PR #62 feedback round: the default fallback chain is the all-day chain
+  // as a configurable selector list (no Flash|Pro radio — that panel moved
+  // to 默认模型); the preemption hints are removed.
+  'rootChain.label': 'Default fallback chain',
+  'rootChain.tooltip': 'Walked first whenever no time slot matches; if every entry fails, the default model below is the last fallback.',
+  'defaultModel.label': 'Default model',
+  'chains.selector.remove': 'Remove this selector',
+  'chains.selector.providerPlaceholder': 'Select provider',
+  'chains.selector.modelPlaceholder': 'Select model',
+  'chains.selector.wildcardLegacy': 'This entry is a wildcard (provider/*): picking a model converts it to an exact entry',
+  'chains.selector.noModelsStrict': 'No models available for this provider (catalog lookup failed); pick another provider.',
+  // PR #62 feedback: the main-agent section heading groups the time-slot
+  // rows + the all-day chooser; the subagents heading groups roles list +
+  // rules.
+  'mainAgent.label': 'Main agent',
+  'subagents.label': 'Subagents',
+  // Time-slot rows: extra-row list under Main agent. Timezone picker
+  // lives inside expanded custom rows only; preset windows stay UTC+8.
+  'timeSlots.label': 'Time slots',
+  'timeSlots.hint': 'First match from top to bottom wins; the all-day row is always last',
+  'timeSlots.tz.label': 'Timezone (UTC±)',
+  'timeSlots.drag': 'Drag to reorder (or use the up/down buttons)',
+  // PR #62 feedback round: collapsible slot rows — collapsed shows the
+  // row name + its first model; custom rows carry an editable name.
+  'timeSlots.name': 'Name',
+  'timeSlots.expand': 'Expand this row',
+  'timeSlots.collapse': 'Collapse this row',
+  'timeSlots.tooltip': 'A matched row\'s model chain becomes the effective root chain (replacing the all-day chain); no match uses the all-day chain. A time-slot switch is a routing seed, not a failure decision: it consumes no cooldown and does not count against the per-step switch cap.',
+  'timeSlots.addPreset': 'Add preset',
+  'timeSlots.addCustom': 'Add custom time slot',
+  'timeSlots.presetPlaceholder': 'Select a preset',
+  'timeSlots.remove': 'Remove this time-slot row',
+  'timeSlots.moveUp': 'Move this time-slot row up',
+  'timeSlots.moveDown': 'Move this time-slot row down',
+  'timeSlots.start': 'Start (HH:mm)',
+  'timeSlots.end': 'End (HH:mm)',
+  'timeSlots.days': 'Days',
+  'timeSlots.days.hint': 'None selected = every day; may wrap midnight',
+  'timeSlots.preset.name': 'Preset',
+  'timeSlots.preset.windowLabel': 'Window (read-only)',
+  'timeSlots.preset.chainsOnly': 'Preset windows are frozen: only the model chain is editable',
+  'timeSlots.preset.liang-peak.label': 'Liang Peak',
+  'timeSlots.preset.liang-peak.window': '09:00–12:00 & 14:00–18:00 (Monday–Friday, UTC+8)',
+  'timeSlots.preset.liang-valley.label': 'Liang Valley',
+  'timeSlots.preset.liang-valley.window': 'All times outside Liang Peak (UTC+8)',
+  'timeSlots.preset.glm-peak.label': 'GLM Peak',
+  'timeSlots.preset.glm-peak.window': 'Monday–Friday 14:00–18:00 (UTC+8)',
+  'timeSlots.preset.glm-valley.label': 'GLM Valley',
+  'timeSlots.preset.glm-valley.window': 'All times outside GLM Peak (UTC+8)',
+  // PR #62 feedback: the GLM presets route to zai-coding-cn models — the
+  // caveat rides every GLM preset row (shared by both GLM presets).
+  'timeSlots.preset.glm.note': 'Only effective when zai-coding-cn is configured',
+  // PR #62 UX round 4: cost/multiplier tags on the peak preset rows and
+  // the active-slot indicator — literal product strings (zh source of
+  // truth); the multiplier carries the `{n}` factor.
+  'timeSlots.preset.highCost': 'High Cost',
+  'timeSlots.preset.multiplier': 'x{n}',
+  'timeSlots.active': 'Active',
+  // PR #62 UX round 4 part B: the GLM presets route to zai-coding-cn — the
+  // suffix explains why the option is disabled until the provider is
+  // configured.
+  'timeSlots.preset.glm.unconfigured': ' (requires zai-coding-cn)',
+  'timeSlots.day.sun': 'Sun',
+  'timeSlots.day.mon': 'Mon',
+  'timeSlots.day.tue': 'Tue',
+  'timeSlots.day.wed': 'Wed',
+  'timeSlots.day.thu': 'Thu',
+  'timeSlots.day.fri': 'Fri',
+  'timeSlots.day.sat': 'Sat',
+  'timeSlots.selector.add': 'Add selector',
+  // All-day head (plan fallbacks-timeslots Task 3; PR #62 feedback round):
+  // the default-model panel is the official V4 Flash XOR Pro head of the
+  // default fallback chain — separate from the default-chain selector list.
+  'allDay.hint': 'Last-resort fallback of the all-day chain: official V4 Flash or Pro (pick exactly one)',
+  'allDay.flash': 'Official V4 Flash (deepseek-official/deepseek-v4-flash)',
+  'allDay.pro': 'Official V4 Pro (deepseek-official/deepseek-v4-pro)',
+  'allDay.nonconforming': 'The current default model is not valid: pick official V4 Flash or Pro before saving',
+  'roles.list.label': 'Declared roles',
+  'roles.list.hint': 'Declare roles before rules can reference them',
+  'roles.list.tooltip': 'Role ids must match /^[a-z0-9-]{1,32}$/ and be unique; "inherit" is reserved and cannot be used as a role id.',
+  'roles.id': 'ID',
+  'roles.id.hint': 'lowercase letters, digits, hyphens; 1–32 chars',
+  'roles.idPlaceholder': 'e.g. reviewer',
+  'roles.persona': 'Persona',
+  'roles.personaPlaceholder': 'e.g. you are a senior code reviewer',
+  'roles.seedDefault': 'Seed default',
+  'roles.seedOverride': 'Seed override',
+  'roles.revertPersona': 'Revert to seed default',
+  'roles.seedChainOptional': 'Role "{id}" is a seed role: the chain may stay empty',
+  'roles.fallback': 'Chain append',
+  'roles.fallback.inherit-root': 'Inherit root (append rootChain after the role chain)',
+  'roles.fallback.none': 'Role chain only (no rootChain)',
+  'roles.add': 'Add role',
+  'roles.remove': 'Remove this role',
+  // PR #62 feedback round: collapsible role panels — collapsed shows the
+  // role id + its first chain model (or inherit-root when the chain is
+  // empty under the inherit-root strategy).
+  'roles.expand': 'Expand this role',
+  'roles.collapse': 'Collapse this role',
+  'roles.selector.add': 'Add selector',
+  'roles.rules': 'Role rules',
+  // PR #62 feedback: rules are subagent-only — no origin constraint; root
+  // requests never match rules (inherit → rootChain).
+  'roles.rules.hint': 'Subagents only: matches provider/model in order; no match → inherit (root chain)',
+  'roles.rules.tooltip': 'Rules apply to subagents only (root requests never match): a matched rule uses that role\'s chain; no match uses the built-in inherit (rootChain).',
+  'roles.rule.provider': 'provider',
+  'roles.rule.provider.any': 'Any',
+  'roles.rule.model': 'model',
+  'roles.rule.model.any': 'Any',
+  'roles.rule.role': 'role',
+  'roles.rule.role.inherit': 'inherit (built-in: root chain)',
+  'roles.rule.roleSelectPlaceholder': 'Select role',
+  'roles.rule.roleUndeclared.short': ' (undeclared)',
+  'roles.addRule': 'Add rule',
+  'roles.removeRule': 'Remove this rule',
+  'validation.blocked': 'Configuration validation failed; save was blocked: ',
+  'validation.roleIdFormat': 'Role id "{id}" does not match /^[a-z0-9-]{1,32}$/',
+  'validation.roleIdReserved': '"inherit" is a reserved role id and cannot be declared',
+  'validation.roleIdDuplicate': 'Duplicate role id "{id}"',
+  'validation.ruleRoleUndeclared': 'Rule references undeclared role "{role}"',
+  'validation.ruleRoleRequired': 'Rule has no role selected: pick a target role, or remove the row',
+  'validation.roleChainRequired': 'Role "{id}" has no model config: add at least one chain entry',
+  'validation.allDayRequired': 'The default model must be exactly one official V4 model (V4 Flash or V4 Pro)',
+  'validation.slotChainRequired': 'Time-slot row has no models: add at least one chain entry',
+  'validation.slotWindow': 'Time-slot start/end must use HH:mm format',
+  'validation.slotDays': 'Days must be integers 0–6',
+  'validation.slotKind': 'Time-slot kind must be "preset" or "custom"',
+  'validation.slotPresetUnknown': 'Unknown time-slot preset "{preset}"',
+  'validation.slotPresetDuplicate': 'Preset "{preset}" already exists: at most one row per preset',
+  'validation.slotPresetFrozen': 'Preset windows are frozen code constants: a preset row cannot carry start/end/days',
+  'validation.selector': 'Invalid selector "{entry}": {message}',
+  'legacy.banner': 'Legacy config fields detected ({keys}): now shown in the new model — rewrite them manually following the migration table in docs/configuration.md (the plugin will not rewrite them automatically).',
+  'catalog.empty': 'No models yet: add a model on the Models page first; options will appear here automatically.',
+  'catalog.error': 'Model catalog read failed: {message}',
+  'catalog.partial': 'Some provider model lookups failed: {message}',
+  'catalog.outside.hint': 'Outside catalog; the value can be kept',
+  'catalog.outside.tooltip': 'Not in the current model catalog; you can keep the original value and save it (new entries are restricted to the catalog).',
+  'catalog.outside.short': ' (outside catalog)',
+  'catalog.unconfigured.short': ' (not configured)',
+  'status.title': 'Runtime status (read-only)',
+  'status.switches.label': 'Recent switches: ',
+  'status.switches.empty': 'No fallback switches in this session yet.',
+  'status.switches.error': 'Switch history read failed: {message}',
+  'status.switches.compact': 'last {count} · {from} → {to} ({role} · {reason})',
+  'status.switches.compact.roleInject': 'last {count} · {role} → {to} ({reason})',
+  'status.switches.reason.trigger-code': 'trigger code',
+  'status.switches.reason.always-cap': 'always-mode cap',
+  // One shared reason key family for every seat (qc1 F-004): role-inject
+  // resolves from the same `status.switches.reason.*` family as the other
+  // reasons — the conversation node reads it through the same shared map.
+  'status.switches.reason.role-inject': 'role inject',
+  'general.title': 'Model failover',
+  'general.enabled': 'Enabled',
+  'general.disabled': 'Disabled',
+  'general.unknown': 'Unknown',
+  'general.unavailable': 'Status channel unavailable',
+  'general.switch': 'Last switch: {from} → {to} ({role} · {reason})',
+  'general.switch.roleInject': 'Last switch: {role} → {to} ({reason})',
+  'general.switch.empty': 'No switches this session',
+  'general.error': 'Status read failed: {message}',
+  'chat.switch.title': 'Model downgraded',
+  'chat.switch.summary': '{from} → {to} ({reason})',
+  // Role-mapped (role-inject) summary on the conversation node (qc1 F-002 /
+  // qc2 F-003 dedupe): the `role → model` mapping is the primary info, so
+  // the summary carries only the reason — `{to}` does not appear twice.
+  'chat.switch.summary.roleInject': '({reason})',
+  'chat.switch.roleMap': '{role} → {model}',
+  'defaults.prefix': 'Default',
+  'save': 'Save',
+  'save.saving': 'Saving…',
+  'save.error': 'Save failed: {message}',
+  'close': 'Close',
+  'loading': 'Loading…',
+  'unavailable': 'The fallbacks config channel is unreachable: showing the default configuration (or the last read value). You can try to save; failures will be reported here.',
+  'error.generic': 'Error: {message}',
+} satisfies Record<FallbacksKey, string>
+
+/** The settings section's dictionary namespace. */
+export const NS = 'fallbacks'
+
+declare module '@deepseek-ai/dsh-client-ui-slots' {
+  interface LocaleNamespaceMap {
+    /** This feature's settings-section copy. */
+    fallbacks: FallbacksKey
+  }
+}
+
+/**
+ * Reason → locale key map for switch summaries (S-c; shared by the card's
+ * status block, the General page status row, and the conversation node). All
+ * reasons resolve from ONE key family (`status.switches.reason.*`) — the
+ * shared reason vocabulary must not mix dictionary families (qc1 F-004). The
+ * session log is durable and forward-compatible: a reason value outside the
+ * current union (a newer plugin wrote it) renders raw instead of falling
+ * into a binary else branch.
+ */
+export const SWITCH_REASON_KEYS: Readonly<Partial<Record<FallbackSwitchReason, FallbacksKey>>> = {
+  'trigger-code': 'status.switches.reason.trigger-code',
+  'always-cap': 'status.switches.reason.always-cap',
+  'role-inject': 'status.switches.reason.role-inject',
+}
+
+/** Human-readable trigger-code labels (spec §4 用户直观性). */
+export const TRIGGER_CODE_LABELS: Readonly<Record<string, FallbacksKey>> = {
+  RATE_LIMIT: 'triggerCodes.RATE_LIMIT',
+  QUOTA: 'triggerCodes.QUOTA',
+  AUTH: 'triggerCodes.AUTH',
+}
+
+/**
+ * The known trigger codes the form toggles; unknown codes are preserved.
+ * M-04: derived from the host defaults so the toggle set can never drift from
+ * the decision set (`defaultFallbacksConfig.triggerCodes` is the single
+ * source of truth; the labels mapping above stays keyed by code).
+ */
+export const KNOWN_TRIGGER_CODES: readonly string[] = [...defaultFallbacksConfig.triggerCodes]
+
+/** Toggle one known code's membership in `codes` (used by the form; pure). */
+export function withTriggerCode(codes: readonly string[], code: string, present: boolean): string[] {
+  const next = new Set(codes)
+  if (present) next.add(code)
+  else next.delete(code)
+  return [...next]
+}

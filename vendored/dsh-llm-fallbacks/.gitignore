@@ -1,0 +1,23 @@
+# Morning Star harness (.mstar/)
+# Principle: process stays local; results are shared with the team.
+# Ignored (process / coordination):
+.mstar/**
+!.mstar/knowledge/
+!.mstar/knowledge/**
+!.mstar/specs/
+!.mstar/specs/**
+!.mstar/AGENTS.md
+# Tracked (results): .mstar/AGENTS.md, .mstar/knowledge/, .mstar/specs/
+
+# feature worktrees
+.worktrees/
+
+# build artifacts
+node_modules/
+dist/
+.build/
+.pnpm-store/
+.mstar/agent-flow.jsonl
+
+# local dsh verify sandbox profiles (QA sandbox attempts; contains node_modules)
+.dsh-verify/

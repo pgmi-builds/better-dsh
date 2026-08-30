@@ -26,7 +26,7 @@ export async function setupRuntime(config: Config = {}): Promise<{ fiber: Awaite
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime, { defineTool } from '@deepseek-ai/dsh-tools'
 import type { ToolExecutionResult } from '@deepseek-ai/dsh-tools'
-import { CallId } from '@deepseek-ai/dsh-llm'
+import { toolCallId } from '../src/tool-call-id.ts'
 import { createScope } from '@deepseek-ai/dsh-scope'
 import type { Scope } from '@deepseek-ai/dsh-scope'
 import type { Agent } from '@deepseek-ai/dsh-agent'
@@ -254,7 +254,7 @@ export async function runCell(
 ): Promise<ToolExecutionResult> {
   return ctx.tools.execute({
     signal: toolSignal,
-    callId: CallId('call-1'),
+    callId: toolCallId('call-1'),
     name: 'eval',
     arguments: { cell, description: extras.description ?? 'Run the test cell' },
     ...extras.agent ? { agent: extras.agent } : {},

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Context } from '@deepseek-ai/cordis'
 import { defineTool } from '@deepseek-ai/dsh-tools'
-import { CallId } from '@deepseek-ai/dsh-llm'
+import { toolCallId } from '../src/tool-call-id.ts'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import { FakeCellRuntime, fakeRuntime, registerFakeDelegationTools, runCell, setupPresentation } from './helpers.ts'
 import { resolveMaxParallelSubCalls } from '../src/index.ts'
@@ -29,7 +29,7 @@ function registerEcho(ctx: Context, name = 'echo'): unknown[] {
 async function modelDirect(ctx: Context, name: string, agent: Agent, arguments_: unknown) {
   return ctx.tools.execute({
     signal: new AbortController().signal,
-    callId: CallId('call-direct'),
+    callId: toolCallId('call-direct'),
     name,
     arguments: arguments_,
     agent,
