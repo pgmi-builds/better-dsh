@@ -43,9 +43,7 @@
     },
     "client": {
       "inject": [
-        "@deepseek-ai/dsh-client-ui-settings-plugins",
         "@deepseek-ai/dsh-client-ui-settings",
-        "@deepseek-ai/dsh-client-ui-conversation",
         "@deepseek-ai/dsh-client-locale",
         "@deepseek-ai/dsh-client-connection",
         "@deepseek-ai/dsh-api-remotes"
@@ -74,6 +72,7 @@
     "@deepseek-ai/dsh-home-paths": ">=0.1.2-alpha.1 <0.2.0-0",
     "@deepseek-ai/dsh-invariants": ">=0.1.2-alpha.1 <0.2.0-0",
     "@deepseek-ai/dsh-llm": ">=0.1.2-alpha.1 <0.2.0-0",
+    "@deepseek-ai/dsh-llm-retry": ">=0.1.2-alpha.1 <0.2.0-0",
     "@deepseek-ai/dsh-persona": ">=0.1.2-alpha.1 <0.2.0-0",
     "@deepseek-ai/dsh-plan-mode": ">=0.1.2-alpha.1 <0.2.0-0",
     "@deepseek-ai/dsh-sandbox": ">=0.1.2-alpha.1 <0.2.0-0",
@@ -165,6 +164,9 @@
       "optional": true
     },
     "@deepseek-ai/dsh-llm": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-llm-retry": {
       "optional": true
     },
     "@deepseek-ai/dsh-persona": {

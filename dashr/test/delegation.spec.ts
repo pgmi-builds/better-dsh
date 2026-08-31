@@ -143,7 +143,7 @@ describe('agent_message() — the A2A bridge', () => {
     expect(result.value.result).toEqual({ error: expect.stringContaining('requires {"subagent_id"') })
   })
 
-  it("receiver='parent' bridges the service layer: reportFrom with zero ids, wakeup delivery", async () => {
+  it("receiver='parent' bridges the service layer: reportFrom with zero ids, next-step delivery", async () => {
     const { ctx, agent } = await setupPresentation(fakeRuntime)
     const reports = await fakeSubagentsService(ctx)
     const runtime = ctx.get('replRuntime') as FakeCellRuntime
@@ -156,7 +156,7 @@ describe('agent_message() — the A2A bridge', () => {
     expect(reports).toHaveLength(1)
     expect(reports[0]!.child).toBe(agent.agent)
     expect(reports[0]!.content).toEqual([{ type: 'text', text: 'task complete' }])
-    expect(reports[0]!.delivery).toBe('wakeup')
+    expect(reports[0]!.delivery).toBe('next-step')
     expect(reports[0]!.signal).toBeInstanceOf(AbortSignal)
   })
 

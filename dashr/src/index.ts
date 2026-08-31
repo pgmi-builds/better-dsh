@@ -109,11 +109,10 @@ import type { DASHRSubagentsSurface, DASHRWorkflowEngine } from './subagents-sur
 import { createAgentBridgeTools } from './bridges/index.ts'
 import { createLlmCompletionTool } from './llm-completion.ts'
 import { readFileSync } from 'node:fs'
-import { installFallbacks } from './fallbacks/index.ts'
+import { installFailover } from './failover/index.ts'
 
 /** The control prompt text, loaded at module time from the sibling markdown file (editable without touching TS). */
 const CONTROL_PROMPT_TEXT = readFileSync(new URL('../control-prompt.md', import.meta.url), 'utf8')
-const { version: DASHR_VERSION } = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { version: string }
 
 
 
@@ -126,9 +125,6 @@ export const name = 'dashr-repl'
  * execution path re-reads the service at use time with an actionable error.
  */
 export const inject = ['tools']
-/** Services this plugin PROVIDES to the composition (the `llm-fallbacks` named service). */
-export const provide = ['llm-fallbacks']
-
 /** Plugin config. */
 export interface Config extends RuntimeConfig {
   maxParallelSubCalls?: number
@@ -905,12 +901,11 @@ export function apply(ctx: Context, config: Config): void {
   // before the merge; one row now owns the whole lifecycle.
   ctx.plugin(DashrRuntime, pickRuntimeConfig(config))
   ctx.plugin(DshUrlSchema, config)
-  // Global LLM fallback (vendored from dsh-llm-fallbacks@0.3.5): host-plane
-  // root-context waterfalls over `agent/request` / `agent/request-error`, the
-  // `llm-fallbacks` named service, and the `fallbacks` settings gateway. All
-  // its downstream services (settings/typert/llm/commands) are conditional
-  // injects, so it degrades to a no-op on compositions without them.
-  installFallbacks(ctx, undefined, DASHR_VERSION)
+  // General LLM failover (host-plane, per-turn): root-context waterfalls over
+  // `agent/request` / `agent/request-error` walk a two-slot fallback chain on
+  // AUTH/MISSING_CREDENTIAL/QUOTA/RATE_LIMIT. No cooldown, no primary tracking; settings is a
+  // conditional inject, so it degrades to a no-op without a settings service.
+  installFailover(ctx)
   const logger = ctx.logger('dashr-repl')
   const maxParallel = resolveMaxParallelSubCalls(config.maxParallelSubCalls)
 

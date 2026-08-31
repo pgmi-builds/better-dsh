@@ -1,0 +1,41 @@
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 0;
+}
+
+.title {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.slots {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.slot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.slotLabel {
+  min-width: 88px;
+  flex-shrink: 0;
+  font-size: 13px;
+  color: var(--dsw-alias-text-secondary, #666);
+}
+
+.select {
+  flex: 1;
+  max-width: 280px;
+  min-width: 0;
+}
+
+.alert {
+  color: var(--dsw-alias-danger, #c0392b);
+  font-size: 12px;
+}

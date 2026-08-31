@@ -1,6 +1,6 @@
 /**
  * Client bundle build: emits the closure-factory CJS artifact the dsh web
- * loader consumes — `window.__ModuleLoader__.load({ id: 'dsh-llm-fallbacks',
+ * loader consumes — `window.__ModuleLoader__.load({ id: '@pgmi-builds/better-dsh',
  * factory: (require) => { … return module.exports; } })`. Externals resolve
  * through the loader module table (platform seed entries + the documented
  * `@deepseek-ai/dsh-client-runtime/client` exemption); everything else
@@ -41,7 +41,7 @@ import { basename, dirname, join, resolve } from 'node:path'
 import { existsSync, readFileSync } from 'node:fs'
 
 const ID = '@pgmi-builds/better-dsh'
-const ENTRY = 'src/fallbacks/client/index.ts'
+const ENTRY = 'src/failover/client/index.ts'
 const OUT_DIR = 'lib/client'
 const OUT_FILE = 'index.js'
 

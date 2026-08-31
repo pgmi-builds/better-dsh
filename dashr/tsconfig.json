@@ -15,5 +15,5 @@
     "resolveJsonModule": true,
   },
   "include": ["src", "test", "vitest.config.ts", "tsdown.config.ts"],
-  "exclude": ["src/fallbacks/client"]
+  "exclude": ["src/failover/client"]
 }
