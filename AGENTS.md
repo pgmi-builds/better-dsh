@@ -27,6 +27,7 @@
 `~/.dsh/profiles/web/` 本身是一个 pnpm workspace：
 - `package.json` 的 `dsh.profile.bundles` = `["@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app", "dshmarket", "dsh-better-sidebar", "corti-memory", "@pgmi-builds/better-dsh"]`
 - `cordis.yml` 为空 `[]`（树由 patch 组成），实际 overlay 在 `cordis.patch.yml`。
+- **plugin add 的供应链年龄门（2026-09-02 实证）**：pnpm 11.7 自带 supply-chain 策略引擎（`minimumReleaseAge`/trust policy）；`pnpm-workspace.yaml` 的 `minimumReleaseAgeExclude` 按精确版本豁免。**刚发布的 better-dsh 新版本会被年龄门挡回旧豁免版并静默覆盖部署位**（0.2.1-d 曾因此被回落成 0.2.1-a）——升级时用精确版本 add（pnpm 会自动补 exclude 条目并提示 `minimumReleaseAgeStrict`），勿信 `@latest`。另：pnpm 打完 `Done` 后偶发子进程不退出（11.7.0 worker 边车问题，Ctrl-C 无损）；profile package.json 的 `pnpm.onlyBuiltDependencies` 已失效（继任 `allowBuilds` 在 pnpm-workspace.yaml），其 WARN 为噪音可清理。
 
 ### 依赖解析 — 分层，不是一棵树
 
@@ -111,7 +112,7 @@ prod npm CLI 当 harness 核，只把插件本体和它的 harness 依赖换成 
 - 插件线: `./dashr` `npm run build`（= `tsdown && npm run build-client`）→ md5 核对同步 `lib/` 到 `~/.dsh/profiles/web/node_modules/@pgmi-builds/better-dsh/lib`（v0.2.1c 的部署方式）→ 重启 `dsh.service`。
 - harness 依赖线: **已退役**（原 `better-dsh/node_modules/@deepseek-ai/*` symlink 到 dsh-alpha 源码的方案，2026-09-02 已删——实测 host ②③ 层全量自供，嵌套 symlink 无一必需，且 alpha.1 指向对 alpha.3 host 是版本偏斜负债）。
 - 解析即第一节 ①→④ 分层；现已验证插件运行期只依赖 ②③（host 自供）+ ① 的 schemastery/cosmokit。
-- 剩余待验证: `./dashr` 构建产物走 md5 同步线部署后的 prod 冒烟（v0.2.1c 方式的完整回归）；profile 锁版本 `0.2.1-a` 与部署 `0.2.1-c` 漂移的收敛。
+- ~~剩余待验证~~ **已收敛（2026-09-02）**: `./dashr` 构建产物 md5 同步线的 prod 冒烟已跑（v0.2.1c 同步态活体 4 探针 4/4）；profile 锁/lockfile/部署位已统一为 `0.2.1-d`（经 `dsh plugin add @pgmi-builds/better-dsh@0.2.1-d`，见第一节供应链年龄门）。**发布态部署的正道是 pnpm add 精确版本**，手工 md5 同步仅限未发布的本地迭代。
 
 ---
 
@@ -121,4 +122,4 @@ prod npm CLI 当 harness 核，只把插件本体和它的 harness 依赖换成 
 
 **为什么声明 58 个 peerDeps**: 全是 dev-time 需要 —— `tsc --noEmit` 类型检查、`tsdown` dts、以及 vitest 单测（在 dsh host 之外直接 import harness 包；dev workspace 靠 pnpm `autoInstallPeers` 装上）。部署副本里它们是 `peerDependencies` 且 `peerDependenciesMeta` 全部 `optional: true`，pnpm-lock.yaml 对嵌套路径 0 引用 —— pnpm 从不要求它们在场。真正的 `dependencies` 只有 `@deepseek-ai/schemastery`（非 harness API，是插件自用的 Schema 描述符库；描述符是结构化数据、宿主 cordis 当数据解释，故可以自带副本，与 cordis 必须 peer 的身份要求相反）+ cosmokit（schemastery 的传递依赖）。
 
-**已执行**: 删除 17 条悬空 symlink，保留 `schemastery`+`cosmokit`；清理后 14/14 运行期 import 解析复测通过。曾考虑的 A（重指 z_dsh-alpha，alpha.1 与 alpha.3 host 版本偏斜、「两份 cordis」身份风险）与 B（重指 upstream checkout）均已否决。另: profile package.json 锁 `0.2.1-a` 而部署实为 `0.2.1-c`（v0.2.1c 手工同步的既有漂移，无碍）。
+**已执行**: 删除 17 条悬空 symlink，保留 `schemastery`+`cosmokit`；清理后 14/14 运行期 import 解析复测通过。曾考虑的 A（重指 z_dsh-alpha，alpha.1 与 alpha.3 host 版本偏斜、「两份 cordis」身份风险）与 B（重指 upstream checkout）均已否决。另: ~~profile package.json 锁 `0.2.1-a` 而部署实为 `0.2.1-c`~~ 漂移已于 2026-09-02 收敛——锁/lockfile/部署位统一 `0.2.1-d`（pnpm add 精确版本线）。
