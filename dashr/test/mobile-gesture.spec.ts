@@ -1,127 +1,98 @@
 import { describe, expect, it } from 'vitest'
 import {
   DEFAULT_SWIPE_THRESHOLDS,
-  classifySwipe,
-  isInteractiveOrigin,
+  admitsSwipeStart,
+  classifySwipeProgress,
   isNarrowViewport,
   resolveMobileConfig,
   type PanelState,
-  type SwipeSample,
+  type SwipeProgress,
 } from '../src/mobile/gesture.ts'
 
-const BOTH_CLOSED: PanelState = { leftExpanded: false, detailsOpen: false }
-const LEFT_OPEN: PanelState = { leftExpanded: true, detailsOpen: false }
-const DETAILS_OPEN: PanelState = { leftExpanded: false, detailsOpen: true }
+// Source anchors (z_dsh-alpha commit 1706b81, AppFrame.tsx): X120 left
+// band, right three quarters start zone, 40px distance, ×1.3 dominance,
+// <768 band, fire-on-move. The velocity gate is the one addition.
+const BOTH_CLOSED: PanelState = { leftCollapsed: true, rightOpen: false }
+const LEFT_OPEN: PanelState = { leftCollapsed: false, rightOpen: false }
+const RIGHT_OPEN: PanelState = { leftCollapsed: true, rightOpen: true }
 
-/** A canonical comfortable sweep: left-edge origin, 180px in 450ms (0.4 px/ms). */
-function swipe(overrides: Partial<SwipeSample> = {}): SwipeSample {
-  return {
-    x0: 12,
-    y0: 300,
-    x1: 192,
-    y1: 306,
-    dtMs: 450,
-    viewportWidth: 390,
-    pointerType: 'touch',
-    ...overrides,
-  }
+/** A comfortable sweep: 180px in 450ms = 0.4 px/ms (gate default 0.15). */
+function sweep(overrides: Partial<SwipeProgress> = {}): SwipeProgress {
+  return { dx: 180, dy: 6, dtMs: 450, ...overrides }
 }
 
-/** Mirror of the sample, swept LEFTWARD from the given origin. */
-function swipeLeftFrom(x0: number): SwipeSample {
-  return swipe({ x0, x1: x0 - 180 })
-}
-
-describe('three-condition contract (distance ∧ velocity ∧ origin)', () => {
-  it('opens the sidebar on a comfortable rightward sweep from the left edge band', () => {
-    // 0.4 px/ms — comfortably lazy; with the sidecarx-aligned default the
-    // velocity gate is disabled entirely.
-    expect(classifySwipe(swipe(), DEFAULT_SWIPE_THRESHOLDS, BOTH_CLOSED)).toBe('open-left')
+describe('start admission (source pointerdown gate)', () => {
+  // viewport 800 → right zone boundary 800 × 0.25 = 200.
+  it('admits the left X120 band and the right three quarters, keeps the center inert', () => {
+    expect(admitsSwipeStart(100, 800, BOTH_CLOSED, DEFAULT_SWIPE_THRESHOLDS)).toBe(true)
+    expect(admitsSwipeStart(120, 800, BOTH_CLOSED, DEFAULT_SWIPE_THRESHOLDS)).toBe(true)
+    expect(admitsSwipeStart(121, 800, BOTH_CLOSED, DEFAULT_SWIPE_THRESHOLDS)).toBe(false)
+    expect(admitsSwipeStart(199, 800, BOTH_CLOSED, DEFAULT_SWIPE_THRESHOLDS)).toBe(false)
+    expect(admitsSwipeStart(200, 800, BOTH_CLOSED, DEFAULT_SWIPE_THRESHOLDS)).toBe(true)
+    expect(admitsSwipeStart(700, 800, BOTH_CLOSED, DEFAULT_SWIPE_THRESHOLDS)).toBe(true)
   })
 
-  it('a slow press-drag registers by default — sidecarx parity: no velocity gate', () => {
-    // 200px in 1200ms: the sidecarx reference (app.js SWIPE_THRESHOLD=50, no
-    // velocity condition) accepts this, and so does the aligned default.
-    expect(classifySwipe(swipe({ dtMs: 1200, x1: 212 }), DEFAULT_SWIPE_THRESHOLDS, BOTH_CLOSED)).toBe('open-left')
-  })
-
-  it('the ARMED velocity gate rejects the same slow drag (three-condition mode)', () => {
-    const armed = { ...DEFAULT_SWIPE_THRESHOLDS, swipeVelocityPxPerMs: 0.35 }
-    expect(classifySwipe(swipe({ dtMs: 1200, x1: 212 }), armed, BOTH_CLOSED)).toBeNull()
-  })
-
-  it('rejects a short flick below the distance threshold', () => {
-    expect(classifySwipe(swipe({ x1: 40 }), DEFAULT_SWIPE_THRESHOLDS, BOTH_CLOSED)).toBeNull()
-  })
-
-  it('rejects origins outside the edge band while the sidebar is collapsed', () => {
-    expect(classifySwipe(swipe({ x0: 100, x1: 320 }), DEFAULT_SWIPE_THRESHOLDS, BOTH_CLOSED)).toBeNull()
-  })
-
-  it('rejects mostly-vertical gestures (scrolling stays scrolling)', () => {
-    expect(classifySwipe(swipe({ y1: 520 }), DEFAULT_SWIPE_THRESHOLDS, BOTH_CLOSED)).toBeNull()
-  })
-
-  it('rejects mouse pointers (desktop selection is not a swipe)', () => {
-    expect(classifySwipe(swipe({ pointerType: 'mouse' }), DEFAULT_SWIPE_THRESHOLDS, BOTH_CLOSED)).toBeNull()
-  })
-
-  it('a zero-duration span is rejected only when the velocity gate is armed', () => {
-    const armed = { ...DEFAULT_SWIPE_THRESHOLDS, swipeVelocityPxPerMs: 0.2 }
-    expect(classifySwipe(swipe({ dtMs: 0 }), armed, BOTH_CLOSED)).toBeNull()
-    // Disarmed (default): distance + dominance decide, as in sidecarx.
-    expect(classifySwipe(swipe({ dtMs: 0 }), DEFAULT_SWIPE_THRESHOLDS, BOTH_CLOSED)).toBe('open-left')
-  })
-
-  it('honors configured thresholds, not just the defaults', () => {
-    const stricter = { ...DEFAULT_SWIPE_THRESHOLDS, swipeVelocityPxPerMs: 2 }
-    expect(classifySwipe(swipe(), stricter, BOTH_CLOSED)).toBeNull()
-    const looser = { ...DEFAULT_SWIPE_THRESHOLDS, swipeDistancePx: 300 }
-    expect(classifySwipe(swipe({ x1: 340 }), looser, BOTH_CLOSED)).toBe('open-left')  // dx=328 ≥ 300
+  it('admits ANY position once a panel is open (dismiss swipes start on the body)', () => {
+    expect(admitsSwipeStart(400, 800, LEFT_OPEN, DEFAULT_SWIPE_THRESHOLDS)).toBe(true)
+    expect(admitsSwipeStart(400, 800, RIGHT_OPEN, DEFAULT_SWIPE_THRESHOLDS)).toBe(true)
   })
 })
 
-describe('directional semantics (panel-aware)', () => {
-  it('closes the expanded sidebar from ANY origin — the dismiss swipe starts on the overlay body', () => {
-    // Origin mid-screen (x=180) and on the sidebar body (x=150): both close.
-    expect(classifySwipe(swipeLeftFrom(180), DEFAULT_SWIPE_THRESHOLDS, LEFT_OPEN)).toBe('close-left')
-    expect(classifySwipe(swipeLeftFrom(150), DEFAULT_SWIPE_THRESHOLDS, LEFT_OPEN)).toBe('close-left')
+describe('firing conditions (distance ∧ dominance ∧ velocity)', () => {
+  it('rejects displacement below the 40px distance threshold', () => {
+    expect(classifySwipeProgress(sweep({ dx: 39 }), BOTH_CLOSED, true, DEFAULT_SWIPE_THRESHOLDS)).toBeNull()
+    expect(classifySwipeProgress(sweep({ dx: -39 }), LEFT_OPEN, true, DEFAULT_SWIPE_THRESHOLDS)).toBeNull()
   })
 
-  it('leftward swipes do nothing while the sidebar is collapsed and the origin is not in the right band', () => {
-    expect(classifySwipe(swipeLeftFrom(180), DEFAULT_SWIPE_THRESHOLDS, BOTH_CLOSED)).toBeNull()
+  it('rejects gestures the vertical component dominates (×1.3 rule)', () => {
+    // 60px horizontal vs 50px vertical: 60 ≤ 50 × 1.3 = 65 → scroll intent.
+    expect(classifySwipeProgress(sweep({ dx: 60, dy: 50 }), BOTH_CLOSED, true, DEFAULT_SWIPE_THRESHOLDS)).toBeNull()
+    // 70 > 65 → admitted.
+    expect(classifySwipeProgress(sweep({ dx: 70, dy: 50 }), BOTH_CLOSED, true, DEFAULT_SWIPE_THRESHOLDS)).not.toBeNull()
   })
 
-  it('opens the details panel on a leftward sweep from the RIGHT edge band', () => {
-    expect(classifySwipe(swipeLeftFrom(380), DEFAULT_SWIPE_THRESHOLDS, BOTH_CLOSED)).toBe('open-details')
+  it('the velocity gate (the one addition) filters slow press-drags, 0 disarms', () => {
+    // 180px in 1800ms = 0.1 px/ms — a deliberate drag, below the 0.15 gate.
+    expect(classifySwipeProgress(sweep({ dtMs: 1800 }), BOTH_CLOSED, true, DEFAULT_SWIPE_THRESHOLDS)).toBeNull()
+    // Same drag with the gate disarmed = the source's verbatim behavior.
+    const disarmed = { ...DEFAULT_SWIPE_THRESHOLDS, swipeVelocityPxPerMs: 0 }
+    expect(classifySwipeProgress(sweep({ dtMs: 1800 }), BOTH_CLOSED, true, disarmed)).toBe('open-left')
   })
 
-  it('closes the open details panel on a rightward sweep from outside the left band', () => {
-    expect(classifySwipe(swipe({ x0: 200, x1: 390 }), DEFAULT_SWIPE_THRESHOLDS, DETAILS_OPEN)).toBe('close-details')
-  })
-
-  it('keeps the left band reserved for opening the sidebar even when details is open', () => {
-    expect(classifySwipe(swipe(), DEFAULT_SWIPE_THRESHOLDS, DETAILS_OPEN)).toBe('open-left')
-  })
-})
-
-describe('interactive origins', () => {
-  const interactive = { closest: (sel: string) => (sel.includes('button') ? {} : null) }
-  const plain = { closest: () => null }
-
-  it('interactive elements never enter recognition', () => {
-    expect(isInteractiveOrigin(interactive)).toBe(true)
-    expect(isInteractiveOrigin(plain)).toBe(false)
-    expect(isInteractiveOrigin(null)).toBe(false)
-    expect(isInteractiveOrigin(undefined)).toBe(false)
+  it('a zero elapsed span cannot pass an armed gate', () => {
+    expect(classifySwipeProgress(sweep({ dtMs: 0 }), BOTH_CLOSED, true, DEFAULT_SWIPE_THRESHOLDS)).toBeNull()
   })
 })
 
-describe('narrow-viewport gate', () => {
-  it('allows gestures at or below the breakpoint only', () => {
+describe('state machine (source, symmetric)', () => {
+  it('right-swipe opens the collapsed sidebar', () => {
+    expect(classifySwipeProgress(sweep(), BOTH_CLOSED, false, DEFAULT_SWIPE_THRESHOLDS)).toBe('open-left')
+  })
+
+  it('left-swipe closes the open sidebar from anywhere', () => {
+    expect(classifySwipeProgress(sweep({ dx: -180 }), LEFT_OPEN, false, DEFAULT_SWIPE_THRESHOLDS)).toBe('close-left')
+  })
+
+  it('left-swipe opens the right panel only in a session and only when closed', () => {
+    expect(classifySwipeProgress(sweep({ dx: -180 }), BOTH_CLOSED, true, DEFAULT_SWIPE_THRESHOLDS)).toBe('open-right')
+    expect(classifySwipeProgress(sweep({ dx: -180 }), BOTH_CLOSED, false, DEFAULT_SWIPE_THRESHOLDS)).toBeNull()
+    // Right panel already open: a left-swipe does nothing (source branch order).
+    expect(classifySwipeProgress(sweep({ dx: -180 }), RIGHT_OPEN, true, DEFAULT_SWIPE_THRESHOLDS)).toBeNull()
+  })
+
+  it('right-swipe closes the open right panel, and never opens the sidebar over it', () => {
+    expect(classifySwipeProgress(sweep(), RIGHT_OPEN, true, DEFAULT_SWIPE_THRESHOLDS)).toBe('close-right')
+    // Sidebar expanded, right closed: a right-swipe has nothing to do.
+    expect(classifySwipeProgress(sweep(), LEFT_OPEN, true, DEFAULT_SWIPE_THRESHOLDS)).toBeNull()
+  })
+})
+
+describe('narrow-viewport gate (source: strictly below SIDEBAR_MOBILE=768)', () => {
+  it('admits below 768 only — the tablet band keeps native behavior', () => {
     expect(isNarrowViewport(390, DEFAULT_SWIPE_THRESHOLDS)).toBe(true)
-    expect(isNarrowViewport(1024, DEFAULT_SWIPE_THRESHOLDS)).toBe(true)
-    expect(isNarrowViewport(1025, DEFAULT_SWIPE_THRESHOLDS)).toBe(false)
+    expect(isNarrowViewport(767, DEFAULT_SWIPE_THRESHOLDS)).toBe(true)
+    expect(isNarrowViewport(768, DEFAULT_SWIPE_THRESHOLDS)).toBe(false)
+    expect(isNarrowViewport(1024, DEFAULT_SWIPE_THRESHOLDS)).toBe(false)
   })
 })
 
@@ -136,6 +107,13 @@ describe('page-config resolution (host → client channel)', () => {
     expect(resolved.enabled).toBe(true)
     expect(resolved.swipeDistancePx).toBe(64)
     expect(resolved.breakpoint).toBe(DEFAULT_SWIPE_THRESHOLDS.breakpoint)
-    expect(resolved.edgeBandPx).toBe(DEFAULT_SWIPE_THRESHOLDS.edgeBandPx)
+    expect(resolved.leftEdgeBandPx).toBe(DEFAULT_SWIPE_THRESHOLDS.leftEdgeBandPx)
+    expect(resolved.dominanceRatio).toBe(DEFAULT_SWIPE_THRESHOLDS.dominanceRatio)
+    expect(resolved.rightZoneRatio).toBe(DEFAULT_SWIPE_THRESHOLDS.rightZoneRatio)
+  })
+
+  it('velocity 0 is a configured value (disarm), not a fallback case', () => {
+    expect(resolveMobileConfig({ enabled: true, swipeVelocityPxPerMs: 0 }).swipeVelocityPxPerMs).toBe(0)
+    expect(resolveMobileConfig({ enabled: true }).swipeVelocityPxPerMs).toBe(DEFAULT_SWIPE_THRESHOLDS.swipeVelocityPxPerMs)
   })
 })

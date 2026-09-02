@@ -51,8 +51,10 @@ export interface WebTrustConfig {
     enabled?: boolean
     breakpoint?: number
     swipeDistancePx?: number
+    dominanceRatio?: number
+    leftEdgeBandPx?: number
+    rightZoneRatio?: number
     swipeVelocityPxPerMs?: number
-    edgeBandPx?: number
   }
 }
 
@@ -94,8 +96,10 @@ export function buildBootScript(config: WebTrustConfig): string | undefined {
       enabled: true,
       ...(mobile?.breakpoint !== undefined ? { breakpoint: mobile.breakpoint } : {}),
       ...(mobile?.swipeDistancePx !== undefined ? { swipeDistancePx: mobile.swipeDistancePx } : {}),
+      ...(mobile?.dominanceRatio !== undefined ? { dominanceRatio: mobile.dominanceRatio } : {}),
+      ...(mobile?.leftEdgeBandPx !== undefined ? { leftEdgeBandPx: mobile.leftEdgeBandPx } : {}),
+      ...(mobile?.rightZoneRatio !== undefined ? { rightZoneRatio: mobile.rightZoneRatio } : {}),
       ...(mobile?.swipeVelocityPxPerMs !== undefined ? { swipeVelocityPxPerMs: mobile.swipeVelocityPxPerMs } : {}),
-      ...(mobile?.edgeBandPx !== undefined ? { edgeBandPx: mobile.edgeBandPx } : {}),
     }
     : undefined
   if (authorities.length === 0 && mobilePayload === undefined) return undefined

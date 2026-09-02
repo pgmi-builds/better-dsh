@@ -140,10 +140,12 @@ export interface Config extends RuntimeConfig {
 /** Runtime schema. */
 const MOBILE_CONFIG: z<Required<WebTrustConfig['mobile']>> = z.object({
   enabled: z.boolean().default(true),
-  breakpoint: z.natural().min(200).default(1024),
-      swipeVelocityPxPerMs: z.number().min(0).default(0),
-  swipeDistancePx: z.natural().min(8).default(50),
-  edgeBandPx: z.natural().min(8).default(40),
+  breakpoint: z.natural().min(200).default(768),
+  swipeDistancePx: z.natural().min(8).default(40),
+  dominanceRatio: z.number().min(1).default(1.3),
+  leftEdgeBandPx: z.natural().min(8).default(120),
+  rightZoneRatio: z.number().min(0.05).max(0.9).default(0.25),
+  swipeVelocityPxPerMs: z.number().min(0).default(0.15),
 })
 
 /** Runtime schema. */
