@@ -1,9 +1,4 @@
-# repl-dispatch-resilience Specification
-
-## Purpose
-REPL（`eval` cell）子分派的韧性契约：分派层的任何错误——调度器缺失、工具体抛错、取消——都必须 settle 为 cell 可见的 `ToolCallError` 结果，绝不外泄为 unhandled rejection 或使宿主进程崩溃。生产组合必须把带 `TOOL_RUNTIME_SCHEDULER` symbol 的原生 `ToolRuntime` 实例解析给插件，测试组合与生产组合之间不得存在环境差异导致的静默行为分裂。
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Dispatch errors settle as visible ToolCallError
 The system SHALL resolve the plugin's tools service to the native `ToolRuntime` instance carrying the `TOOL_RUNTIME_SCHEDULER` symbol in the production composition, so REPL sub-dispatches execute through the same staged scheduler as the agent loop and return real tool results to the cell. The symbol this plugin imports SHALL be identical (`===`) to the one keying the mounted instance — a second dsh-tools module copy reachable from the deployed plugin (e.g. stray nested `@deepseek-ai` symlinks) breaks that identity and is a deployment defect (2026-09-02 corrected root cause; the plain `runtimeCtx.tools` read is the sanctioned resolution path). A mount whose tools service genuinely lacks the symbol SHALL be treated as a loud, diagnosable configuration failure — the error names the plugin's own `dsh-tools` resolution path — rather than a silent runtime crash, and that loud failure SHALL be the abnormal fallback, not the normal production state.
