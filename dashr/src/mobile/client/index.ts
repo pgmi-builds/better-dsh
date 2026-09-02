@@ -27,11 +27,25 @@
  */
 
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
-import { isInteractiveOrigin, isNarrowViewport, isRecognizedSwipe, resolveMobileConfig, type SwipeSample } from '../gesture.ts'
+import { classifySwipe, isInteractiveOrigin, isNarrowViewport, resolveMobileConfig, type PanelState, type SwipeSample } from '../gesture.ts'
 
 /** Structural layout face (`ctx.layout`): exactly what this feature calls. */
-interface LayoutToggleFace {
+interface LayoutPanelFace {
   toggleSidebar(): void
+  openDetails(): void
+  closeDetails(): void
+}
+
+/**
+ * Panel state from the frame's semantic attributes (AppFrame): the collapsed
+ * markers are PRESENT while collapsed and absent while expanded/open, so the
+ * gesture classifier sees the same live state the layout renders from.
+ */
+function readPanelState(): PanelState {
+  return {
+    leftExpanded: document.querySelector('[data-sidebar-collapsed]') === null,
+    detailsOpen: document.querySelector('[data-details-collapsed]') === null,
+  }
 }
 
 /** Page global left by the host half's boot script (see `src/web-trust.ts`). */
@@ -86,7 +100,7 @@ export function setupMobileLayout(ctx: ClientContext): void {
     // The layout service is a conditional peer: a composition without
     // ui-layout keeps the CSS (pure cosmetics) and skips the gesture.
     const offLayout = ctx.inject(['layout'], (layoutCtx: ClientContext) => {
-      const layout = layoutCtx.get('layout') as LayoutToggleFace | undefined
+      const layout = layoutCtx.get('layout') as LayoutPanelFace | undefined
       if (layout === undefined) return
       let start: { x: number; y: number; t: number; width: number; type: string } | undefined
       const onPointerDown = (event: PointerEvent): void => {
@@ -115,10 +129,13 @@ export function setupMobileLayout(ctx: ClientContext): void {
           pointerType: origin.type,
         }
         // Narrow-viewport gate at GESTURE time: the wide layout keeps its
-        // native toggle semantics and a wide-window drag never toggles.
+        // native interactions.
         if (!isNarrowViewport(sample.viewportWidth, config)) return
-        if (!isRecognizedSwipe(sample, config)) return
-        layout.toggleSidebar()
+        const action = classifySwipe(sample, config, readPanelState())
+        if (action === null) return
+        if (action === 'open-left' || action === 'close-left') layout.toggleSidebar()
+        else if (action === 'open-details') layout.openDetails()
+        else layout.closeDetails()
       }
       document.addEventListener('pointerdown', onPointerDown, { passive: true })
       document.addEventListener('pointerup', onPointerUp, { passive: true })

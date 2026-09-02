@@ -3,27 +3,35 @@
  *
  * The three-condition contract (design D3 / spec `mobile-layout`): a swipe is
  * recognized only when ALL of
- *   1. origin — the gesture starts inside the horizontal edge band,
+ *   1. origin — the gesture starts where the target panel admits origins
+ *      (collapsed panels: the edge band; an EXPANDED overlay sidebar: anywhere
+ *      on it — a dismiss swipe naturally starts on the panel body, not in an
+ *      edge band, which is why the first cut never fired on close),
  *   2. distance — horizontal displacement reaches the threshold,
  *   3. velocity — average displacement/time reaches the threshold,
  * hold. A slow press-drag (text selection for copy) covers distance at
- * sub-threshold velocity and must NOT toggle; a fast light sweep must.
+ * sub-threshold velocity and must NOT trigger; a comfortable sweep must.
  *
- * Two hygiene predicates ride along, fixed by the spec scenarios:
- * - the gesture must be mostly horizontal (`|dx| > |dy|`), so vertical
- *   scrolls never toggle;
- * - only touch/pen pointers participate — a mouse drag on a narrow desktop
- *   window is text selection, not a swipe.
+ * Hygiene predicates (fixed by the spec scenarios): the gesture must be
+ * mostly horizontal (`|dx| > |dy|`) and come from a touch/pen pointer — a
+ * mouse drag on a narrow desktop window is text selection, not a swipe.
  *
- * No DOM here: `classifySwipe` is a pure function over gesture facts so the
- * thresholds and edge cases pin under vitest without a browser.
+ * Directional semantics (panel-aware, 2026-09-03 user round 2):
+ * - left sidebar collapsed  → swipe RIGHT from the LEFT edge band opens it;
+ * - left sidebar expanded   → swipe LEFT from anywhere closes it (overlay);
+ * - details panel closed    → swipe LEFT from the RIGHT edge band opens it;
+ * - details panel open      → swipe RIGHT (not from the left edge band —
+ *   that stays the sidebar-open gesture) closes it.
+ *
+ * No DOM here: `classifySwipe` is a pure function over gesture facts plus the
+ * panel state the caller reads off the frame's semantic attributes.
  *
  * @module dashr/mobile/gesture
  */
 
 /** Recognition thresholds, resolved from the host-injected page config. */
 export interface SwipeThresholds {
-  /** Viewport width at/below which a toggle is allowed (px). */
+  /** Viewport width at/below which gestures are admitted (px). */
   breakpoint: number
   /** Minimum horizontal displacement (px). */
   swipeDistancePx: number
@@ -33,11 +41,16 @@ export interface SwipeThresholds {
   edgeBandPx: number
 }
 
-/** Resolved defaults, mirroring the host config schema. */
+/**
+ * Resolved defaults, mirroring the host config schema. The 0.2 px/ms velocity
+ * floor sits between a slow text-selection drag (~0.13 px/ms) and a lazy but
+ * deliberate swipe (~0.4+); the first cut's 0.35 demanded an uncomfortably
+ * fast flick (user 2026-09-03 round 2).
+ */
 export const DEFAULT_SWIPE_THRESHOLDS: SwipeThresholds = {
   breakpoint: 1024,
   swipeDistancePx: 48,
-  swipeVelocityPxPerMs: 0.35,
+  swipeVelocityPxPerMs: 0.2,
   edgeBandPx: 28,
 }
 
@@ -59,31 +72,47 @@ export interface SwipeSample {
   pointerType: string
 }
 
+/** Panel state at gesture time (read from the frame's semantic attributes). */
+export interface PanelState {
+  /** Whether the left sidebar overlay is expanded (narrow viewport). */
+  leftExpanded: boolean
+  /** Whether the right details panel is open. */
+  detailsOpen: boolean
+}
+
+/** The panel action a recognized swipe maps to. */
+export type SwipeAction = 'open-left' | 'close-left' | 'open-details' | 'close-details'
+
 /**
- * Decide whether one completed gesture is a recognized horizontal swipe.
+ * Classify one completed gesture into a panel action.
  *
  * @param sample - the gesture facts.
  * @param thresholds - resolved recognition thresholds.
- * @returns `true` when all three conditions (plus the horizontal and
- *   pointer-type hygiene predicates) hold; the caller toggles the sidebar.
+ * @param panels - panel state at gesture time.
+ * @returns the action whose directional + origin contract the gesture
+ *   satisfies, or `null` when no panel admits it.
  */
-export function isRecognizedSwipe(sample: SwipeSample, thresholds: SwipeThresholds): boolean {
-  if (sample.pointerType !== 'touch' && sample.pointerType !== 'pen') return false
+export function classifySwipe(sample: SwipeSample, thresholds: SwipeThresholds, panels: PanelState): SwipeAction | null {
+  if (sample.pointerType !== 'touch' && sample.pointerType !== 'pen') return null
   const dx = sample.x1 - sample.x0
   const dy = sample.y1 - sample.y0
   const adx = Math.abs(dx)
   const ady = Math.abs(dy)
   // Mostly horizontal: the horizontal component dominates the vertical one.
-  if (adx <= ady) return false
-  // ① Origin: inside the edge band of either horizontal viewport edge.
+  if (adx <= ady) return null
+  // ② Distance.
+  if (adx < thresholds.swipeDistancePx) return null
+  // ③ Velocity (average over the down→up span); a zero span cannot be a swipe.
+  if (sample.dtMs <= 0) return null
+  if (adx / sample.dtMs < thresholds.swipeVelocityPxPerMs) return null
+  // ① Origin + direction, panel by panel.
   const inLeftBand = sample.x0 <= thresholds.edgeBandPx
   const inRightBand = sample.x0 >= sample.viewportWidth - thresholds.edgeBandPx
-  if (!inLeftBand && !inRightBand) return false
-  // ② Distance.
-  if (adx < thresholds.swipeDistancePx) return false
-  // ③ Velocity (average over the down→up span); a zero span cannot be a swipe.
-  if (sample.dtMs <= 0) return false
-  return adx / sample.dtMs >= thresholds.swipeVelocityPxPerMs
+  if (panels.leftExpanded && dx < 0) return 'close-left'
+  if (!panels.leftExpanded && dx > 0 && inLeftBand) return 'open-left'
+  if (!panels.detailsOpen && dx < 0 && inRightBand) return 'open-details'
+  if (panels.detailsOpen && dx > 0 && !inLeftBand) return 'close-details'
+  return null
 }
 
 /**
@@ -101,8 +130,8 @@ export function isInteractiveOrigin(target: { closest(sel: string): unknown } | 
 }
 
 /**
- * Whether a toggle is allowed at gesture time: only in the narrow viewport
- * the feature owns (the wide layout keeps its native toggle semantics).
+ * Whether gestures are admitted at gesture time: only in the narrow viewport
+ * the feature owns (the wide layout keeps its native interactions).
  *
  * @param viewportWidth - viewport width at gesture time (px).
  * @param thresholds - resolved thresholds (`.breakpoint`).

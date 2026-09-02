@@ -141,8 +141,8 @@ export interface Config extends RuntimeConfig {
 const MOBILE_CONFIG: z<Required<WebTrustConfig['mobile']>> = z.object({
   enabled: z.boolean().default(true),
   breakpoint: z.natural().min(200).default(1024),
+      swipeVelocityPxPerMs: z.number().min(0).default(0.2),
   swipeDistancePx: z.natural().min(8).default(48),
-  swipeVelocityPxPerMs: z.number().min(0).default(0.35),
   edgeBandPx: z.natural().min(8).default(28),
 })
 

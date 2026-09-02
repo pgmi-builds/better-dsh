@@ -100,7 +100,7 @@ dashr bundle patch（列序在 web-app 之后，层序天然胜出）追加：
 设计：
 
 - **CSS**：client bundle 注入 `<style data-plugin-css="dashr-mobile">`，媒体查询（≤ 断点）+ `[data-sidebar-collapsed]` 属性选择器 + `!important` 覆盖内联 grid template → 侧栏轨 0；rail 内容 overflow hidden。断点取上游 1024 对齐（配置项留阈值）。920–1023 区间 details 可能开着的模板冲突：限定 `:not([data-details-collapsed])` 之外仍不确定宽度 → 首版接受"手机档完美、平板窄档保守"（见任务 2.2 验证矩阵）。
-- **手势**：document 级 pointerdown/move/up 监听，判定 = 起点（边缘带内）∧ 距离 ≥ 阈值 ∧ **速率 ≥ 阈值**（位移/耗时）；命中即 `ctx.layout.toggleSidebar()`（窄视口语义 = 翻转 `narrowExpanded`）。速率判定纯函数化（可单测）。忽略可交互元素起点（链接/按钮/输入）。
+- **手势（2026-09-03 round 2 重做）**：document 级 pointerdown/up 监听 → `classifySwipe` 纯函数（面板状态感知）：左栏收起 = 左缘带**右滑**开；左栏展开 = **任意起点左滑**关（首版的 bug：关闭手势起点落在侧栏本体、不在边缘带，被 origin 条件全拒——这就是"左滑从不触发"的根因）；右栏 details 收起 = 右缘带**左滑**开（`openDetails`）、开 = 非左缘**右滑**关（`closeDetails`）。面板状态读 AppFrame 语义属性（`[data-sidebar-collapsed]`/`[data-details-collapsed]` 缺席 = 展开）。速率默认 **0.2 px/ms**（首版 0.35 过高——介于慢速拖选 ~0.13 与慵懒轻扫 ~0.4+ 之间；user round 2 裁定调低）。忽略可交互元素起点。
 - **落点**：并入现有 client 入口（`dashr/src/client/`），`ctx.effect` 生命周期托管；配置进 dashr 行 config（`mobile: { enabled, breakpoint, swipeDistancePx, swipeVelocityPxPerMs }`）。
 
 ### D4 手改 patch 退役

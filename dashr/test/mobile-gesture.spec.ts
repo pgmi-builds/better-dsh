@@ -1,64 +1,98 @@
 import { describe, expect, it } from 'vitest'
 import {
   DEFAULT_SWIPE_THRESHOLDS,
+  classifySwipe,
   isInteractiveOrigin,
   isNarrowViewport,
-  isRecognizedSwipe,
   resolveMobileConfig,
+  type PanelState,
   type SwipeSample,
 } from '../src/mobile/gesture.ts'
 
-/** A canonical recognized swipe: left-edge origin, 180px in 150ms (1.2 px/ms). */
+const BOTH_CLOSED: PanelState = { leftExpanded: false, detailsOpen: false }
+const LEFT_OPEN: PanelState = { leftExpanded: true, detailsOpen: false }
+const DETAILS_OPEN: PanelState = { leftExpanded: false, detailsOpen: true }
+
+/** A canonical comfortable sweep: left-edge origin, 180px in 450ms (0.4 px/ms). */
 function swipe(overrides: Partial<SwipeSample> = {}): SwipeSample {
   return {
     x0: 12,
     y0: 300,
     x1: 192,
     y1: 306,
-    dtMs: 150,
+    dtMs: 450,
     viewportWidth: 390,
     pointerType: 'touch',
     ...overrides,
   }
 }
 
-describe('swipe recognition (three-condition contract)', () => {
-  it('recognizes a fast horizontal sweep from the edge band', () => {
-    expect(isRecognizedSwipe(swipe(), DEFAULT_SWIPE_THRESHOLDS)).toBe(true)
-    // Right edge origin (swipe-to-close) is equally valid.
-    expect(isRecognizedSwipe(swipe({ x0: 380, x1: 200 }), DEFAULT_SWIPE_THRESHOLDS)).toBe(true)
+/** Mirror of the sample, swept LEFTWARD from the given origin. */
+function swipeLeftFrom(x0: number): SwipeSample {
+  return swipe({ x0, x1: x0 - 180 })
+}
+
+describe('three-condition contract (distance ∧ velocity ∧ origin)', () => {
+  it('opens the sidebar on a comfortable rightward sweep from the left edge band', () => {
+    // 0.4 px/ms — deliberately lazy, comfortably under the old 0.35 threshold's
+    // demands but above the 0.2 floor.
+    expect(classifySwipe(swipe(), DEFAULT_SWIPE_THRESHOLDS, BOTH_CLOSED)).toBe('open-left')
   })
 
   it('rejects a slow press-drag that covers the distance (text selection)', () => {
-    // 200px in 1200ms = 0.17 px/ms < 0.35: distance passes, velocity fails.
-    expect(isRecognizedSwipe(swipe({ dtMs: 1200, x1: 212 }), DEFAULT_SWIPE_THRESHOLDS)).toBe(false)
+    // 200px in 1200ms ≈ 0.17 px/ms < 0.2: distance passes, velocity fails.
+    expect(classifySwipe(swipe({ dtMs: 1200, x1: 212 }), DEFAULT_SWIPE_THRESHOLDS, BOTH_CLOSED)).toBeNull()
   })
 
-  it('rejects a short fast flick below the distance threshold', () => {
-    expect(isRecognizedSwipe(swipe({ x1: 40 }), DEFAULT_SWIPE_THRESHOLDS)).toBe(false)
+  it('rejects a short flick below the distance threshold', () => {
+    expect(classifySwipe(swipe({ x1: 40 }), DEFAULT_SWIPE_THRESHOLDS, BOTH_CLOSED)).toBeNull()
   })
 
-  it('rejects origins outside the edge band', () => {
-    expect(isRecognizedSwipe(swipe({ x0: 100, x1: 320 }), DEFAULT_SWIPE_THRESHOLDS)).toBe(false)
+  it('rejects origins outside the edge band while the sidebar is collapsed', () => {
+    expect(classifySwipe(swipe({ x0: 100, x1: 320 }), DEFAULT_SWIPE_THRESHOLDS, BOTH_CLOSED)).toBeNull()
   })
 
   it('rejects mostly-vertical gestures (scrolling stays scrolling)', () => {
-    expect(isRecognizedSwipe(swipe({ y1: 520 }), DEFAULT_SWIPE_THRESHOLDS)).toBe(false)
+    expect(classifySwipe(swipe({ y1: 520 }), DEFAULT_SWIPE_THRESHOLDS, BOTH_CLOSED)).toBeNull()
   })
 
   it('rejects mouse pointers (desktop selection is not a swipe)', () => {
-    expect(isRecognizedSwipe(swipe({ pointerType: 'mouse' }), DEFAULT_SWIPE_THRESHOLDS)).toBe(false)
+    expect(classifySwipe(swipe({ pointerType: 'mouse' }), DEFAULT_SWIPE_THRESHOLDS, BOTH_CLOSED)).toBeNull()
   })
 
   it('rejects a zero-duration span (cannot compute velocity)', () => {
-    expect(isRecognizedSwipe(swipe({ dtMs: 0 }), DEFAULT_SWIPE_THRESHOLDS)).toBe(false)
+    expect(classifySwipe(swipe({ dtMs: 0 }), DEFAULT_SWIPE_THRESHOLDS, BOTH_CLOSED)).toBeNull()
   })
 
   it('honors configured thresholds, not just the defaults', () => {
     const stricter = { ...DEFAULT_SWIPE_THRESHOLDS, swipeVelocityPxPerMs: 2 }
-    expect(isRecognizedSwipe(swipe(), stricter)).toBe(false)
+    expect(classifySwipe(swipe(), stricter, BOTH_CLOSED)).toBeNull()
     const looser = { ...DEFAULT_SWIPE_THRESHOLDS, swipeDistancePx: 300 }
-    expect(isRecognizedSwipe(swipe({ x1: 340 }), looser)).toBe(true)  // dx=328 ≥ 300
+    expect(classifySwipe(swipe({ x1: 340 }), looser, BOTH_CLOSED)).toBe('open-left')  // dx=328 ≥ 300
+  })
+})
+
+describe('directional semantics (panel-aware)', () => {
+  it('closes the expanded sidebar from ANY origin — the dismiss swipe starts on the overlay body', () => {
+    // Origin mid-screen (x=180) and on the sidebar body (x=150): both close.
+    expect(classifySwipe(swipeLeftFrom(180), DEFAULT_SWIPE_THRESHOLDS, LEFT_OPEN)).toBe('close-left')
+    expect(classifySwipe(swipeLeftFrom(150), DEFAULT_SWIPE_THRESHOLDS, LEFT_OPEN)).toBe('close-left')
+  })
+
+  it('leftward swipes do nothing while the sidebar is collapsed and the origin is not in the right band', () => {
+    expect(classifySwipe(swipeLeftFrom(180), DEFAULT_SWIPE_THRESHOLDS, BOTH_CLOSED)).toBeNull()
+  })
+
+  it('opens the details panel on a leftward sweep from the RIGHT edge band', () => {
+    expect(classifySwipe(swipeLeftFrom(380), DEFAULT_SWIPE_THRESHOLDS, BOTH_CLOSED)).toBe('open-details')
+  })
+
+  it('closes the open details panel on a rightward sweep from outside the left band', () => {
+    expect(classifySwipe(swipe({ x0: 200, x1: 390 }), DEFAULT_SWIPE_THRESHOLDS, DETAILS_OPEN)).toBe('close-details')
+  })
+
+  it('keeps the left band reserved for opening the sidebar even when details is open', () => {
+    expect(classifySwipe(swipe(), DEFAULT_SWIPE_THRESHOLDS, DETAILS_OPEN)).toBe('open-left')
   })
 })
 
@@ -75,7 +109,7 @@ describe('interactive origins', () => {
 })
 
 describe('narrow-viewport gate', () => {
-  it('allows toggles at or below the breakpoint only', () => {
+  it('allows gestures at or below the breakpoint only', () => {
     expect(isNarrowViewport(390, DEFAULT_SWIPE_THRESHOLDS)).toBe(true)
     expect(isNarrowViewport(1024, DEFAULT_SWIPE_THRESHOLDS)).toBe(true)
     expect(isNarrowViewport(1025, DEFAULT_SWIPE_THRESHOLDS)).toBe(false)
