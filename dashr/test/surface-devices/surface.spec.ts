@@ -209,7 +209,10 @@ describe('wire mask — session-start restrict over the real layer chain', () =>
     surface.startSession()
     const visible = surface.ctx.tools.schemas(surface.agent).map(schema => schema.name)
     expect(visible).not.toContain('skill')
-    expect(visible).not.toContain('subagent')
+    // v0.2.1b: `subagent` is deliberately NOT in the mask list (annotated as
+    // an alias of `agent` in the control prompt), so a global subagent stays
+    // visible; only the eight masked names are restricted.
+    expect(visible).toContain('subagent')
     expect(visible).toContain('report')
     // The own-layer exemption held through capture too: the definition is in
     // the pre-mask snapshot for the bridge to use.

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Context } from '@deepseek-ai/cordis'
-import { defineTool } from '@deepseek-ai/dsh-tools'
-import type { PostToolDecision } from '@deepseek-ai/dsh-tools'
+import { defineTool, TOOL_RUNTIME_SCHEDULER } from '@deepseek-ai/dsh-tools'
+import type { PostToolDecision, ToolRuntime } from '@deepseek-ai/dsh-tools'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import { toolCallId } from '../src/tool-call-id.ts'
 import type { ToolExecutionToken } from '@deepseek-ai/dsh-tools'
@@ -430,6 +430,31 @@ describe('the eval dispatch bridge (result shaping)', () => {
     expect(settle?.data).toMatchObject({ content: [{ type: 'text', text: 'spilled: locator' }] })
   })
 
+  it('feeds the upstream tools/ptc-dispatch-log carrier so the harness spill arm bounds the durable copy', async () => {
+    const { ctx, agent } = await setupPresentation(fakeRuntime)
+    registerEcho(ctx)
+    // Simulate the harness spill-policy dispatch-log arm: it listens to the
+    // UPSTREAM carrier, which dashr must keep feeding after the v0.2.1
+    // `dashr/repl-dispatch-log` decoupling (regression guard).
+    ctx.on('tools/ptc-dispatch-log', (dispatch, next) => {
+      if (dispatch.name !== 'echo') return next()
+      return next().then(() => [{ type: 'text', text: 'spilled: bounded' }])
+    })
+    const runtime = ctx.get('replRuntime') as FakeCellRuntime
+    runtime.behavior = async (request) => {
+      const flatTool = (name: string) => tool(request, name)
+      const value = await flatTool('echo')({ value: 'x' })
+      return { logs: [], value: String(value) }
+    }
+    const result = await runCell(ctx, 'program', { agent: agent.agent })
+    expect(result.isError).toBe(false)
+    // The program's value is untouched...
+    expect(result.value).toMatchObject({ result: 'echo:x' })
+    // ...and the upstream arm's bound copy lands in the durable log event.
+    const settle = agent.events.find(event => event.type === 'tool/code-dispatch')
+    expect(settle?.data).toMatchObject({ name: 'echo', content: [{ type: 'text', text: 'spilled: bounded' }] })
+  })
+
   it('passes the run-scoped abort signal into runtime.run and forwards binding coverage of the calling agent', async () => {
     const { ctx, agent, other } = await setupPresentation(fakeRuntime)
     registerEcho(ctx)
@@ -482,6 +507,7 @@ describe('the eval dispatch bridge (result shaping)', () => {
       requireRuntime: () => runtime,
       maxParallel: 2,
       shapeDispatchLog: async dispatch => dispatch.content,
+      warn: () => undefined,
     })
     const output = await tool.execute(
       { cell: 'program', description: 'agentless cell' },
@@ -498,5 +524,180 @@ describe('the eval dispatch bridge (result shaping)', () => {
     )
     expect(output).toBeDefined()
     expect(runtime.lastRequest?.principal).toBeUndefined()
+  })
+})
+
+describe('v0.2.1c — REPL sub-dispatch resilience (O-3 daemon-crash fix)', () => {
+  /**
+   * A dual-copy-shaped tools VIEW: the same NAMED-method surface the
+   * mounted registry exposes, but WITHOUT the `TOOL_RUNTIME_SCHEDULER`
+   * instance symbol as THIS plugin's import sees it (the exact read form
+   * the 2026-09-01 production dual-copy produced — and the crash trigger).
+   */
+  function schedulerlessView(ctx: Context): ToolRuntime {
+    return {
+      register: (definition: Parameters<ToolRuntime['register']>[0]) => { ctx.tools.register(definition); return () => undefined },
+      schemas: () => ctx.tools.schemas(),
+      executionMode: (exec: Parameters<ToolRuntime['executionMode']>[0]) => ctx.tools.executionMode(exec),
+      // No [TOOL_RUNTIME_SCHEDULER] member — the bug's trigger.
+    } as unknown as ToolRuntime
+  }
+
+  it('a tools view missing the scheduler symbol fails the cell with a loud contextual error, not a crash', async () => {
+    const { ctx } = await setupPresentation(fakeRuntime)
+    registerEcho(ctx)
+    const runtime = ctx.get('replRuntime') as FakeCellRuntime
+    const evalTool = createRunCellTool(schedulerlessView(ctx), {
+      requireRuntime: () => runtime,
+      maxParallel: 2,
+      shapeDispatchLog: async dispatch => dispatch.content,
+      warn: () => undefined,
+    })
+    runtime.behavior = async (request) => {
+      const echo = tool(request, 'echo')
+      try {
+        await echo({ value: 'x' })
+        return { logs: [], value: 'unreachable' }
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error)
+        return { logs: [], value: message }
+      }
+    }
+    const output = (await evalTool.execute(
+      { cell: 'program', description: 'view test' },
+      {
+        callId: toolCallId('view-call'),
+        rootCallId: toolCallId('view-call'),
+        token: Symbol('view-token') as ToolExecutionToken,
+        name: 'eval',
+        arguments: {},
+        signal: new AbortController().signal,
+        deferContext: () => {},
+        concludeTurn: () => {},
+      },
+    )) as { logs: string[]; result: string }
+    expect(output).toBeDefined()
+    const value = output.result
+    expect(value).toContain('TOOL_RUNTIME_SCHEDULER')
+    expect(value).toContain('dual-copy')
+    expect(value).toContain('dsh-tools from:')
+  })
+
+  it('v0.2.1d — the mounted ToolRuntime is keyed by the SAME symbol this plugin imports (dual-copy invariant)', async () => {
+    const { ctx } = await setupPresentation(fakeRuntime)
+    // The production bug (2026-09-01) was a dual-copy dsh-tools: the plugin
+    // imported one module instance while the mounted ToolRuntime instance
+    // was keyed by another copy's symbol — named methods kept working, the
+    // symbol-keyed scheduler field read as undefined. This locks the
+    // invariant in composition form: reading through THIS file's imported
+    // symbol must yield a fully shaped scheduler.
+    const scheduler = ctx.tools[TOOL_RUNTIME_SCHEDULER]
+    expect(scheduler).toBeDefined()
+    expect(typeof scheduler!.prepare).toBe('function')
+    expect(typeof scheduler!.dispatch).toBe('function')
+    expect(typeof scheduler!.finalize).toBe('function')
+    expect(typeof scheduler!.finish).toBe('function')
+  })
+  it('a thrown start()/prepare failure settles the binding as a visible error instead of an unhandled rejection', async () => {
+    const { ctx } = await setupPresentation(fakeRuntime)
+    registerEcho(ctx)
+    const runtime = ctx.get('replRuntime') as FakeCellRuntime
+    // A registry whose scheduler.prepare throws — the exact O-3 crash site,
+    // now contained by the start() catch (v0.2.1c).
+    const throwingView = {
+      register: (definition: Parameters<ToolRuntime['register']>[0]) => { ctx.tools.register(definition); return () => undefined },
+      schemas: () => ctx.tools.schemas(),
+      executionMode: (exec: Parameters<ToolRuntime['executionMode']>[0]) => ctx.tools.executionMode(exec),
+      [TOOL_RUNTIME_SCHEDULER]: {
+        prepare: async () => { throw new Error('simulated scheduler.prepare failure') },
+        dispatch: async () => { throw new Error('unreachable') },
+        finalize: async () => { throw new Error('unreachable') },
+        finish: () => { throw new Error('unreachable') },
+      },
+    } as unknown as ToolRuntime
+    const evalTool = createRunCellTool(throwingView, {
+      requireRuntime: () => runtime,
+      maxParallel: 2,
+      shapeDispatchLog: async dispatch => dispatch.content,
+      warn: () => undefined,
+    })
+    runtime.behavior = async (request) => {
+      const echo = tool(request, 'echo')
+      try {
+        await echo({ value: 'x' })
+        return { logs: [], value: 'unreachable' }
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error)
+        return { logs: [], value: message }
+      }
+    }
+    const output = (await evalTool.execute(
+      { cell: 'program', description: 'throw test' },
+      {
+        callId: toolCallId('throw-call'),
+        rootCallId: toolCallId('throw-call'),
+        token: Symbol('throw-token') as ToolExecutionToken,
+        name: 'eval',
+        arguments: {},
+        signal: new AbortController().signal,
+        deferContext: () => {},
+        concludeTurn: () => {},
+      },
+    )) as { logs: string[]; result: string }
+    expect(output).toBeDefined()
+    const value = output.result
+    expect(value).toContain('simulated scheduler.prepare failure')
+  })
+
+  it('a lane-level failure (classify throw) settles queued dispatches and logs, never crashing the process', async () => {
+    const { ctx } = await setupPresentation(fakeRuntime)
+    registerEcho(ctx)
+    const runtime = ctx.get('replRuntime') as FakeCellRuntime
+    // classify() throwing is a lane-level failure OUTSIDE start()/commit()
+    // containment — the drive() backstop catch must settle the binding.
+    const laneFailView = {
+      register: (definition: Parameters<ToolRuntime['register']>[0]) => { ctx.tools.register(definition); return () => undefined },
+      schemas: () => ctx.tools.schemas(),
+      executionMode: () => { throw new Error('simulated classify failure') },
+      [TOOL_RUNTIME_SCHEDULER]: {
+        prepare: async () => { throw new Error('unreachable') },
+        dispatch: async () => { throw new Error('unreachable') },
+        finalize: async () => { throw new Error('unreachable') },
+        finish: () => { throw new Error('unreachable') },
+      },
+    } as unknown as ToolRuntime
+    const evalTool = createRunCellTool(laneFailView, {
+      requireRuntime: () => runtime,
+      maxParallel: 2,
+      shapeDispatchLog: async dispatch => dispatch.content,
+      warn: () => undefined,
+    })
+    runtime.behavior = async (request) => {
+      const echo = tool(request, 'echo')
+      try {
+        await echo({ value: 'x' })
+        return { logs: [], value: 'unreachable' }
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error)
+        return { logs: [], value: message }
+      }
+    }
+    const output = (await evalTool.execute(
+      { cell: 'program', description: 'lane test' },
+      {
+        callId: toolCallId('lane-call'),
+        rootCallId: toolCallId('lane-call'),
+        token: Symbol('lane-token') as ToolExecutionToken,
+        name: 'eval',
+        arguments: {},
+        signal: new AbortController().signal,
+        deferContext: () => {},
+        concludeTurn: () => {},
+      },
+    )
+    ) as { logs: string[]; result: string }
+    expect(output).toBeDefined()
+    const value = output.result
+    expect(value).toContain('simulated classify failure')
   })
 })

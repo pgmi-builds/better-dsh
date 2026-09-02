@@ -109,6 +109,7 @@ import type { DASHRSubagentsSurface, DASHRWorkflowEngine } from './subagents-sur
 import { createAgentBridgeTools } from './bridges/index.ts'
 import { createLlmCompletionTool } from './llm-completion.ts'
 import { readFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { installFailover } from './failover/index.ts'
 
 /** The control prompt text, loaded at module time from the sibling markdown file (editable without touching TS). */
@@ -154,6 +155,11 @@ export const EVAL_NAME = 'eval'
  * facts, not list policy: a name the host never registered is skipped (a
  * restriction may only name inherited tools), and a name registered on the
  * agent's OWN layer (the child-scoped native `report`, this composition's
+ * bridges below, never through the masked name. `subagent` is deliberately
+ * NOT in this list (v0.2.1b): its standard-preset registration
+ * (`modelSelectionSettings: true`) lands on the agent's OWN layer, outside
+ * registry restriction reach, so it stays visible on every surface and the
+ * control prompt annotates it as an alias of the `agent` delegation tool.
  * own URL wrappers) is exempt from restrictions by construction — the
  * capability it carries stays reachable through the captured-definition
  * bridges below, never through the masked name.
@@ -163,7 +169,6 @@ export const MASKED_TOOL_NAMES: ReadonlySet<string> = new Set([
   'send_message',
   'report',
   'list_agents',
-  'subagent',
   'subagent_fork',
   'interrupt_agent',
   'workflow',
@@ -196,6 +201,14 @@ export const CONTROL_SECTION_ORDER = 100
 export const SDK_SECTION_ORDER = 150
 
 /**
+ * The `dashr:escalation-guidance` CONTEXT order: sits inside the runtime-context snapshot
+ * band between upstream `approval:policy` (115) and `subagent:delegation` (120) — the
+ * sandbox policy statement is order 110, the approval policy 115. Re-check if upstream
+ * adds context entries in this band (dsh-system-prompt CONTEXT_ORDERS).
+ */
+export const ESCALATION_GUIDANCE_ORDER = 116
+
+/**
  * The `eval` tool description the model sees: cell semantics — the
  * persistent kernel — stated up front, unlike upstream's one-shot
  * `PYTHON_FLAVOR` (blueprint §1.1: DASHR is channel ② state codification,
@@ -203,7 +216,7 @@ export const SDK_SECTION_ORDER = 150
  */
 const EVAL_DESCRIPTION
   = 'Execute one Python cell on a session-persistent scripting pad. Takes two required '
-    + 'arguments: `cell`, one Python program body (top-level `await` and `return` work; variables, '
+    + 'arguments: `cell`, one Python program body (top-level `await` works; top-level `return` is a SyntaxError — the cell runs in module scope; variables, '
     + 'imports, and definitions from earlier cells are still alive), and `description`, '
     + 'a short summary of what the cell does; optional `timeout` (seconds) bounds the wall-clock and optional `reset` restarts the pad empty. Call tools as `await tool.name(args)` '
     + 'functions per the declarations in the system prompt. Only what you print or '
@@ -212,7 +225,7 @@ const EVAL_DESCRIPTION
 /** The `cell` parameter's model-facing description. */
 const EVAL_CELL_PARAM_DESCRIPTION
   = 'The cell: one Python program body for the session-persistent scripting pad (top-level '
-    + '`await` and `return` work).'
+    + '`await` works; top-level `return` is a SyntaxError — the cell runs in module scope).'
 
 /**
  * The `description` parameter's model-facing description: the UI label
@@ -467,6 +480,12 @@ export interface RunCellBridgeOptions {
    */
   shapeDispatchLog: (dispatch: ReplDispatchLog) => Promise<ContentBlock[]>
   /**
+   * Named logger warn from the mounting context, used for lane-failure
+   * warnings (v0.2.1c drive() backstop) — the lane must log-and-settle,
+   * never rethrow.
+   */
+  warn: (message: string) => void
+  /**
    * Resolves the host-plane `ctx.subagents` service (or undefined when this
    * composition has no subagent capability) for the `agent` /
    * `agent_message` bridges. Read at run time so a host-side provider mounted
@@ -489,7 +508,7 @@ export interface RunCellBridgeOptions {
  * @returns the registry-ready definition.
  */
 export function createRunCellTool(registry: ToolRuntime, options: RunCellBridgeOptions): ToolDefinition {
-  const { requireRuntime, maxParallel, shapeDispatchLog } = options
+  const { requireRuntime, maxParallel, shapeDispatchLog, warn } = options
   return defineTool({
     name: EVAL_NAME,
     description: EVAL_DESCRIPTION,
@@ -558,6 +577,8 @@ export function createRunCellTool(registry: ToolRuntime, options: RunCellBridgeO
         start(): Promise<void>
         classify(): 'parallel' | 'exclusive'
         abandon(): void
+        /** Settle this dispatch as a visible error (never an unhandled rejection). */
+        fail(error: unknown): void
         commit(): Promise<void>
         flight: Promise<void>
         settled: boolean
@@ -619,6 +640,21 @@ export function createRunCellTool(registry: ToolRuntime, options: RunCellBridgeO
               if (pendingQueue.length === 0 && commitQueue.length === 0 && inFlight.size === 0) return
               await signal
             }
+          } catch (error) {
+            // Backstop (v0.2.1c, O-3): the lane must NEVER die with an
+            // unhandled rejection — a start()/commit() failure that escaped
+            // its own containment, or a classify() throw, would otherwise
+            // become an unhandled rejection and kill the daemon. Settle
+            // every queued-but-unsettled dispatch as a visible error so each
+            // binding promise settles, then log and stop the lane.
+            const message = error instanceof Error ? error.message : String(error)
+            warn(`dashr-repl: dispatch lane failed (${message}); settling queued dispatches as errors`)
+            for (const entry of [...pendingQueue, ...commitQueue]) {
+              if (!entry.settled) entry.fail(error)
+            }
+            pendingQueue.length = 0
+            commitQueue.length = 0
+            exclusiveActive = false
           } finally {
             driving = false
             wake = undefined
@@ -651,7 +687,27 @@ export function createRunCellTool(registry: ToolRuntime, options: RunCellBridgeO
           signal: runController.signal,
         }
         type DispatchOutcome = { isError: true; message: string } | { isError: false; value: JsonValue }
+        // v0.2.1c (O-3), root cause corrected in v0.2.1d: the production
+        // missing-symbol form (2026-09-01) was a dual-copy dsh-tools — the
+        // deployed plugin's nested @deepseek-ai symlinks pointed into a
+        // second source tree, so the symbol THIS module imported differed
+        // from the one keying the mounted ToolRuntime instance. A bare
+        // `scheduler.prepare` on undefined is a naked TypeError, amplified
+        // by the lane into a daemon crash; fail LOUD instead, naming the
+        // plugin's own dsh-tools resolution path so a future dual-copy
+        // incident diagnoses itself from the error text. The throw rejects
+        // the binding promise, so the kernel surfaces it to the cell as a
+        // ToolCallError.
         const scheduler = registry[TOOL_RUNTIME_SCHEDULER]
+        if (scheduler === undefined) {
+          let resolvedFrom: string
+          try {
+            resolvedFrom = createRequire(import.meta.url).resolve('@deepseek-ai/dsh-tools')
+          } catch {
+            resolvedFrom = '(unresolvable from the plugin position)'
+          }
+          throw new Error(`${EVAL_NAME}: the tools service mounted by this composition lacks the TOOL_RUNTIME_SCHEDULER symbol as this plugin sees it — REPL sub-dispatch cannot run. Most likely a dual-copy dsh-tools: the symbol keying the mounted ToolRuntime instance is not the symbol this plugin imported (named methods like executionMode keep working across copies; only the symbol-keyed field goes missing). This plugin resolves @deepseek-ai/dsh-tools from: ${resolvedFrom}. Check the deployed plugin's node_modules for stray @deepseek-ai entries (only schemastery and cosmokit belong there)`)
+        }
         const outcome = await new Promise<DispatchOutcome>((resolve, reject) => {
           let parked:
             | { kind: 'post-result' | 'final-result'; exec: ToolRunContext; result: ToolExecutionResult }
@@ -689,12 +745,27 @@ export function createRunCellTool(registry: ToolRuntime, options: RunCellBridgeO
             })().finally(() => { logWork.delete(task) })
             logWork.add(task)
           }
+          // v0.2.1c (O-3): every dispatch failure settles the binding as a
+          // visible error — never an unhandled rejection, never a hung cell.
+          // Defined here (after `settle`) so fail/start/commit can reach it.
+          const settleError = (error: unknown): void => {
+            settle({
+              isError: true,
+              error: { message: error instanceof Error ? error.message : String(error) },
+              content: [],
+            } satisfies ToolExecutionResult)
+          }
           pendingQueue.push({
             flight: Promise.resolve(),
             settled: false,
             classify: () => registry.executionMode(input).kind,
             abandon: () => {
               reject(new Error(`${EVAL_NAME} run is over (${String(runController.signal.reason)}); ${name} tool call abandoned`))
+            },
+            fail(error: unknown): void {
+              if (this.settled) return
+              this.settled = true
+              settleError(error)
             },
             async start(): Promise<void> {
               exec.agent?.session.append('tool/code-dispatch-start', {
@@ -704,38 +775,61 @@ export function createRunCellTool(registry: ToolRuntime, options: RunCellBridgeO
                 name,
                 arguments: normalized.logged,
               })
-              // Ordered prepare runs INSIDE the driver lane: the next entry's
-              // pre-execute waits for this resolution, as under the native
-              // scheduler. Only the launched body below overlaps.
-              const prepared = await scheduler.prepare(input)
-              if (prepared.kind === 'dispatch') {
-                this.flight = scheduler.dispatch(prepared.exec).then((dispatchOutcome) => {
-                  parked = { kind: dispatchOutcome.kind, exec: prepared.exec, result: dispatchOutcome.result }
-                  this.settled = true
-                })
-                return
+              try {
+                // Ordered prepare runs INSIDE the driver lane: the next entry's
+                // pre-execute waits for this resolution, as under the native
+                // scheduler. Only the launched body below overlaps.
+                const prepared = await scheduler.prepare(input)
+                if (prepared.kind === 'dispatch') {
+                  this.flight = scheduler.dispatch(prepared.exec).then(
+                    (dispatchOutcome) => {
+                      parked = { kind: dispatchOutcome.kind, exec: prepared.exec, result: dispatchOutcome.result }
+                      this.settled = true
+                    },
+                    (error: unknown) => {
+                      // A dispatch-body rejection must settle the binding as a
+                      // visible error (v0.2.1c) — never leave the entry
+                      // unsettled (hang) or reject the lane (crash).
+                      this.settled = true
+                      settleError(error)
+                    },
+                  )
+                  return
+                }
+                parked = { kind: prepared.kind, exec: prepared.exec, result: prepared.result }
+                this.settled = true
+              } catch (error) {
+                // prepare/guard failure (v0.2.1c): settle THIS binding as a
+                // visible error and release the lane — never throw into
+                // drive().
+                this.settled = true
+                settleError(error)
               }
-              parked = { kind: prepared.kind, exec: prepared.exec, result: prepared.result }
-              this.settled = true
             },
             async commit(): Promise<void> {
               if (parked === undefined) return
-              const result = parked.kind === 'post-result'
-                ? await scheduler.finalize(parked.exec, parked.result)
-                : scheduler.finish(parked.exec, parked.result)
-              for (const context of result.additionalContexts ?? []) {
-                exec.deferContext(context)
+              try {
+                const result = parked.kind === 'post-result'
+                  ? await scheduler.finalize(parked.exec, parked.result)
+                  : scheduler.finish(parked.exec, parked.result)
+                for (const context of result.additionalContexts ?? []) {
+                  exec.deferContext(context)
+                }
+                // Only a successful nested result can carry the terminal
+                // marker (ToolExecutionFailure types it never), so a
+                // policy-converted failure cannot stop the turn through a
+                // recovering program.
+                if (result.concludesTurn) exec.concludeTurn()
+                settle(result)
+                // Backpressure on pending event-append tasks: each task retains
+                // a full result while a slow backend stores it, so the pool cap
+                // bounds their count.
+                while (logWork.size > maxParallel) await Promise.race(logWork)
+              } catch (error) {
+                // finalize/finish failure (v0.2.1c): settle the binding as a
+                // visible error; the lane must not die from one commit.
+                settleError(error)
               }
-              // Only a successful nested result can carry the terminal
-              // marker (ToolExecutionFailure types it never), so a
-              // policy-converted failure cannot stop the turn through a
-              // recovering program.
-              if (result.concludesTurn) exec.concludeTurn()
-              settle(result)
-              // Backpressure on pending event-append tasks: each task retains
-              // a full result while a slow backend stores it, so the pool cap
-              // bounds their count.
-              while (logWork.size > maxParallel) await Promise.race(logWork)
             },
           })
           wakeup()
@@ -940,19 +1034,30 @@ export function apply(ctx: Context, config: Config): void {
 
     // The dispatch-log reshape extension point is dashr's OWN event
     // (`dashr/repl-dispatch-log`, self-registered), decoupled from upstream's
-    // PTC `tools/ptc-dispatch-log`: same scope-targeted carrier, same
-    // containment — a throwing listener logs a warning and the original
+    // PTC `tools/ptc-dispatch-log` in NAME but not in carrier: the harness's
+    // spill-policy dispatch-log arm (`ctx.on('tools/ptc-dispatch-log')`)
+    // still bounds oversized `tool/code-dispatch` log copies, so after our
+    // own waterfall we feed the same dispatch through the upstream carrier
+    // (structurally identical payload) to keep that arm live — v0.2.1
+    // decoupling silently disabled it for eval sub-dispatches. Both are
+    // contained: a throwing listener logs a warning and the original
     // settled content is logged.
     const shapeDispatchLog = async (dispatch: ReplDispatchLog): Promise<ContentBlock[]> => {
       try {
-        return await runtimeCtx.waterfall(
+        const own = await runtimeCtx.waterfall(
           scopeTarget(registry, dispatch.agent),
           'dashr/repl-dispatch-log',
           dispatch,
           () => Promise.resolve(dispatch.content),
         )
+        return await runtimeCtx.waterfall(
+          scopeTarget(registry, dispatch.agent),
+          'tools/ptc-dispatch-log',
+          dispatch,
+          () => Promise.resolve(own),
+        )
       } catch (error: unknown) {
-        logger.warn(`dashr-repl: repl-dispatch-log listener failed for ${dispatch.name}: ${error instanceof Error ? error.message : String(error)}; logging the original settled content`)
+        logger.warn(`dashr-repl: dispatch-log listener failed for ${dispatch.name}: ${error instanceof Error ? error.message : String(error)}; logging the original settled content`)
         return dispatch.content
       }
     }
@@ -983,7 +1088,7 @@ export function apply(ctx: Context, config: Config): void {
       // test harness, whose fake provides it at the root) resolves here.
       return runtimeCtx.get('workflowEngine') as DASHRWorkflowEngine | undefined
     }
-    runtimeCtx.tools.register(createRunCellTool(registry, { requireRuntime, maxParallel, shapeDispatchLog }))
+    runtimeCtx.tools.register(createRunCellTool(registry, { requireRuntime, maxParallel, shapeDispatchLog, warn: (message: string) => logger.warn(message) }))
     // ①¼ The three delegation bridges as REAL registry tools (same host
     // layer as `eval`): the registry projection becomes the single source
     // for wire, catalog, and REPL bindings alike — the auto-bridge picks
@@ -1069,6 +1174,33 @@ export function apply(ctx: Context, config: Config): void {
       name: 'dashr:tool-catalog',
       order: SDK_SECTION_ORDER,
       text: context => renderReplBridgeInstructions(collectSdkSchemas(registry, context.scope)),
+    })
+
+    // ①″ The sandbox escalation guidance context (v0.2.1b): under
+    // workspace-write the model sees the sandbox policy but never the
+    // single-call escalation lever, so its prior ("I am sandboxed") can
+    // suppress out-of-box attempts before any denial teaches the path.
+    // This context discloses ONLY the lever — whether to attempt is the
+    // model's own decision — and renders inside the same "Current runtime
+    // context" snapshot as the policy entries, only when the effective
+    // mode is workspace-write (read-only's own sentence already teaches
+    // escalation; danger-full-access has no target). order 116 sits
+    // between upstream CONTEXT_ORDERS approval:policy (115) and
+    // subagent:delegation (120) — re-check if upstream adds context
+    // entries in that band.
+    systemPrompt.context({
+      name: 'dashr:escalation-guidance',
+      order: ESCALATION_GUIDANCE_ORDER,
+      text: context => {
+        const session = context.agent?.session
+        if (session === void 0) return ''
+        const sandboxPolicy = runtimeCtx.get('sandboxPolicy') as { resolve(o: { session: object }): { mode: string; workspaceRoot: string } } | undefined
+        if (!sandboxPolicy) return ''
+        const policy = sandboxPolicy.resolve({ session })
+        return policy.mode === 'workspace-write'
+          ? 'Restricted operations may be retried once with sandbox_permissions for single-call escalation, pending user approval.'
+          : ''
+      },
     })
 
   })

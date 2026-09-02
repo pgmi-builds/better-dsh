@@ -1,9 +1,4 @@
-# tool-surface Specification
-
-## Purpose
-DASHR 的模型表面（model surface）契约：哪些工具出现在 registry 投影（LLM-client 协议 tools 数组、目录文本、REPL 绑定）里。核心原则——掩码作用于 tool registry（被替代了呈现面的原生工具全部 visible=false）；REPL 绑定对 registry 可见集做机械/透明的自动桥接（零名单维护）；被掩工具的能力保留靠三桥 service 层直调（`agent` spawn/fork、`agent_message` 消息+中断、`agent_workflow` 编排），不靠 registry 豁免。
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Registry masking of replaced-presentation native tools
 The system SHALL remove the native tools whose presentation surface DASHR replaces (`skill`, upstream `send_message`, `report`, `list_agents`, and the delegation family `subagent_fork`/`interrupt_agent`/`workflow`/`ralph`) from the agent's tool registry projection via an agent-scope registry restriction — the wire tools array, tool catalog, and REPL bindings all derive from the same projection, so the removal is uniform. `subagent` is deliberately NOT masked: it stays visible on every surface and the control-prompt section annotates it as an alias of the `agent` delegation tool (the unified agent-spawn entry). The restriction MUST NOT touch the registered tool definitions themselves; DASHR preserves each masked tool's native capability at the tool-bridge level (not by registry exemption): `agent` spawns/forks subagents and `agent_message` passes child-downlink/parent-uplink/interrupt through the host-plane service layer, while `agent_workflow` passes script/rfc through to the CAPTURED native workflow/ralph definitions (the workflowEngine service is entry-local to the preset's delegation realm, invisible to any outside ctx — the native execute closures resolve it from inside); `agent://` replaces `list_agents`, `read skill://` replaces `skill`.
@@ -54,60 +49,7 @@ The system SHALL present the catalog section as REPL bridge instructions for the
 - **WHEN** a session renders the bridge instructions
 - **THEN** the non-flat exception text refers to non-identifier characters such as hyphens and does not present `__` infixes alone as forbidden
 
-### Requirement: Delegation bridges are registry tools
-The system SHALL register the delegation bridges (`agent`, `agent_message`, `agent_workflow`) as real tools in the tool registry (same host registration layer as the `eval` transport), with runtime argument validation inside their execute and structured `{ error }` return values (no exceptions for bad input). The registry projection is then the single source for all three model-facing surfaces: the wire tools array, the tool catalog, and the REPL `tool.*` bindings (via the mechanical auto-bridge). The three surfaces SHALL be name-by-name equal for every session; the only permitted exception is `eval` itself excluded from the binding and catalog sets (self-call prevention).
-
-#### Scenario: Bridge callable directly on the wire
-- **WHEN** the model sends a direct tool call `agent` with `{ description, prompt }` (no cell)
-- **THEN** the call dispatches through the normal kernel pipeline and returns the same result shape the REPL binding returns, with the same audit events as any registry tool
-
-#### Scenario: Three-surface name equality
-- **WHEN** a DASHR session starts
-- **THEN** the wire tools array, the catalog entries, and the REPL binding names are equal as sets, excepting only `eval`
-
-#### Scenario: No dual-source drift
-- **WHEN** a bridge's parameter surface changes
-- **THEN** the wire schema, catalog line, and REPL binding all change together, because all three derive from the one registered schema
-
-### Requirement: llm_completion tool
-The system SHALL provide an `llm_completion` tool: a one-shot, stateless LLM call — no tools, no conversation history, no agent creation. Inputs: `{ prompt, system?, maxTokens? }`; output: the model's text. The call SHALL be attributed to the calling agent's session through the normal tool-call audit (the host's auxiliary-purpose enum is closed and carries no completion class), SHALL honor the caller's abort signal, and SHALL resolve its model route from the calling agent's current model selection, and SHALL answer a structured error value — never a silent fallback route — when no selection is available. A finish other than a clean stop, or any tool-call block in the output, SHALL produce a structured error value, not a thrown exception.
-
-#### Scenario: Zero-spawn judge step inside a cell
-- **WHEN** a cell calls `await tool.llm_completion({ prompt: "<judge prompt>", system: "<rubric>" })`
-- **THEN** the value returned is the model's text; no subagent is spawned, no session besides the caller's is created, and the call is auditable under its own purpose
-
-#### Scenario: Model route follows the caller
-- **WHEN** the calling agent's selected model differs from the host default
-- **THEN** the completion runs on the caller's selection
-
-#### Scenario: Degraded finish is a structured error
-- **WHEN** the completion hits maxTokens or aborts
-- **THEN** the tool returns `{ error: <description> }` rather than throwing
-
-### Requirement: REPL tool namespace introspection
-The system SHALL make the REPL `tool` namespace introspectable: `dir(tool)` returns the sorted list of bound tool names — exactly the names callable as `tool.<name>(argsObject)`. The underlying injected mapping (e.g. `__dashr_injected__`) remains unchanged for compatibility; `dir()` is the documented introspection surface.
-
-#### Scenario: dir(tool) lists the binding set
-- **WHEN** a cell runs `dir(tool)`
-- **THEN** the returned list equals the sorted set of names bound in the `tool` namespace for that run (dunder members aside), including the delegation bridges and `llm_completion`
-
-### Requirement: Hashline edit family registered on the agent's own layer
-The system SHALL register the vendored hashline edit family on each agent's own scope layer at session start — `edit` (hash-anchored ordered edit tuples, shadowing the preset's built-in edit by nearest-layer resolution, no mask entry needed) and `undo_last_edit` (revert of the most recent hashline edit) — alongside the URL-aware read/write/grep/glob wrappers, unwinding with the agent. A write-side hook SHALL append the fresh hashline preview to successful write results, and the hashline guidance sections SHALL shadow the preset's built-in tool guidance on the same layer (compiled defaults when no agentPresets service or a failing override — never a failed install).
-
-#### Scenario: A hash-anchored edit lands and is reversible
-- **WHEN** the model calls `edit` with anchored edit tuples on a file a prior hashline `read` served
-- **THEN** the edit applies atomically against the served hash state (drift-checked), and a subsequent `undo_last_edit` reverts it
-
-#### Scenario: The shadow replaces the built-in edit without masking
-- **WHEN** an agent session starts under DASHR
-- **THEN** the `edit` the model sees is the hashline tool (own-layer shadow), the preset's built-in edit is unreachable for that agent, and no deny-list entry names `edit`
-
-### Requirement: Lsp feedback rides edit results
-The system SHALL attach the same write-feedback diagnostics contract to successful edits: after a landed `edit` with an explicit path, the result content carries the diagnostics summary computed from the exact landed content (didSave freshness, timeout degradation, span guard — the `dvc` write-feedback requirement's terms apply verbatim). Anchor-only edits (path inferred from anchors) and non-edit tools pass through untouched; the write tool's feedback stays with its wrapper (no double pull).
-
-#### Scenario: An edit that introduces a type error reports it
-- **WHEN** an edit lands content introducing a type error in a file with a language server and its check completes within the budget
-- **THEN** the edit result text carries the diagnostics summary for the exact landed content
+## ADDED Requirements
 
 ### Requirement: Masking failures surface loudly
 The system SHALL surface a structured error, not a silent skip, when restricting any masked tool name fails at session start; after application the mask SHALL verify that every masked name is absent from the wire tools array, the tool catalog, and the REPL bindings.

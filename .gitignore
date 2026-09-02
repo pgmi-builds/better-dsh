@@ -36,3 +36,6 @@ Thumbs.db
 
 # --- dsh-better-edit runtime artifact (hash store written into cwd) ---
 .dsh_better_edit/
+
+# --- local dsh-test instance data (Dev/Test 1) ---
+.dsh-test/

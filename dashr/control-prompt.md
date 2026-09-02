@@ -5,11 +5,11 @@ This agent has TWO ways to act:
 1. **Direct tool calls** — call native tools (`read`/`write`/`edit`/`bash`/…) as ordinary function calls. Use these for payload-shaped work: one long read, one edit, one command.
 2. **`eval` cells** — one `eval` call runs one Python program on a session-persistent scripting pad. Use it when you need logic: loops, conditions, fan-out, or composing many tool results into one step.
 
-`eval` takes two required arguments: `cell` (one Python program; top-level `await` and `return` work, variables/imports/definitions from earlier cells are still alive) and `description` (a short summary).
+`eval` takes two required arguments: `cell` (one Python program; top-level `await` works; top-level `return` is a SyntaxError — the cell runs in module scope; variables/imports/definitions from earlier cells are still alive) and `description` (a short summary).
 
 ## Tools inside a cell
 
-Inside a cell, every native tool is a member of the `tool` object, called as `await tool.name({...})` with ONE positional arguments object — `await tool.read({"file_path": "x"})`, never `tool.read(file_path="x")`. A failed call raises `ToolCallError`.
+Inside a cell, every native tool is a member of the `tool` object, called as `await tool.name({...})` with ONE positional arguments object — `await tool.read({"file_path": "x"})`, never `tool.read(file_path="x")`. A failed call raises `ToolCallError`. Tool names that are not plain identifiers (non-identifier characters, e.g. hyphens) have no `tool.<name>` member — call those as direct tool calls. Delegation: `agent` is the unified agent-spawn entry; `subagent` is its native alias — both delegate through the same runtime, so call either.
 
 ```python
 # One step cell

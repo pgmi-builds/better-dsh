@@ -4,7 +4,7 @@ import { defineTool } from '@deepseek-ai/dsh-tools'
 import { toolCallId } from '../src/tool-call-id.ts'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import { FakeCellRuntime, fakeRuntime, registerFakeDelegationTools, runCell, setupPresentation } from './helpers.ts'
-import { resolveMaxParallelSubCalls } from '../src/index.ts'
+import { ESCALATION_GUIDANCE_ORDER, MASKED_TOOL_NAMES, resolveMaxParallelSubCalls } from '../src/index.ts'
 
 /** Register a trivial echo tool; returns the calls it received. */
 function registerEcho(ctx: Context, name = 'echo'): unknown[] {
@@ -202,5 +202,83 @@ describe('config', () => {
     const neighbor = await ctx.systemPrompt.assemble({ scope: other.agent })
     expect(neighbor.tools.map(tool => tool.name)).toEqual(['echo'])
     expect(ctx.tools.schemas(undefined).map(tool => tool.name)).toEqual(['echo'])
+  })
+})
+
+describe('v0.2.1b — model-surface contracts (eval description, mask list, escalation guidance)', () => {
+  /** Mount a fake host-plane `sandboxPolicy` service answering a fixed mode. */
+  async function fakeSandboxPolicy(mode: string) {
+    const { ctx, agent } = await setupPresentation(fakeRuntime)
+    await ctx.plugin({ name: 'fake-sandbox-policy', apply(c) {
+      c.provide('sandboxPolicy', {
+        resolve: () => ({ mode, workspaceRoot: '/tmp/fake-workspace' }),
+      })
+    } })
+    return { ctx, agent }
+  }
+
+  it('eval description promises only what the kernel does (top-level return is a SyntaxError)', async () => {
+    const { ctx, agent } = await setupPresentation(fakeRuntime)
+    const assembly = await ctx.systemPrompt.assemble({ scope: agent.agent })
+    const evalTool = assembly.tools.find(tool => tool.name === 'eval')
+    expect(evalTool?.description).toContain('top-level `await` works')
+    expect(evalTool?.description).toContain('top-level `return` is a SyntaxError')
+    expect(evalTool?.description).not.toContain('top-level `await` and `return` work')
+    const control = assembly.sections.find(section => section.name === 'dashr:control-prompt')
+    expect(control?.text).toContain('top-level `await` works')
+    expect(control?.text).toContain('top-level `return` is a SyntaxError')
+    expect(control?.text).not.toContain('top-level `await` and `return` work')
+  })
+
+  it('control prompt states the non-flat exception and the subagent alias', async () => {
+    const { ctx, agent } = await setupPresentation(fakeRuntime)
+    const assembly = await ctx.systemPrompt.assemble({ scope: agent.agent })
+    const control = assembly.sections.find(section => section.name === 'dashr:control-prompt')
+    expect(control?.text).toContain('Tool names that are not plain identifiers')
+    expect(control?.text).toContain('`subagent` is its native alias')
+  })
+
+  it('catalog non-flat wording names non-identifier characters, not __ infixes', async () => {
+    const { ctx, agent } = await setupPresentation(fakeRuntime)
+    const assembly = await ctx.systemPrompt.assemble({ scope: agent.agent })
+    const catalog = assembly.sections.find(section => section.name === 'dashr:tool-catalog')
+    expect(catalog?.text).toContain('non-identifier characters')
+    expect(catalog?.text).not.toContain('`__` infixes')
+  })
+
+  it('mask list keeps the eight masked names and excludes subagent (v0.2.1b alias)', () => {
+    const masked = [...MASKED_TOOL_NAMES]
+    expect(masked).not.toContain('subagent')
+    for (const name of ['skill', 'send_message', 'report', 'list_agents', 'subagent_fork', 'interrupt_agent', 'workflow', 'ralph']) {
+      expect(masked).toContain(name)
+    }
+  })
+
+  it('escalation guidance sits at order 116 in the runtime-context band', () => {
+    expect(ESCALATION_GUIDANCE_ORDER).toBe(116)
+  })
+
+  it('escalation guidance injects under workspace-write', async () => {
+    const { ctx, agent } = await fakeSandboxPolicy('workspace-write')
+    const assembly = await ctx.systemPrompt.assemble({ scope: agent.agent, agent: agent.agent })
+    const guidance = assembly.contexts.find(context => context.name === 'dashr:escalation-guidance')
+    expect(guidance).toBeDefined()
+    expect(guidance?.text).toContain('Restricted operations may be retried once with sandbox_permissions')
+  })
+
+  it('escalation guidance renders empty under read-only and danger-full-access', async () => {
+    for (const mode of ['read-only', 'danger-full-access']) {
+      const { ctx, agent } = await fakeSandboxPolicy(mode)
+      const assembly = await ctx.systemPrompt.assemble({ scope: agent.agent, agent: agent.agent })
+      const guidance = assembly.contexts.find(context => context.name === 'dashr:escalation-guidance')
+      expect(guidance?.text).toBe('')
+    }
+  })
+
+  it('escalation guidance fails closed without a sandboxPolicy service', async () => {
+    const { ctx, agent } = await setupPresentation(fakeRuntime)
+    const assembly = await ctx.systemPrompt.assemble({ scope: agent.agent, agent: agent.agent })
+    const guidance = assembly.contexts.find(context => context.name === 'dashr:escalation-guidance')
+    expect(guidance?.text).toBe('')
   })
 })
