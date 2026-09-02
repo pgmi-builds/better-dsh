@@ -34,14 +34,20 @@ function swipeLeftFrom(x0: number): SwipeSample {
 
 describe('three-condition contract (distance ∧ velocity ∧ origin)', () => {
   it('opens the sidebar on a comfortable rightward sweep from the left edge band', () => {
-    // 0.4 px/ms — deliberately lazy, comfortably under the old 0.35 threshold's
-    // demands but above the 0.2 floor.
+    // 0.4 px/ms — comfortably lazy; with the sidecarx-aligned default the
+    // velocity gate is disabled entirely.
     expect(classifySwipe(swipe(), DEFAULT_SWIPE_THRESHOLDS, BOTH_CLOSED)).toBe('open-left')
   })
 
-  it('rejects a slow press-drag that covers the distance (text selection)', () => {
-    // 200px in 1200ms ≈ 0.17 px/ms < 0.2: distance passes, velocity fails.
-    expect(classifySwipe(swipe({ dtMs: 1200, x1: 212 }), DEFAULT_SWIPE_THRESHOLDS, BOTH_CLOSED)).toBeNull()
+  it('a slow press-drag registers by default — sidecarx parity: no velocity gate', () => {
+    // 200px in 1200ms: the sidecarx reference (app.js SWIPE_THRESHOLD=50, no
+    // velocity condition) accepts this, and so does the aligned default.
+    expect(classifySwipe(swipe({ dtMs: 1200, x1: 212 }), DEFAULT_SWIPE_THRESHOLDS, BOTH_CLOSED)).toBe('open-left')
+  })
+
+  it('the ARMED velocity gate rejects the same slow drag (three-condition mode)', () => {
+    const armed = { ...DEFAULT_SWIPE_THRESHOLDS, swipeVelocityPxPerMs: 0.35 }
+    expect(classifySwipe(swipe({ dtMs: 1200, x1: 212 }), armed, BOTH_CLOSED)).toBeNull()
   })
 
   it('rejects a short flick below the distance threshold', () => {
@@ -60,8 +66,11 @@ describe('three-condition contract (distance ∧ velocity ∧ origin)', () => {
     expect(classifySwipe(swipe({ pointerType: 'mouse' }), DEFAULT_SWIPE_THRESHOLDS, BOTH_CLOSED)).toBeNull()
   })
 
-  it('rejects a zero-duration span (cannot compute velocity)', () => {
-    expect(classifySwipe(swipe({ dtMs: 0 }), DEFAULT_SWIPE_THRESHOLDS, BOTH_CLOSED)).toBeNull()
+  it('a zero-duration span is rejected only when the velocity gate is armed', () => {
+    const armed = { ...DEFAULT_SWIPE_THRESHOLDS, swipeVelocityPxPerMs: 0.2 }
+    expect(classifySwipe(swipe({ dtMs: 0 }), armed, BOTH_CLOSED)).toBeNull()
+    // Disarmed (default): distance + dominance decide, as in sidecarx.
+    expect(classifySwipe(swipe({ dtMs: 0 }), DEFAULT_SWIPE_THRESHOLDS, BOTH_CLOSED)).toBe('open-left')
   })
 
   it('honors configured thresholds, not just the defaults', () => {

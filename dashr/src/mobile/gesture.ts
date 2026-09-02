@@ -42,16 +42,20 @@ export interface SwipeThresholds {
 }
 
 /**
- * Resolved defaults, mirroring the host config schema. The 0.2 px/ms velocity
- * floor sits between a slow text-selection drag (~0.13 px/ms) and a lazy but
- * deliberate swipe (~0.4+); the first cut's 0.35 demanded an uncomfortably
- * fast flick (user 2026-09-03 round 2).
+ * Resolved defaults, aligned to the operator's own battle-tested webclient
+ * (sidecarx `src/webclient/src/app.js:332` sidebar gestures + `components/
+ * overlay-viewer.js:226`): distance 50px, left/right edge band 40px, close
+ * from any origin while open — and NO velocity gate (sidecarx ships none;
+ * misfire protection there is distance + horizontal dominance + origin
+ * rules). `swipeVelocityPxPerMs: 0` therefore DISABLES the velocity
+ * condition by default; raise it only to re-arm the three-condition
+ * recognition (a slow text-selection drag runs ~0.13 px/ms).
  */
 export const DEFAULT_SWIPE_THRESHOLDS: SwipeThresholds = {
   breakpoint: 1024,
-  swipeDistancePx: 48,
-  swipeVelocityPxPerMs: 0.2,
-  edgeBandPx: 28,
+  swipeDistancePx: 50,
+  swipeVelocityPxPerMs: 0,
+  edgeBandPx: 40,
 }
 
 /** One gesture's observed facts (pointerdown → pointerup span). */
@@ -102,9 +106,14 @@ export function classifySwipe(sample: SwipeSample, thresholds: SwipeThresholds, 
   if (adx <= ady) return null
   // ② Distance.
   if (adx < thresholds.swipeDistancePx) return null
-  // ③ Velocity (average over the down→up span); a zero span cannot be a swipe.
-  if (sample.dtMs <= 0) return null
-  if (adx / sample.dtMs < thresholds.swipeVelocityPxPerMs) return null
+  // ③ Velocity (average over the down→up span), only when armed: the
+  // sidecarx-aligned default is 0 = disabled (distance + dominance + origin
+  // rules carry the misfire protection there); a zero span still cannot be a
+  // swipe because the distance gate already needs real movement.
+  if (thresholds.swipeVelocityPxPerMs > 0) {
+    if (sample.dtMs <= 0) return null
+    if (adx / sample.dtMs < thresholds.swipeVelocityPxPerMs) return null
+  }
   // ① Origin + direction, panel by panel.
   const inLeftBand = sample.x0 <= thresholds.edgeBandPx
   const inRightBand = sample.x0 >= sample.viewportWidth - thresholds.edgeBandPx
