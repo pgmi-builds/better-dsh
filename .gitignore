@@ -39,3 +39,6 @@ Thumbs.db
 
 # --- local dsh-test instance data (Dev/Test 1) ---
 .dsh-test/
+
+# --- ACP test home (shared test-profile data) ---
+.dsh-acp/

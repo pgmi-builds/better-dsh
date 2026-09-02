@@ -25,7 +25,7 @@
  */
 
 import { execFile } from 'node:child_process'
-import { existsSync } from 'node:fs'
+import { existsSync, mkdirSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
@@ -40,6 +40,12 @@ export const AUTO_PYTHON_SENTINEL = 'python3'
 
 /** Preferred CPython version for a managed venv. */
 export const DEFAULT_KERNEL_PYTHON_VERSION = '3.11'
+
+/** Pinned, tested `ipykernel` version (2026-09-02 tested value; upgrade = explicit change + regression). */
+export const IPYKERNEL_VERSION = '7.3.0'
+
+/** Pinned, tested `dill` version. */
+export const DILL_VERSION = '0.4.1'
 
 export interface KernelEnv {
   /** Absolute path to the interpreter to spawn (`-m ipykernel_launcher`). */
@@ -122,24 +128,56 @@ async function commandExists(cmd: string): Promise<boolean> {
   }
 }
 
+/** Tool-cache env for uv: caches live NEXT TO the venv (plugin territory), so a read-only home can never block provisioning. */
+export function uvToolEnv(venvDir: string): NodeJS.ProcessEnv {
+  const cacheDir = join(dirname(venvDir), '.uv-cache')
+  return {
+    ...process.env,
+    UV_CACHE_DIR: cacheDir,
+    UV_PYTHON_INSTALL_DIR: join(cacheDir, 'python'),
+    UV_LINK_MODE: 'copy',
+  }
+}
+
+/** uv venv arguments (pure; unit-tested). */
+export function uvVenvArgs(venvDir: string, pythonVersion: string): string[] {
+  return ['venv', venvDir, '--python', pythonVersion]
+}
+
+/** python3 -m venv fallback arguments (pure; cache-free by construction). */
+export function venvFallbackArgs(venvDir: string): string[] {
+  return ['-m', 'venv', venvDir]
+}
+
+/** uv pip install arguments with pinned versions (pure; unit-tested). */
+export function uvInstallArgs(python: string): string[] {
+  return ['pip', 'install', '--python', python, '--quiet', `ipykernel==${IPYKERNEL_VERSION}`, `dill==${DILL_VERSION}`]
+}
+
+/** pip install arguments with pinned versions for the venv interpreter (pure). */
+export function pipInstallArgs(): string[] {
+  return ['-m', 'pip', 'install', '--quiet', '--disable-pip-version-check', `ipykernel==${IPYKERNEL_VERSION}`, `dill==${DILL_VERSION}`]
+}
+
 /** Create the venv (when absent) and return its interpreter path. */
 async function createVenv(venvDir: string, pythonVersion: string): Promise<string> {
   const python = venvPythonPath(venvDir)
   if (existsSync(python)) return python
   if (await commandExists('uv')) {
-    await execFileAsync('uv', ['venv', venvDir, '--python', pythonVersion], { timeout: 120_000 })
+    mkdirSync(join(dirname(venvDir), '.uv-cache'), { recursive: true })
+    await execFileAsync('uv', uvVenvArgs(venvDir, pythonVersion), { timeout: 120_000, env: uvToolEnv(venvDir) })
   } else {
-    await execFileAsync('python3', ['-m', 'venv', venvDir], { timeout: 120_000 })
+    await execFileAsync('python3', venvFallbackArgs(venvDir), { timeout: 120_000 })
   }
   return python
 }
 
-/** Install `ipykernel` + `dill` into the venv interpreter. */
-async function installDeps(python: string): Promise<void> {
+/** Install pinned `ipykernel` + `dill` into the venv interpreter. */
+async function installDeps(python: string, venvDir: string): Promise<void> {
   if (await commandExists('uv')) {
-    await execFileAsync('uv', ['pip', 'install', '--python', python, '--quiet', 'ipykernel', 'dill'], { timeout: 180_000 })
+    await execFileAsync('uv', uvInstallArgs(python), { timeout: 180_000, env: uvToolEnv(venvDir) })
   } else {
-    await execFileAsync(python, ['-m', 'pip', 'install', '--quiet', '--disable-pip-version-check', 'ipykernel', 'dill'], { timeout: 180_000 })
+    await execFileAsync(python, pipInstallArgs(), { timeout: 180_000 })
   }
 }
 
@@ -155,7 +193,7 @@ async function ensureVenv(venvDir: string, pythonVersion: string, log?: ResolveK
     throw new Error(`dashr-repl: managed kernel venv was not created at ${venvDir} (no interpreter at ${python})`)
   }
   log?.('info', `dashr-repl: provisioning kernel venv at ${venvDir} (ipykernel + dill)`)
-  await installDeps(python)
+  await installDeps(python, venvDir)
   return python
 }
 
