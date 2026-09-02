@@ -27,3 +27,19 @@
   disabled: false
 - id: tool-result-pruner
   disabled: false
+
+# Web-trust fence authorities (v0.2.1f): override the connection row the
+# dsh-web-app bundle declares (same id), restating its full shape per the
+# patch-layer contract, with `trustedHosts` merging the DSH_TRUSTED_HOSTS
+# environment (whitespace-separated, operator-declared serving authorities)
+# ahead of the upstream webRuntime-derived ones (LAN literals from an
+# all-interface bind plus --trusted-host extras). Unset/empty env ⇒ identical
+# behavior to the unpatched row. Malformed entries fail plugin load loudly
+# (upstream assertTrustedAuthority). The browser-side twin (page-authority
+# loopback verdict) is the plugin's webserver/index-inject boot script —
+# see src/web-trust.ts.
+- id: connection
+  name: '@deepseek-ai/dsh-client-connection'
+  inject: [webRuntime]
+  config:
+    trustedHosts: !!js (process.env.DSH_TRUSTED_HOSTS ?? '').split(/\s+/).filter(Boolean).concat(ctx.webRuntime.trustedHosts)

@@ -117,6 +117,7 @@ pnpm --filter @pgmi-builds/better-dsh exec tsdown
 - ✅ `dashr-repl` 工具行 + `DASHR_KERNEL_PYTHON` config 注入；web shell + assets HTTP 200；`.dsh-test/storages/workspace.json` 落盘。
 - ✅ **kernel 三级供给**（2026-09-03，change `kernel-provisioning-completeness`）：postinstall/spin-up/首用 lazy 全 fail-open；冷启动 spin-up 自动重建 venv（pinned ipykernel 7.3.0 / dill 0.4.1 / CPython 3.11，无 uv 时 python3-venv 兜底 3.14.4 实测兼容）；uv cache 重定向包内 `.uv-cache`，只读 HOME 实测无碍；一页文档 `docs/kernel-provisioning.md`。
 - ✅ **client 卡片半边已通**（2026-09-03，change `model-failover-settings-surface`）：副本内构建用 **`tsx scripts/build-client.ts` 直跑**（33ms；⚠ `npm run build-client` 在 monorepo 副本必死——npm 自身 pre-script 的 workspace 枚举读 pnpm-workspace `vendor/*` glob 匹配到普通文件 CLAUDE.md → ENOTDIR/exit 236，与脚本无关）；验证法：鉴权拉 shell 页 → boot graph 应含 `"id":"@pgmi-builds/better-dsh"` 与 `/plugins/??@pgmi-builds/better-dsh/client.js&rev=…` URL → curl 该 URL 200 且与 `lib/client/index.js` 字节一致（服务端仅追加 sourceMappingURL 行）。原生注册路径已核实：settings 行 = client bundle 内 `ctx.slots.inject('settings.general.item', …)`（与 locale/ui-chat 原生行同构）。
+- ✅ **web-trust 双腿 + mobile-layout 随插件发布**（2026-09-03，change `plugin-shipped-ui-patches`，v0.2.1-f）：**fence 腿** = bundle patch 整行重述 `connection` 行（`trustedHosts: !!js (process.env.DSH_TRUSTED_HOSTS ?? '').split(/\s+/).filter(Boolean).concat(ctx.webRuntime.trustedHosts)`；⚠ `!!js` 是 scalar tag，表达式**不能以 `[` 开头**否则 yaml 按 flow-seq 拒收）；**isLoopback 腿** = host 半 `webserver/index-inject` 内联 boot script（trusted hostname → `window.__DSH_TRANSPORT__={ownsHost:true}`；mobile 阈值 → `__DASHR_MOBILE__`——client 半无 config，页面全局即配置通道）；**mobile** = client 半 CSS（媒体查询 + `[data-sidebar-collapsed]` + `!important` 覆盖内联 grid template）+ 三条件手势（起点∧距离∧速率，touch/pen only → `ctx.layout.toggleSidebar()`）。423/423 + tsc 0；4999 双腿活体实证（`Host:probe.example`→401 / `evil.example`→403 差分；shell HTML 含 boot script；application batch 含 mobile 模块）。报告 `docs/50_test-reports/v0.2.1f-plugin-shipped-ui-patches实测报告.md`；浏览器/真机两级确认待 user。
 
 ---
 
@@ -131,6 +132,18 @@ prod npm CLI 当 harness 核，只把插件本体和它的 harness 依赖换成 
 - ~~剩余待验证~~ **已收敛（2026-09-02）**: `./dashr` 构建产物 md5 同步线的 prod 冒烟已跑（v0.2.1c 同步态活体 4 探针 4/4）；profile 锁/lockfile/部署位已统一为 `0.2.1-d`（经 `dsh plugin add @pgmi-builds/better-dsh@0.2.1-d`，见第一节供应链年龄门）。**发布态部署的正道是 pnpm add 精确版本**，手工 md5 同步仅限未发布的本地迭代。
 
 ---
+
+## 四、dsh 插件开发面（机制速查）— 2026-09-03 研究裁决
+
+机制层知识已沉淀为 ws skill：**`.agents/skills/dsh-plugin-development/`**（core-framework / web-ui 两分量，源码锚点齐）。要点裁决（细节以 skill 为准）：
+
+- **官方声明式 patch 线 = `cordis.patch.yml`**：行 schema `{id, name, config, inject, disabled}`；层序 bundles（列序）→ profile → home → `--patch`；后层按 id **整行重述**覆盖前层（非 merge）；`!!js` boot 表达式可读 `process.env` 与 loader 上下文服务。presets/features/settings 全是插件行 config → 全部 patch-线可达。dashr 自己的 bundle patch 已在用（compaction 三行 re-enable、`DASHR_KERNEL_PYTHON`）。
+- **override 的三条硬边界**（勿再凭直觉）：① 浏览器模块表同 id = 双侧硬错（无 last-wins，同名包遮蔽不可行）；② cordis 同 scope 同名 service = 硬错，"closest wins" 仅祖先/isolate 遮蔽（兄弟插件间不存在）；③ 官方 UI 组件遮蔽 = **slot 同 cell 更低 priority 注册（lowest renders）**，同 priority 才报错。整插件替换的正规入口 = patch 行 id 覆盖 + `name` 重指（记录未用）。
+- **`/api` 信任栅栏（alpha.5 起）**：服务端化 + 配置化——`connection` 行 config `trustedHosts`（`--trusted-host` CLI → web-app bundle `webRuntime` 服务 → `!!js ctx.webRuntime.trustedHosts`）；上游注释明示拼接扩展式。alpha.3 的 prod 手改 patch（vendored `isLoopbackHostname` 放宽）在 alpha.5+ 由 patch 线取代（v0.2.1f change `plugin-shipped-ui-patches` 落地中，含 4999 症状复诊与 `isLoopback` 残余评估）。
+- **client 半 CSS 注入是一等公民**（`claimStyles` 按插件认领 `<style>`）；上游 `ui-layout`：窄视口侧栏折叠为 56px rail 永不为 0、`SIDEBAR_AUTO_COLLAPSE=1024`、视口 <920 details 必关、**无原生滑动手势**（插件手势 = 纯增量）。
+
+---
+
 
 ## ✅ prod 插件嵌套 symlink 悬空 — 已清理（2026-09-02），重启安全
 

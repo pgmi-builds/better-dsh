@@ -19,6 +19,7 @@ import type {} from '@deepseek-ai/dsh-settings/types'
 import { FAILOVER_SETTINGS_NS } from '../config.ts'
 import { en, NS, zh } from './locales.ts'
 import { FailoverRow, type FailoverRowInjected, type FailoverRowProps } from './FailoverRow.tsx'
+import { setupMobileLayout } from '../../mobile/client/index.ts'
 
 export type { FailoverRowInjected, FailoverRowProps }
 export { FailoverRow }
@@ -32,6 +33,11 @@ export const inject = ['slots', 'locale', 'remote', 'remote.settings', 'remote.s
  */
 export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'llm-failover: dictionaries')
+
+  // Mobile responsiveness (v0.2.1f): CSS + swipe gesture, config-gated by
+  // the host half's boot script (`window.__DASHR_MOBILE__`); inert when the
+  // host did not opt the page in.
+  setupMobileLayout(ctx)
 
   ctx.slots.inject('settings.general.item', function* () {
     yield ctx.slots.register({

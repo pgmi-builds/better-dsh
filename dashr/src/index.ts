@@ -112,6 +112,7 @@ import { createLlmCompletionTool } from './llm-completion.ts'
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { installFailover } from './failover/index.ts'
+import { installWebTrust, type WebTrustConfig } from './web-trust.ts'
 
 /** The control prompt text, loaded at module time from the sibling markdown file (editable without touching TS). */
 const CONTROL_PROMPT_TEXT = readFileSync(new URL('../control-prompt.md', import.meta.url), 'utf8')
@@ -130,15 +131,34 @@ export const inject = ['tools']
 /** Plugin config. */
 export interface Config extends RuntimeConfig {
   maxParallelSubCalls?: number
+  /** Page hostnames this operator declares their own (web-trust boot script). */
+  trustedPageAuthorities?: string[]
+  /** Mobile responsiveness knobs (delivered to the client half as a page global). */
+  mobile?: WebTrustConfig['mobile']
 }
 
 /** Runtime schema. */
-export const Config: z<Config> = z.intersect([
+const MOBILE_CONFIG: z<Required<WebTrustConfig['mobile']>> = z.object({
+  enabled: z.boolean().default(true),
+  breakpoint: z.natural().min(200).default(1024),
+  swipeDistancePx: z.natural().min(8).default(48),
+  swipeVelocityPxPerMs: z.number().min(0).default(0.35),
+  edgeBandPx: z.natural().min(8).default(28),
+})
+
+/** Runtime schema. */
+export const Config = z.intersect([
   DashrRuntime.Config,
   z.object({
     maxParallelSubCalls: z.natural().min(1).default(10),
+    trustedPageAuthorities: z.array(String).default([]),
+    mobile: MOBILE_CONFIG,
   }),
-])
+]) as unknown as z<Config>
+// schemastery's intersect inference widens the nested mobile shape with
+// null|undefined beyond `Config['mobile']`; the runtime defaults are pinned
+// by test/web-trust.spec.ts and the Config({}) equality suites.
+
 
 
 
@@ -1001,6 +1021,12 @@ export function apply(ctx: Context, config: Config): void {
   // AUTH/MISSING_CREDENTIAL/QUOTA/RATE_LIMIT. No cooldown, no primary tracking; settings is a
   // conditional inject, so it degrades to a no-op without a settings service.
   installFailover(ctx)
+  // Web-trust boot script (v0.2.1f): trusted page authorities flip the
+  // connection client's loopback verdict on operator-declared devices
+  // (restores settings/Models remotely); mobile thresholds reach the client
+  // half through the same page global. One `webserver/index-inject` row,
+  // fully inert with empty config.
+  installWebTrust(ctx, config)
   const logger = ctx.logger('dashr-repl')
   const maxParallel = resolveMaxParallelSubCalls(config.maxParallelSubCalls)
 
