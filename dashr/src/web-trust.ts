@@ -43,7 +43,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-host-webserver'
 
 /**
- * The schema-level default for `trustedPageAuthorities` (v0.2.3): derive
+ * The schema-level default for `trustedPageAuthorities` (v0.2.2a): derive
  * from the DSH_TRUSTED_HOSTS environment — the SAME single source the
  * fence leg's patch expression reads first — so ONE declaration (e.g. one
  * `Environment=` line in the service unit) drives both legs with zero

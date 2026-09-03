@@ -153,7 +153,7 @@ export const Config = z.intersect([
   DashrRuntime.Config,
   z.object({
     maxParallelSubCalls: z.natural().min(1).default(10),
-    // Schema-level default (v0.2.3): derived from DSH_TRUSTED_HOSTS at module
+    // Schema-level default (v0.2.2a): derived from DSH_TRUSTED_HOSTS at module
     // load — per-key defaults survive every patch-overlay layer (a profile/
     // home row with this id whole-row-overrides the bundle row's CONFIG, so
     // the bundle patch layer is the wrong home for a derived default; pinned

@@ -81,7 +81,7 @@ describe('web-trust boot script (buildBootScript)', () => {
   })
 })
 
-describe('derived default authorities (v0.2.3 single-source)', () => {
+describe('derived default authorities (v0.2.2a single-source)', () => {
   it('derives bare hostnames from the DSH_TRUSTED_HOSTS value', async () => {
     const { deriveDefaultPageAuthorities } = await import('../src/web-trust.ts')
     expect(deriveDefaultPageAuthorities('a.example b.example')).toEqual(['a.example', 'b.example'])

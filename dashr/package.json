@@ -1,6 +1,6 @@
 {
   "name": "better-dsh",
-  "version": "0.2.3",
+  "version": "0.2.2-a",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",

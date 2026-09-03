@@ -15,7 +15,7 @@
       name: 'better-dsh'
       config:
         python: !!js process.env.DASHR_KERNEL_PYTHON ?? 'python3'
-        # NOTE (v0.2.3): trustedPageAuthorities' DERIVED default lives in the
+        # NOTE (v0.2.2a): trustedPageAuthorities' DERIVED default lives in the
         # plugin's Config schema (src/index.ts), NOT here — a profile/home
         # layer row with this id whole-row-overrides this config object, which
         # would wipe any default declared at the bundle layer (empirically
