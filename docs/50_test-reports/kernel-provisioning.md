@@ -19,11 +19,12 @@
 
 升级 = 显式 change + 回归跑通后再改常量。
 
-## 三级触发（全部幂等、全部 fail-open）
+## 两级触发（全部幂等、全部 fail-open；v0.2.2-a 起 postinstall 已移除）
 
-1. **postinstall（加速器）**：`npm install` 后 best-effort 预置（`scripts/kernel-provision.mjs`）。包管理器未跑 build script 则静默跳过——零交互，不存在向用户请求批准的路径。
-2. **daemon spin-up（主路径）**：插件随宿主 daemon 在 host 平面启动即异步检查/补装。**agent session 永远不会在首用时才发现缺 kernel**。在就 pass（毫秒级 probe），缺才装（数十秒）。
-3. **首用 lazy（最后兜底）**：`kernelAutoInstall` 默认 true，覆盖前两级失败/被跳过的残余场景。
+1. **daemon spin-up（主路径）**：插件随宿主 daemon 在 host 平面启动即异步检查/补装。**agent session 永远不会在首用时才发现缺 kernel**。在就 pass（毫秒级 probe），缺才装（数十秒）。
+2. **首用 lazy（最后兜底）**：`kernelAutoInstall` 默认 true，覆盖 spin-up 失败/被跳过的残余场景。
+
+> **v0.2.2-a 设计变更（owner 裁决 2026-09-03）**：移除 postinstall 加速器，npm 包现为**零 lifecycle script**。原因：pnpm 10+ 供应链策略下，未经消费方 `allowBuilds` 白名单的 build script 是安装**硬错**——发布日新装的 friction 全部由此而来，而 spin-up 主路径本就覆盖其职责（fail-open、daemon 启动即检查、毫秒级 probe）。`npm run kernel:venv`（包内 `scripts/kernel-provision.mjs` 保留发布）作为手动预置入口不变。
 
 ## 供给梯子与环境加固
 

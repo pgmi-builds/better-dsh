@@ -1,7 +1,7 @@
 {
   "name": "@pgmi-builds/better-dsh",
-  "description": "Better Dsh (Dashr): a persistent Python-kernel REPL for DeepSeek Harness (dsh) \u2014 eval cells with tool.* bindings, scheme:// resource addressing, and a wired-in IDE (LSP, AST, hashline edit)",
-  "version": "0.2.2",
+  "description": "Better Dsh (Dashr): a persistent Python-kernel REPL for DeepSeek Harness (dsh) — eval cells with tool.* bindings, scheme:// resource addressing, and a wired-in IDE (LSP, AST, hashline edit)",
+  "version": "0.2.2-a",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -35,7 +35,6 @@
     "test": "vitest --run",
     "test:watch": "vitest",
     "kernel:venv": "node scripts/kernel-provision.mjs",
-    "postinstall": "node scripts/kernel-provision.mjs",
     "build-client": "tsx scripts/build-client.ts"
   },
   "license": "MIT",
