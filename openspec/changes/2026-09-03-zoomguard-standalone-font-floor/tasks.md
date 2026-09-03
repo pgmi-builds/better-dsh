@@ -17,8 +17,10 @@
 
 ## 3. 收口
 
-- [ ] 3.1 **真机复验清单**（user）：PWA standalone —— pinch 恢复 + focus 无放大；浏览器态 —— 维持 v0.2.4 观察结论；结论回填实测报告与研究文档。
+- [x] 3.1 **真机复验清单**（user）：PWA standalone —— pinch 恢复 + focus 无放大；浏览器态 —— 维持 v0.2.4 观察结论；结论回填实测报告与研究文档。
 - [x] 3.2 **文档**：实测报告增 §九（standalone 分流）；AGENTS.md ✅ 条目更新（'meta' 双形态语义）；tasks 勾选留证据。
   - 证据：`docs/50_test-reports/v0.2.4-ios-focus-zoom-suppression实测报告.md` 增 §九（9.1 实现摘要 / 9.2 单测 478 / 9.3 lead CDP TODO / 9.4 真机 TODO）；AGENTS.md zoomGuard ✅ 条目已更新（v0.2.5 display-mode 分流段 + 'meta' 双形态 + 五个纯函数 + 478/478）。
 - [x] 3.3 **版本**：0.2.4 → 0.2.5（顺延 patch），本地 commit + tag v0.2.5；发布另走年龄门。
   - 证据：`dashr/package.json` + `package-lock.json` 均 0.2.5；本地 commit + tag `v0.2.5`（见 git log；未 publish 未 push，发布另走 pnpm 年龄门）。
+
+  - 证据（user 真机，2026-09-03 深夜 chat 确认）："all in place" —— PWA pinch 恢复 + focus 无放大 + 全部特性在位。

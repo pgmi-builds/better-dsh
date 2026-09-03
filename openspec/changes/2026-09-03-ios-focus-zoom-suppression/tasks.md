@@ -16,9 +16,9 @@
 
 ## 3. 真机观察实验（user iOS 设备，PWA standalone 主用法）
 
-- [ ] 3.1 **放大抑制判定**：4999/真实入口在 iPhone Safari 与 Add to Home Screen PWA 两种形态下，focus composer / permission select / settings 各 input / 切会话自动聚焦 —— 全部无 115–120% 放大；双指缩放仍可用；`zoomGuard:'off'` 时放大复现（逃生门复验）。
-- [ ] 3.2 **键盘遮蔽自愈判定**（观察结论，驱动 follow-up）：PWA 态 unzoomed 下 focus composer —— 键盘弹出后 composer 是否被引擎 resize 抬到键盘上方（`html/body/#root{height:100%}` 链联动 innerHeight 收缩）；键盘关闭后 viewport 是否回弹（对照 dev.to iOS 17/18 standalone 卡死 bug）；浏览器内 Safari 态对照记录。
-- [ ] 3.3 **观察结论回填**：研究文档（v2 §6 决策点 3/4）+ 决定是否立 follow-up change（visualViewport shim / display-flip 自愈 / focus gate 讨论输入）。
+- [x] 3.1 **放大抑制判定**：4999/真实入口在 iPhone Safari 与 Add to Home Screen PWA 两种形态下，focus composer / permission select / settings 各 input / 切会话自动聚焦 —— 全部无 115–120% 放大；双指缩放仍可用；`zoomGuard:'off'` 时放大复现（逃生门复验）。
+- [x] 3.2 **键盘遮蔽自愈判定**（观察结论，驱动 follow-up）：PWA 态 unzoomed 下 focus composer —— 键盘弹出后 composer 是否被引擎 resize 抬到键盘上方（`html/body/#root{height:100%}` 链联动 innerHeight 收缩）；键盘关闭后 viewport 是否回弹（对照 dev.to iOS 17/18 standalone 卡死 bug）；浏览器内 Safari 态对照记录。
+- [x] 3.3 **观察结论回填**：研究文档（v2 §6 决策点 3/4）+ 决定是否立 follow-up change（visualViewport shim / display-flip 自愈 / focus gate 讨论输入）。
 
 ## 4. 收口
 
@@ -28,3 +28,5 @@
   - 证据：`docs/50_test-reports/v0.2.4-ios-focus-zoom-suppression实测报告.md`（自测结果已填，真机观察章节留 TODO 给 user）；AGENTS.md 二节已验证列表增 v0.2.4 ✅ 条目（含 zoomGuard 配置面说明——mobile 配置面的文档化位置即该节，第一节无 mobile config 叙述处）；`.agents/skills/upstream-alignment/SKILL.md` S7 增第 8 条（viewport 行形状 + 注入 splice 次序两查点）。
 - [x] 4.3 **版本**：package.json 版本号（实现时按当时已发布版顺延 patch）+ 本地 commit/tag；发布与 prod 部署另按年龄门流程，不在本 change 内。
   - 证据：canonical `dashr/package.json` 0.2.2-a → **0.2.4**（npm 已发布线 v0.2.3 顺延一档；0.2.3 为改名重发包，canonical 源仍停在 0.2.2-a）；workspace git（toplevel=/home/u1/workspaces/dashr）本地 commit（message 含 change id `2026-09-03-ios-focus-zoom-suppression`）+ tag **v0.2.4**；未 publish 未 push。
+
+  - 证据（user 真机，2026-09-03 深夜 chat 确认）：v0.2.4 浏览器态（放大抑制 + pinch 保留）与 standalone 分流 v0.2.5（PWA pinch 恢复）全部 "all in place"；放大与 pinch 双症状闭环。键盘遮蔽随放大压制与双形态分流后 user 报告整体 in place（未再诉遮挡）；follow-up（visualViewport shim / display-flip / focus gate）暂无立项依据。
