@@ -25,16 +25,16 @@
 | `~/.dsh/profiles/web/node_modules/` | 物理文件（pnpm hoisted 树，有 `.pnpm/`、`.modules.yaml`） |
 
 `~/.dsh/profiles/web/` 本身是一个 pnpm workspace：
-- `package.json` 的 `dsh.profile.bundles` = `["@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app", "dshmarket", "dsh-better-sidebar", "corti-memory", "@pgmi-builds/better-dsh"]`
+- `package.json` 的 `dsh.profile.bundles` = `["@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app", "dshmarket", "dsh-better-sidebar", "corti-memory", "better-dsh"]`
 - `cordis.yml` 为空 `[]`（树由 patch 组成），实际 overlay 在 `cordis.patch.yml`。
-- **plugin add 的供应链年龄门（2026-09-02 实证；2026-09-03 修正 exclude 形式）**：pnpm 11.7.0 自带 supply-chain 策略引擎（默认 `minimumReleaseAge`≈24h）。**版本号形式的 exclude（`pkg@x.y.z`，含 pnpm 自动补的）只作用于解析相位，不盖锁文件校验相位**——条目发布未满 24h 时，后续任何 `pnpm install`/`add` 的锁文件校验都会再拦一次（0.2.2 发布当天装 prod 即中此坑）。**持久形式 = 裸包名**：`minimumReleaseAgeExclude: ['@pgmi-builds/better-dsh']` 全相位生效（scratch A5–A7 实证：校验/全新 add/复验全过）。升级仍用精确版本 add，勿信 `@latest`（回落+静默覆盖部署位的坑仍在）。**v0.2.2a 起包为零 lifecycle script**（owner 裁决 2026-09-03：postinstall 移除，kernel 供给 = spin-up 主路径 + 首用 lazy 两级；`npm run kernel:venv` 手动入口保留）——0.2.2-a 及以后**无 allowBuilds 要求**（该条仅对 0.2.2 这一个带 postinstall 的版本有意义）。~~带 postinstall 的版本还需 `allowBuilds: {'@pgmi-builds/better-dsh': true}`**（strictDepBuilds 下未列 build script = 硬错；0.2.2 起 kernel-provision postinstall 属发布面）。另：pnpm 打完 `Done` 后偶发子进程不退出（11.7.0 worker 边车，Ctrl-C 无损）；`pnpm.onlyBuiltDependencies` 已失效（继任 `allowBuilds` 在 pnpm-workspace.yaml），其 WARN 为噪音。prod profile 的两处修正于 2026-09-03 落位（备份 `.scratch/pnpm-workspace.yaml.bak-0.2.2`）。
+- **plugin add 的供应链年龄门（2026-09-02 实证；2026-09-03 修正 exclude 形式）**：pnpm 11.7.0 自带 supply-chain 策略引擎（默认 `minimumReleaseAge`≈24h）。**版本号形式的 exclude（`pkg@x.y.z`，含 pnpm 自动补的）只作用于解析相位，不盖锁文件校验相位**——条目发布未满 24h 时，后续任何 `pnpm install`/`add` 的锁文件校验都会再拦一次（0.2.2 发布当天装 prod 即中此坑）。**持久形式 = 裸包名**：`minimumReleaseAgeExclude: ['better-dsh']` 全相位生效（scratch A5–A7 实证：校验/全新 add/复验全过）。升级仍用精确版本 add，勿信 `@latest`（回落+静默覆盖部署位的坑仍在）。**v0.2.2a 起包为零 lifecycle script**（owner 裁决 2026-09-03：postinstall 移除，kernel 供给 = spin-up 主路径 + 首用 lazy 两级；`npm run kernel:venv` 手动入口保留）——0.2.2-a 及以后**无 allowBuilds 要求**（该条仅对 0.2.2 这一个带 postinstall 的版本有意义）。~~带 postinstall 的版本还需 `allowBuilds: {'@pgmi-builds/better-dsh': true}`**（strictDepBuilds 下未列 build script = 硬错；0.2.2 起 kernel-provision postinstall 属发布面）。另：pnpm 打完 `Done` 后偶发子进程不退出（11.7.0 worker 边车，Ctrl-C 无损）；`pnpm.onlyBuiltDependencies` 已失效（继任 `allowBuilds` 在 pnpm-workspace.yaml），其 WARN 为噪音。prod profile 的两处修正于 2026-09-03 落位（备份 `.scratch/pnpm-workspace.yaml.bak-0.2.2`）。
 
 ### 依赖解析 — 分层，不是一棵树
 
 Node 从 better-dsh 的 `lib/index.js` 出发向上走：
 
 ```
-① ~/.dsh/profiles/web/node_modules/@pgmi-builds/better-dsh/node_modules/   ← 插件嵌套依赖（另一份 @deepseek-ai/*）
+① ~/.dsh/profiles/web/node_modules/better-dsh/node_modules/   ← 插件嵌套依赖（另一份 @deepseek-ai/*）
 ② ~/.dsh/profiles/web/node_modules/                                         ← web profile（pnpm 树）
 ③ ~/.dsh/profiles/node_modules/                                             ← 全 symlink → 全局 dsh 的 node_modules
 ④ ~/.local/lib/node_modules/                                             ← 全局
@@ -60,13 +60,13 @@ Node 从 better-dsh 的 `lib/index.js` 出发向上走：
 ### 组成
 
 - Harness: `./upstream/deepseek-harness`，git tag `dsh-v0.1.2-alpha.5`（2026-09-02 从 alpha.3 升级并全链路验证；prod npm 仍为 alpha.3，测试线领先一档），pnpm workspace（`linkWorkspacePackages: true`）。tag 间 `pnpm-workspace.yaml`/`tsdown.client.ts` 零改动，本地 patch 可经 `git stash` → checkout → `git stash pop` 干净重放（备份: `.scratch/alpha3-local-patches-backup.patch`）。
-- dashr 放置: `packages/better-dsh/better-dsh/`（`./dashr` 的副本，workspace 成员）。副本 package.json 现为 canonical 原样（npm range peerDeps；monorepo 内靠 `linkWorkspacePackages` 按 name+version 链到 workspace 副本，等效于早期 `workspace:*` 本地化）。**每次 rsync 后必须重删** stale 的 `@deepseek-ai/dsh-client-runtime` peerDep 及其 `peerDependenciesMeta` 条目——rsync 会从 canonical 带回，而 alpha.5 workspace 已无此包、npm 亦无匹配版本，install 直接 `ERR_PNPM_NO_MATCHING_VERSION`。另: `pnpm-workspace.yaml` allowBuilds 需 `zeromq: true`（better-dsh kernel IPC 依赖；pnpm 11.7 会插 `set this to true or false` 占位符，strictDepBuilds 下占位符=硬错）。
-- 用户数据: `DSH_HOME=/home/u1/workspaces/dashr/.dsh-test`。profile `web` 在 `.dsh-test/profiles/web/package.json` 声明 bundles `["@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app", "@pgmi-builds/better-dsh"]`，其 node_modules symlink 指向 monorepo 的 `packages/bundle/base`、`packages/bundle/web-app`、`packages/better-dsh/better-dsh`。`.env` 从 `~/.dsh/.env` 拷贝（真实 key）。prod `~/.dsh` 完全不动。
+- dashr 放置: `packages/better-dsh/better-dsh/`（`./dashr` 的副本，workspace 成员）。副本 package.json 现为 canonical 原样（npm range peerDeps；monorepo 内靠 `linkWorkspacePackages` 按 name+version 链到 workspace 副本，等效于早期 `workspace:*` 本地化）。canonical 已于 0.2.2-a re-port 时在源头删除 stale 的 `@deepseek-ai/dsh-client-runtime` peerDep（npm 无匹配版本，曾致 alpha.5 install `ERR_PNPM_NO_MATCHING_VERSION`）——rsync 不再带回，无需重删。另: `pnpm-workspace.yaml` allowBuilds 需 `zeromq: true`（better-dsh kernel IPC 依赖；pnpm 11.7 会插 `set this to true or false` 占位符，strictDepBuilds 下占位符=硬错）。
+- 用户数据: `DSH_HOME=/home/u1/workspaces/dashr/.dsh-test`。profile `web` 在 `.dsh-test/profiles/web/package.json` 声明 bundles `["@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app", "better-dsh"]`，其 node_modules symlink 指向 monorepo 的 `packages/bundle/base`、`packages/bundle/web-app`、`packages/better-dsh/better-dsh`。`.env` 从 `~/.dsh/.env` 拷贝（真实 key）。prod `~/.dsh` 完全不动。
 
 ### harness 本地 patch（该环境必须，缺一 build 即挂）
 
 1. `packages/client/tsdown.client.ts`: `REPOSITORY_ROOT` 由 `resolveRepositoryRoot()` 推导（`pnpm-workspace.yaml` 锚定，`process.cwd()` 兜底）。原因: 本机 Node 22.22.1 `process.features.typescript=false` → tsdown auto loader 选 unrun，unrun 的 bundle 级 define 把内联 preset 的 `import.meta.url` 改写成各包入口 config 的 URL，`packages/*/*` 深度下 `../..` 落到 `<repo>/packages/`，manifest glob 全空 → `no packages/*/*/package.json declares the name …`。upstream CI 的新 Node 走 native loader，看不到此问题。
-2. `pnpm-workspace.yaml`: `storeDir: /home/u1/workspaces/dashr/.scratch/pnpm-store` + `verifyDepsBeforeRun: false` + allowBuilds `zeromq: true` 与 `'@pgmi-builds/better-dsh': true`（kernel 预置 postinstall；被跳过亦无碍，daemon spin-up 是主路径）。原因: pnpm 11 不读 `.npmrc`；默认 deps-check 会 spawn `pnpm install`，向只读的用户级 store 注册 project → EROFS；strictDepBuilds 下未列 build script = install 硬错。
+2. `pnpm-workspace.yaml`: `storeDir: /home/u1/workspaces/dashr/.scratch/pnpm-store` + `verifyDepsBeforeRun: false` + allowBuilds `zeromq: true`（better-dsh 自 0.2.2-a 起零 lifecycle script，无自身 allowBuilds 条目）。原因: pnpm 11 不读 `.npmrc`；默认 deps-check 会 spawn `pnpm install`，向只读的用户级 store 注册 project → EROFS；strictDepBuilds 下未列 build script = install 硬错。
 
 ### 构建（setup 或 harness 变更后）
 
@@ -104,20 +104,22 @@ canonical src 在 `./dashr/src` → rsync 进 monorepo → 只重建 better-dsh 
 rsync -a --delete --exclude node_modules --exclude lib --exclude .venv-kernel --exclude .uv-cache --exclude docs \
   ~/workspaces/dashr/dashr/ ~/workspaces/dashr/upstream/deepseek-harness/packages/better-dsh/better-dsh/
 cd ~/workspaces/dashr/upstream/deepseek-harness
-pnpm --filter @pgmi-builds/better-dsh exec tsdown
+pnpm --filter better-dsh exec tsdown
 # 然后重启上面的启动命令
 ```
 
 - 勿在副本里 `npm run build`（prebuild 拷 `../docs`，副本无该目录会失败）。
-- 快速迭代也可直接改副本 src 再 `pnpm --filter @pgmi-builds/better-dsh exec tsdown`，但改动须回填 `./dashr`。
+- 快速迭代也可直接改副本 src 再 `pnpm --filter better-dsh exec tsdown`，但改动须回填 `./dashr`。
 - 验证: `DSH_HOME=/home/u1/workspaces/dashr/.dsh-test npm run dsh -- web --dump-config | grep -A2 dashr-repl`。
 
 ### 已验证 / 未验证
 
 - ✅ `dashr-repl` 工具行 + `DASHR_KERNEL_PYTHON` config 注入；web shell + assets HTTP 200；`.dsh-test/storages/workspace.json` 落盘。
 - ✅ **kernel 三级供给**（2026-09-03，change `kernel-provisioning-completeness`）：postinstall/spin-up/首用 lazy 全 fail-open；冷启动 spin-up 自动重建 venv（pinned ipykernel 7.3.0 / dill 0.4.1 / CPython 3.11，无 uv 时 python3-venv 兜底 3.14.4 实测兼容）；uv cache 重定向包内 `.uv-cache`，只读 HOME 实测无碍；一页文档 `docs/kernel-provisioning.md`。
-- ✅ **client 卡片半边已通**（2026-09-03，change `model-failover-settings-surface`）：副本内构建用 **`tsx scripts/build-client.ts` 直跑**（33ms；⚠ `npm run build-client` 在 monorepo 副本必死——npm 自身 pre-script 的 workspace 枚举读 pnpm-workspace `vendor/*` glob 匹配到普通文件 CLAUDE.md → ENOTDIR/exit 236，与脚本无关）；验证法：鉴权拉 shell 页 → boot graph 应含 `"id":"@pgmi-builds/better-dsh"` 与 `/plugins/??@pgmi-builds/better-dsh/client.js&rev=…` URL → curl 该 URL 200 且与 `lib/client/index.js` 字节一致（服务端仅追加 sourceMappingURL 行）。原生注册路径已核实：settings 行 = client bundle 内 `ctx.slots.inject('settings.general.item', …)`（与 locale/ui-chat 原生行同构）。
+- ✅ **client 卡片半边已通**（2026-09-03，change `model-failover-settings-surface`；2026-09-03 npm 改名后 id 为 `better-dsh`）：副本内构建用 **`tsx scripts/build-client.ts` 直跑**（33ms；⚠ `npm run build-client` 在 monorepo 副本必死——npm 自身 pre-script 的 workspace 枚举读 pnpm-workspace `vendor/*` glob 匹配到普通文件 CLAUDE.md → ENOTDIR/exit 236，与脚本无关）；验证法：鉴权拉 shell 页 → boot graph 应含 `"id":"better-dsh"` 与 `/plugins/??better-dsh/client.js&rev=…` URL → curl 该 URL 200 且与 `lib/client/index.js` 字节一致（服务端仅追加 sourceMappingURL 行）。原生注册路径已核实：settings 行 = client bundle 内 `ctx.slots.inject('settings.general.item', …)`（与 locale/ui-chat 原生行同构）。
 - ✅ **web-trust 双腿 + mobile-layout 随插件发布**（2026-09-03，change `plugin-shipped-ui-patches`，v0.2.1-f；**round-4 手势整体重写为 z_dsh-alpha `1706b81` 逐条照搬**，commit `0676811`）：**fence 腿** = bundle patch 整行重述 `connection` 行（`trustedHosts: !!js (process.env.DSH_TRUSTED_HOSTS ?? '').split(/\s+/).filter(Boolean).concat(ctx.webRuntime.trustedHosts)`；⚠ `!!js` 是 scalar tag，表达式**不能以 `[` 开头**否则 yaml 按 flow-seq 拒收）；**isLoopback 腿** = host 半 `webserver/index-inject` 内联 boot script（trusted hostname → `window.__DSH_TRANSPORT__={ownsHost:true}`；mobile 阈值 → `__DASHR_MOBILE__`——client 半无 config，页面全局即配置通道）；**mobile 手势 = 旧 ui-layout 补丁 exact port**：X120 左缘带 / 右 3/4 起点区（viewport/4）/ 距离 40px / 水平占优 ×1.3 / 断点 <768 / **pointermove 中途一次性触发**（pointerup 判定被浏览器滚动手势 pointercancel 吃掉 = "必须快划"的根因）/ document 捕获监听 / 右面板 = Better Sidebar 浮层，经 `[data-dsh-toggle-cluster]` 末按钮 DOM click、状态读 `body[data-dsh-sidebar-collapsed]`、会话门槛读 `[data-slot="conversation.session.header"]`；**唯一增量** = 速率门 `swipeVelocityPxPerMs` 默认 0.15（0=关闭）。round-2 发明的 48/28 值已废弃。425/425 + tsc 0；4999 经用户真实 URL `https://test.pc.randomhash.app` CDP 实证（开/关左栏 + 开/关右栏 + Models provider 列表全过；该域名已入 trustedPageAuthorities）。报告 `docs/50_test-reports/v0.2.1f-plugin-shipped-ui-patches实测报告.md`。
+
+- ✅ **iOS focus 放大抑制 zoomGuard**（2026-09-03，change `ios-focus-zoom-suppression`，v0.2.4；纯 host 半，client 零改动）：boot script 增 zoomGuard 段 —— iOS 系 UA（iPhone|iPod|iPad + iPadOS 桌面冒充 Macintosh&&maxTouchPoints>1）∧ 窄视口（`matchMedia('(max-width:'+(breakpoint-0.02)+'px)')`，断点复用 mobile.breakpoint）双门控下 token 级合并 viewport meta `maximum-scale=1, user-scalable=no`（幂等、可还原、resize 复评）；**mobile 配置面新增 `zoomGuard`**：`'meta'`（默认）| `'off'`（逃生门），`'font'`（方案 A 字号地板）值位预留不进 enum（未实现值 fail-loud）。三个纯函数（`src/mobile/zoom-guard.ts`，ES5 自包含）经 `Function.prototype.toString` 嵌入 boot script = 单测源即发布源。**关键机制发现**：head 注入 splice 在 `<head>` 开标签紧后 = stock viewport meta 后于脚本解析 → provisional meta + MutationObserver reconcile（stock 插入时改写其本体并移除 provisional，单 meta 文档，S7 查表第 8 条盯两查点）。460/460 + tsc 0（基线 428+32）；4999 与真机 PWA 观察待做（报告 `docs/50_test-reports/v0.2.4-ios-focus-zoom-suppression实测报告.md`，键盘遮蔽自愈判定驱动 follow-up 取舍）。
 
 ---
 
@@ -126,7 +128,7 @@ pnpm --filter @pgmi-builds/better-dsh exec tsdown
 prod npm CLI 当 harness 核，只把插件本体和它的 harness 依赖换成 dev 版。
 
 - 核: `~/.local` npm 全局 `@deepseek-ai/dsh` 0.1.2-alpha.3（`bin.js` 启动器）；profile `web` 在 `~/.dsh/profiles/web`（pnpm hoisted 物理 tree）。
-- 插件线: `./dashr` `npm run build`（= `tsdown && npm run build-client`）→ md5 核对同步 `lib/` 到 `~/.dsh/profiles/web/node_modules/@pgmi-builds/better-dsh/lib`（v0.2.1c 的部署方式）→ 重启 `dsh.service`。
+- 插件线: `./dashr` `npm run build`（= `tsdown && npm run build-client`）→ md5 核对同步 `lib/` 到 `~/.dsh/profiles/web/node_modules/better-dsh/lib`（v0.2.1c 的部署方式）→ 重启 `dsh.service`。
 - harness 依赖线: **已退役**（原 `better-dsh/node_modules/@deepseek-ai/*` symlink 到 dsh-alpha 源码的方案，2026-09-02 已删——实测 host ②③ 层全量自供，嵌套 symlink 无一必需，且 alpha.1 指向对 alpha.3 host 是版本偏斜负债）。
 - 解析即第一节 ①→④ 分层；现已验证插件运行期只依赖 ②③（host 自供）+ ① 的 schemastery/cosmokit。
 - ~~剩余待验证~~ **已收敛（2026-09-02）**: `./dashr` 构建产物 md5 同步线的 prod 冒烟已跑（v0.2.1c 同步态活体 4 探针 4/4）；profile 锁/lockfile/部署位已统一为 `0.2.1-d`（经 `dsh plugin add @pgmi-builds/better-dsh@0.2.1-d`，见第一节供应链年龄门）。**发布态部署的正道是 pnpm add 精确版本**，手工 md5 同步仅限未发布的本地迭代。
@@ -147,7 +149,7 @@ prod npm CLI 当 harness 核，只把插件本体和它的 harness 依赖换成 
 
 ## ✅ prod 插件嵌套 symlink 悬空 — 已清理（2026-09-02），重启安全
 
-`dsh-alpha` 改名 `z_dsh-alpha` 后，`~/.dsh/profiles/web/node_modules/@pgmi-builds/better-dsh/node_modules/@deepseek-ai/*` 的 17 条 symlink 曾全部悬空。**实测: daemon 重启不会崩** —— 运行期实际 import 的 14 个 `@deepseek-ai/*` 包全部从 ②③ 层解析（host 自带）；`dsh-client-ui-slots` 不是运行期 import（只在 `scripts/build-client.ts` 的 client external 列表，浏览器侧经 shell module table / `.dsh-module-fallback` 解析）。
+`dsh-alpha` 改名 `z_dsh-alpha` 后，`~/.dsh/profiles/web/node_modules/better-dsh/node_modules/@deepseek-ai/*` 的 17 条 symlink 曾全部悬空。**实测: daemon 重启不会崩** —— 运行期实际 import 的 14 个 `@deepseek-ai/*` 包全部从 ②③ 层解析（host 自带）；`dsh-client-ui-slots` 不是运行期 import（只在 `scripts/build-client.ts` 的 client external 列表，浏览器侧经 shell module table / `.dsh-module-fallback` 解析）。
 
 **为什么声明 58 个 peerDeps**: 全是 dev-time 需要 —— `tsc --noEmit` 类型检查、`tsdown` dts、以及 vitest 单测（在 dsh host 之外直接 import harness 包；dev workspace 靠 pnpm `autoInstallPeers` 装上）。部署副本里它们是 `peerDependencies` 且 `peerDependenciesMeta` 全部 `optional: true`，pnpm-lock.yaml 对嵌套路径 0 引用 —— pnpm 从不要求它们在场。真正的 `dependencies` 只有 `@deepseek-ai/schemastery`（非 harness API，是插件自用的 Schema 描述符库；描述符是结构化数据、宿主 cordis 当数据解释，故可以自带副本，与 cordis 必须 peer 的身份要求相反）+ cosmokit（schemastery 的传递依赖）。
 

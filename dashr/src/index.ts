@@ -113,7 +113,6 @@ import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { installFailover } from './failover/index.ts'
 import { installWebTrust, deriveDefaultPageAuthorities, type WebTrustConfig } from './web-trust.ts'
-
 /** The control prompt text, loaded at module time from the sibling markdown file (editable without touching TS). */
 const CONTROL_PROMPT_TEXT = readFileSync(new URL('../control-prompt.md', import.meta.url), 'utf8')
 
@@ -146,6 +145,13 @@ const MOBILE_CONFIG: z<Required<WebTrustConfig['mobile']>> = z.object({
   leftEdgeBandPx: z.natural().min(8).default(120),
   rightZoneRatio: z.number().min(0.05).max(0.9).default(0.25),
   swipeVelocityPxPerMs: z.number().min(0).default(0.15),
+  // iOS focus auto-zoom suppression (change 2026-09-03-ios-focus-zoom-
+  // suppression): 'meta' rewrites the viewport meta early on iOS-class
+  // narrow viewports; 'off' is the escape hatch. 'font' (solution A, the
+  // 16px floor) is a RESERVED future value — deliberately NOT accepted yet:
+  // an unimplemented enum member would fail silent (no-op) at runtime, while
+  // an unknown value here fails LOUD at config load.
+  zoomGuard: z.union(['meta', 'off']).default('meta'),
 })
 
 /** Runtime schema. */

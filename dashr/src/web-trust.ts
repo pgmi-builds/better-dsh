@@ -41,7 +41,7 @@ import type { Context } from '@deepseek-ai/cordis'
 // Type-only: pulls the `webserver/index-inject` Events merge and the
 // IndexInjection shape from the host webserver's Context declaration.
 import type {} from '@deepseek-ai/dsh-host-webserver'
-
+import { buildZoomGuardSection } from './mobile/zoom-guard.ts'
 /**
  * The schema-level default for `trustedPageAuthorities` (v0.2.2a): derive
  * from the DSH_TRUSTED_HOSTS environment — the SAME single source the
@@ -66,7 +66,6 @@ export function deriveDefaultPageAuthorities(env: string | undefined): string[] 
 export interface WebTrustConfig {
   /** Hostnames this operator declares their own devices' pages run on. */
   trustedPageAuthorities?: readonly string[]
-  /** Mobile responsiveness knobs (client half consumes via page global). */
   mobile?: {
     enabled?: boolean
     breakpoint?: number
@@ -75,6 +74,15 @@ export interface WebTrustConfig {
     leftEdgeBandPx?: number
     rightZoneRatio?: number
     swipeVelocityPxPerMs?: number
+    /**
+     * iOS focus auto-zoom suppression mode (change
+     * `2026-09-03-ios-focus-zoom-suppression`): `'meta'` (default) rewrites
+     * the viewport meta on iOS-class narrow viewports; `'off'` is the escape
+     * hatch. `'font'` (16px floor, solution A) is a RESERVED value slot,
+     * deliberately not in the schema enum — unimplemented values fail loud
+     * at config load rather than no-op silently.
+     */
+    zoomGuard?: 'meta' | 'off'
   }
 }
 
@@ -120,6 +128,7 @@ export function buildBootScript(config: WebTrustConfig): string | undefined {
       ...(mobile?.leftEdgeBandPx !== undefined ? { leftEdgeBandPx: mobile.leftEdgeBandPx } : {}),
       ...(mobile?.rightZoneRatio !== undefined ? { rightZoneRatio: mobile.rightZoneRatio } : {}),
       ...(mobile?.swipeVelocityPxPerMs !== undefined ? { swipeVelocityPxPerMs: mobile.swipeVelocityPxPerMs } : {}),
+      ...(mobile?.zoomGuard !== undefined ? { zoomGuard: mobile.zoomGuard } : {}),
     }
     : undefined
   if (authorities.length === 0 && mobilePayload === undefined) return undefined
@@ -135,6 +144,10 @@ export function buildBootScript(config: WebTrustConfig): string | undefined {
   }
   if (mobilePayload !== undefined) {
     parts.push(`window.__DASHR_MOBILE__=${JSON.stringify(mobilePayload)};`)
+    // Zoom guard rides the mobile leg (design D5): emitted unless explicitly
+    // 'off' — the same default-on posture as the leg itself. Absent config
+    // still emits the section (the script's own default is 'meta').
+    if (mobile?.zoomGuard !== 'off') parts.push(buildZoomGuardSection())
   }
   parts.push('}catch(e){}})();')
   return parts.join('')
