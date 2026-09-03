@@ -19,6 +19,8 @@ dev/
 
 # "./docs/" is assets, references, any others sit along with the repo
 
+# --- internal exploration & research (never publish) ---
+docs/60_exploration-and-research/
 # --- build output ---
 dist/
 build/

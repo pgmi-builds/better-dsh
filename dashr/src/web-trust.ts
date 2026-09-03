@@ -42,6 +42,26 @@ import type { Context } from '@deepseek-ai/cordis'
 // IndexInjection shape from the host webserver's Context declaration.
 import type {} from '@deepseek-ai/dsh-host-webserver'
 
+/**
+ * The schema-level default for `trustedPageAuthorities` (v0.2.3): derive
+ * from the DSH_TRUSTED_HOSTS environment — the SAME single source the
+ * fence leg's patch expression reads first — so ONE declaration (e.g. one
+ * `Environment=` line in the service unit) drives both legs with zero
+ * per-instance plugin config. Bare hostnames only: `location.hostname`
+ * carries no port, and `assertBareHostname` would reject a portful entry at
+ * boot, so portful/schematic entries are dropped here instead of thrown.
+ * Declared in the Config SCHEMA rather than the bundle patch row because a
+ * profile/home layer row with the same id whole-row-overrides the row's
+ * config object, while schema defaults fill per-key at plugin load and
+ * survive every overlay layer. An explicit configured value always wins.
+ *
+ * @param env - the raw DSH_TRUSTED_HOSTS value (whitespace-separated).
+ * @returns the bare-hostname authorities to trust by default.
+ */
+export function deriveDefaultPageAuthorities(env: string | undefined): string[] {
+  return (env ?? '').split(/\s+/).filter(h => h.length > 0 && !/[:/@?#]/.test(h))
+}
+
 /** Page-authority + mobile config slice of the plugin config. */
 export interface WebTrustConfig {
   /** Hostnames this operator declares their own devices' pages run on. */

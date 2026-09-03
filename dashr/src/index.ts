@@ -112,7 +112,7 @@ import { createLlmCompletionTool } from './llm-completion.ts'
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { installFailover } from './failover/index.ts'
-import { installWebTrust, type WebTrustConfig } from './web-trust.ts'
+import { installWebTrust, deriveDefaultPageAuthorities, type WebTrustConfig } from './web-trust.ts'
 
 /** The control prompt text, loaded at module time from the sibling markdown file (editable without touching TS). */
 const CONTROL_PROMPT_TEXT = readFileSync(new URL('../control-prompt.md', import.meta.url), 'utf8')
@@ -153,7 +153,12 @@ export const Config = z.intersect([
   DashrRuntime.Config,
   z.object({
     maxParallelSubCalls: z.natural().min(1).default(10),
-    trustedPageAuthorities: z.array(String).default([]),
+    // Schema-level default (v0.2.3): derived from DSH_TRUSTED_HOSTS at module
+    // load — per-key defaults survive every patch-overlay layer (a profile/
+    // home row with this id whole-row-overrides the bundle row's CONFIG, so
+    // the bundle patch layer is the wrong home for a derived default; pinned
+    // empirically on 4999). Explicit config in any layer still wins.
+    trustedPageAuthorities: z.array(String).default(deriveDefaultPageAuthorities(process.env.DSH_TRUSTED_HOSTS)),
     mobile: MOBILE_CONFIG,
   }),
 ]) as unknown as z<Config>

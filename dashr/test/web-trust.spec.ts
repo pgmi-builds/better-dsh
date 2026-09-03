@@ -80,3 +80,15 @@ describe('web-trust boot script (buildBootScript)', () => {
     expect(buildBootScript({ trustedPageAuthorities: ['a.example'], mobile: { enabled: false } })!).not.toContain('__DASHR_MOBILE__')
   })
 })
+
+describe('derived default authorities (v0.2.3 single-source)', () => {
+  it('derives bare hostnames from the DSH_TRUSTED_HOSTS value', async () => {
+    const { deriveDefaultPageAuthorities } = await import('../src/web-trust.ts')
+    expect(deriveDefaultPageAuthorities('a.example b.example')).toEqual(['a.example', 'b.example'])
+    // Portful/schematic entries are dropped (location.hostname carries no
+    // port; assertBareHostname would throw at boot on a portful entry).
+    expect(deriveDefaultPageAuthorities('a.example 127.0.0.1:3080 //b.example c.example/p')).toEqual(['a.example'])
+    expect(deriveDefaultPageAuthorities(undefined)).toEqual([])
+    expect(deriveDefaultPageAuthorities('')).toEqual([])
+  })
+})

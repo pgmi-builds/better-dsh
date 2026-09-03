@@ -15,6 +15,14 @@
       name: '@pgmi-builds/better-dsh'
       config:
         python: !!js process.env.DASHR_KERNEL_PYTHON ?? 'python3'
+        # NOTE (v0.2.3): trustedPageAuthorities' DERIVED default lives in the
+        # plugin's Config schema (src/index.ts), NOT here — a profile/home
+        # layer row with this id whole-row-overrides this config object, which
+        # would wipe any default declared at the bundle layer (empirically
+        # pinned on 4999). Schema defaults fill per-key at plugin load and
+        # survive every overlay layer; the default derives from the
+        # DSH_TRUSTED_HOSTS environment — the same single source the fence
+        # leg reads first. An explicit value in any later layer still wins.
 
 # Native compaction at the host plane: the base bundle ships the engine, the
 # `/compact` command, and the tool-result pruner as host rows; dsh-web-app
