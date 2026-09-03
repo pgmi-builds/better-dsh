@@ -81,7 +81,11 @@ export function buildEditTool(io, sandbox) {
                         throw new Error("[E_BAD_SHAPE] Edit request path is null and could not be inferred from anchors — anchors match no known file. Include the intended path.");
                     }
                 }
-                const sandboxPolicy = await sandbox.resolvePolicy("edit", { path: resolvedPath, edits: req.edits }, exec);
+                // SAFETY: canonical (normalizeRequest) preserves the escalation fields
+                // (contract.js re-adds sandbox_permissions/justification); resolvePolicy needs
+                // them to reach approveEscalation — dropping them here made every escalated
+                // edit resolve to the standing policy and loop on the denial+hint marker.
+                const sandboxPolicy = await sandbox.resolvePolicy("edit", { path: resolvedPath, edits: req.edits, sandbox_permissions: canonical.sandbox_permissions, justification: canonical.justification }, exec);
                 abortIf(signal);
                 const items = [];
                 for (let index = 0; index < req.edits.length; index++) {
