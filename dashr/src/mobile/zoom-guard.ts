@@ -9,7 +9,16 @@
  * `maximum-scale=1, user-scalable=no` — which suppresses the focus zoom on
  * iOS 10+ WITHOUT disabling pinch zoom (Discourse PR #30877 empirics).
  *
- * The three exported predicates here are the entire decision surface:
+ * v0.2.5 refinement (change `2026-09-03-zoomguard-standalone-font-floor`):
+ * that empiric holds only IN-BROWSER. Standalone (Add to Home Screen) iOS
+ * HONORS `user-scalable=no` — the meta rewrite kills pinch there, and the
+ * user's primary usage IS the PWA (real-device datum, 2026-09-03). The guard
+ * therefore forks by display mode: browser keeps the meta rewrite untouched;
+ * standalone never touches the meta at all and instead injects a 16px
+ * font-floor stylesheet (the font-size mechanism kills the focus zoom while
+ * pinch stays fully engine-available).
+ *
+ * The five exported predicates here are the entire decision surface:
  * everything else (state machine, resize re-evaluation, stock-meta
  * reconciliation) lives in the boot script section {@link buildZoomGuardSection}
  * emits. That section embeds these functions via `Function.prototype.toString`
@@ -112,10 +121,65 @@ export function shouldApplyZoomGuard(config: { zoomGuard?: string } | undefined,
 }
 
 /**
- * Build the boot script's zoomGuard section: the three decision predicates
+ * Standalone display-mode verdict (design D4 of change
+ * `2026-09-03-zoomguard-standalone-font-floor`): standalone PWAs HONOR
+ * `user-scalable=no` (the real-device pinch regression that motivated the
+ * display-mode split), so they must never enter the meta-rewrite path. Two
+ * sources, strict-`true` OR: the `(display-mode: standalone)` media query
+ * (primary) and legacy `navigator.standalone` (older iOS Safari exposes only
+ * the latter). Anything else — `undefined` (engine without the source),
+ * `false`, or truthy junk — reads as NOT standalone.
+ *
+ * @param mqMatchesStandalone - `matchMedia('(display-mode: standalone)').matches`.
+ * @param navStandalone - `navigator.standalone === true`.
+ * @returns `true` in standalone display mode (either source).
+ */
+export function isStandaloneDisplay(mqMatchesStandalone: boolean | undefined, navStandalone: boolean | undefined): boolean {
+  return mqMatchesStandalone === true || navStandalone === true
+}
+
+/**
+ * The 16px font floor stylesheet (design D3): iOS auto-zooms on focus into
+ * ANY control whose computed font-size is below 16px, so in standalone mode
+ * — where the meta rewrite is off the table (pinch must stay
+ * engine-available) — the floor IS the suppression. Scoped by the same
+ * breakpoint band the meta leg uses and derived the same way
+ * (`breakpoint - 0.02`: 768 → 767.98, 900 → 899.98); `!important` beats the
+ * 13/14px CSS module rules and the body inline var chain;
+ * `[contenteditable="true"]` matches only the editable state (React
+ * serializes `contentEditable={bool}` to the literal attribute value
+ * "true"/"false").
+ *
+ * @param breakpointPx - the configured `mobile.breakpoint` (raw — this
+ * function derives the `-0.02` band itself, do NOT pre-subtract).
+ * @returns the complete stylesheet text.
+ */
+export function buildFontFloorCss(breakpointPx: number): string {
+  var bp = breakpointPx - 0.02
+  return '@media (max-width:' + bp + 'px){ input,textarea,select,[contenteditable="true"]{ font-size:16px !important } }'
+}
+
+/**
+ * Build the boot script's zoomGuard section: the five decision predicates
  * embedded via `toString()` plus the DOM state machine that applies them.
  * The machine implements design D3/D4 with one discovered refinement —
  *
+ * **The standalone fork (2026-09-03, change
+ * `2026-09-03-zoomguard-standalone-font-floor`).** Real-device datum:
+ * standalone (Add to Home Screen) iOS HONORS `user-scalable=no`, so the
+ * meta rewrite that is benign in-browser (pinch stays engine-controlled)
+ * kills pinch in the PWA — the user's primary surface. The section
+ * therefore forks right after the iOS gate, BEFORE any meta machinery: a
+ * one-shot startup verdict (display-mode never flips mid-session) via the
+ * `(display-mode: standalone)` MQ or legacy `navigator.standalone` (D4).
+ * Standalone → inject the `ios-zoom-font-floor` style element into the
+ * head (16px floor, media-query-scoped to the same breakpoint band, D3)
+ * and RETURN — no provisional meta, no reconcile observer, no ladder
+ * timer, no listeners, byte-identical stock meta (D1). The width dimension
+ * lives inside the stylesheet's media query, so the injection itself is
+ * NOT width-gated: a wide standalone load still gets the element; the rule
+ * simply does not match above the breakpoint. Browser mode runs the v0.2.4
+ * machinery unchanged.
  * **Why reconciliation exists.** The webserver splices head injections
  * immediately after the opening `<head>` tag, i.e. BEFORE the stock
  * `<meta name="viewport">` in upstream's `index.html`. At boot-script time
@@ -166,11 +230,16 @@ export function buildZoomGuardSection(): string {
     `var ZI=${isIOSClassUA.toString()};`,
     `var ZM=${mergeViewportTokens.toString()};`,
     `var ZS=${shouldApplyZoomGuard.toString()};`,
+    `var ZD=${isStandaloneDisplay.toString()};`,
+    `var ZF=${buildFontFloorCss.toString()};`,
     '(function(){',
     'var m=window.__DASHR_MOBILE__;',
     'var ios=ZI(navigator.userAgent,(navigator.maxTouchPoints||0));',
     'if(!ios)return;',
-    "var bp=((m&&typeof m.breakpoint==='number'&&m.breakpoint>0)?m.breakpoint:768)-0.02;",
+    "var bpx=(m&&typeof m.breakpoint==='number'&&m.breakpoint>0)?m.breakpoint:768;",
+    'var bp=bpx-0.02;',
+    "var sa=ZD((window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches),(navigator.standalone===true));",
+    "if(sa){var f=document.createElement('style');f.setAttribute('id','ios-zoom-font-floor');f.setAttribute('data-plugin','better-dsh');f.setAttribute('data-plugin-css','better-dsh/zoom-font-floor');f.textContent=ZF(bpx);headEl().appendChild(f);return}",
     "var mq=(typeof window.matchMedia==='function')?window.matchMedia('(max-width:'+bp+'px)'):null;",
     "var T={'maximum-scale':'1','user-scalable':'no'};",
     'var meta=null,stock=null,mine=false,applied=false,obs=null,lad=null,lN=0;',

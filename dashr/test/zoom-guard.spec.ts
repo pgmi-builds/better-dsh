@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   ZOOM_GUARD_TOKENS,
+  buildFontFloorCss,
   buildZoomGuardSection,
   isIOSClassUA,
+  isStandaloneDisplay,
   mergeViewportTokens,
   shouldApplyZoomGuard,
 } from '../src/mobile/zoom-guard.ts'
@@ -26,6 +28,8 @@ const DESKTOP_CHROME_UA = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (K
 const STOCK = 'width=device-width, initial-scale=1'
 /** What a guarded stock meta reads after the token merge. */
 const STOCK_GUARDED = 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no'
+/** The standalone font-floor stylesheet at the default breakpoint (v0.2.5, design D3). */
+const FONT_FLOOR_768 = '@media (max-width:767.98px){ input,textarea,select,[contenteditable="true"]{ font-size:16px !important } }'
 
 describe('isIOSClassUA (design D2)', () => {
   it('matches the iOS family', () => {
@@ -116,6 +120,39 @@ describe('shouldApplyZoomGuard (double gate + config)', () => {
   })
 })
 
+describe('isStandaloneDisplay (design D4: dual-source strict-true OR)', () => {
+  it('ORs the media-query and navigator.standalone sources', () => {
+    expect(isStandaloneDisplay(true, true)).toBe(true)
+    expect(isStandaloneDisplay(true, false)).toBe(true)
+    expect(isStandaloneDisplay(false, true)).toBe(true)
+    expect(isStandaloneDisplay(false, false)).toBe(false)
+  })
+
+  it('never reads a missing source as standalone (undefined falls to the other source)', () => {
+    expect(isStandaloneDisplay(undefined, undefined)).toBe(false)
+    expect(isStandaloneDisplay(undefined, true)).toBe(true) // legacy navigator.standalone-only iOS
+    expect(isStandaloneDisplay(true, undefined)).toBe(true) // MQ-only engines
+    expect(isStandaloneDisplay(undefined, false)).toBe(false)
+    expect(isStandaloneDisplay(false, undefined)).toBe(false)
+  })
+})
+
+describe('buildFontFloorCss (design D3: 16px floor, breakpoint-scoped)', () => {
+  it('derives the band like the meta leg (768 → 767.98px), byte-exact', () => {
+    expect(buildFontFloorCss(768)).toBe(FONT_FLOOR_768)
+  })
+
+  it('honors tuned breakpoints (900 → 899.98px)', () => {
+    expect(buildFontFloorCss(900)).toBe('@media (max-width:899.98px){ input,textarea,select,[contenteditable="true"]{ font-size:16px !important } }')
+  })
+
+  it('pins the selector set, the 16px floor and the !important override', () => {
+    const css = buildFontFloorCss(768)
+    expect(css.startsWith('@media (max-width:')).toBe(true)
+    expect(css).toContain('input,textarea,select,[contenteditable="true"]')
+    expect(css).toContain('font-size:16px !important')
+  })
+})
 describe('config schema (mobile.zoomGuard)', () => {
   it('defaults an absent/null key to meta and passes explicit values through', async () => {
     const { Config } = await import('../src/index.ts')
@@ -144,6 +181,7 @@ class StubEl {
   readonly children: StubEl[] = []
   parentNode: StubEl | null = null
   readonly attrs: Record<string, string> = {}
+  textContent = ''
   constructor(readonly tag: string) {}
   setAttribute(key: string, value: string): void { this.attrs[key] = String(value) }
   getAttribute(key: string): string | null { return key in this.attrs ? this.attrs[key]! : null }
@@ -170,6 +208,7 @@ class StubDocument {
   readonly observers: StubObserver[] = []
   readonly mediaQueries: string[] = []
   narrow = true
+  standalone = false
   readonly resizeHandlers: (() => void)[] = []
   readonly mqChangeHandlers: (() => void)[] = []
   readyState = 'loading'
@@ -228,24 +267,32 @@ function runBootScript(
   ua = IPHONE_UA,
   maxTouchPoints = 5,
   narrowAtScriptTime = true,
+  standaloneAtScriptTime = false,
+  navStandalone = false,
 ): RunResult {
   const text = buildBootScript(config)
   if (text === undefined) throw new Error('boot script injected nothing — nothing to run')
   const doc = page = new StubDocument()
   doc.narrow = narrowAtScriptTime
+  doc.standalone = standaloneAtScriptTime
   const mql = {
     get matches() { return doc.narrow },
     addEventListener: (type: string, handler: () => void) => {
       if (type === 'change') doc.mqChangeHandlers.push(handler)
     },
   }
+  // Query-aware dispatch: the standalone probe must never read the narrow band's verdict.
+  const saMql = { get matches() { return doc.standalone } }
   const window: Record<string, unknown> & { __DASHR_MOBILE__?: unknown } = {
-    matchMedia: (query: string) => { doc.mediaQueries.push(query); return mql },
+    matchMedia: (query: string) => {
+      doc.mediaQueries.push(query)
+      return query === '(display-mode: standalone)' ? saMql : mql
+    },
     addEventListener: (type: string, handler: () => void) => {
       if (type === 'resize') doc.resizeHandlers.push(handler)
     },
   }
-  const navigator = { userAgent: ua, maxTouchPoints }
+  const navigator = { userAgent: ua, maxTouchPoints, standalone: navStandalone }
   // eslint-disable-next-line no-new-func
   const fn = new Function('window', 'location', 'document', 'navigator', 'MutationObserver', text)
   fn(window, { hostname: 'test.example' }, doc, navigator, StubMutationObserver)
@@ -261,12 +308,13 @@ describe('generated zoomGuard section (shape)', () => {
   it('embeds the three predicates and stays ES5 (no arrows, no template literals)', () => {
     const text = buildZoomGuardSection()
     for (const fragment of [
-      'var ZI=', 'var ZM=', 'var ZS=',
+      'var ZI=', 'var ZM=', 'var ZS=', 'var ZD=', 'var ZF=',
       "matchMedia('(max-width:'", '-0.02',
       'maximum-scale', 'user-scalable',
+      'ios-zoom-font-floor', '(display-mode: standalone)', 'data-plugin-css', 'font-size:16px !important',
       'MutationObserver', 'resize',
       "addEventListener('change'", 'addListener', 'setTimeout(tick,10)', 'readyState',
-      "createElement('meta')", "toLowerCase()==='viewport'", 'getElementsByTagName',
+      "createElement('meta')", "createElement('style')", "toLowerCase()==='viewport'", 'getElementsByTagName',
     ]) {
       expect(text).toContain(fragment)
     }
@@ -278,10 +326,10 @@ describe('generated zoomGuard section (shape)', () => {
 
   it('derives the media query from the payload breakpoint (768 → 767.98px)', () => {
     const run = runBootScript({ mobile: {} })
-    expect(run.page.mediaQueries).toEqual(['(max-width:767.98px)'])
+    // Browser mode probes display-mode FIRST (the fork verdict), then the band.
+    expect(run.page.mediaQueries).toEqual(['(display-mode: standalone)', '(max-width:767.98px)'])
     const tuned = runBootScript({ mobile: { breakpoint: 900 } })
-    expect(tuned.page.mediaQueries).toEqual(['(max-width:899.98px)'])
-    expect(JSON.stringify(tuned.window.__DASHR_MOBILE__)).toContain('"breakpoint":900')
+    expect(tuned.page.mediaQueries).toEqual(['(display-mode: standalone)', '(max-width:899.98px)'])
   })
 
   it('serializes the configured zoomGuard into the payload verbatim', () => {
@@ -350,7 +398,9 @@ describe('boot script evaluation (iOS × viewport × config matrix)', () => {
     doc.narrow = true
     const text = buildBootScript({ mobile: {} })!
     const window: Record<string, unknown> = {
-      matchMedia: () => ({ get matches() { return doc.narrow } }),
+      matchMedia: (query: string) => (query === '(display-mode: standalone)'
+        ? { matches: false }
+        : { get matches() { return doc.narrow } }),
       addEventListener: () => {},
     }
     // eslint-disable-next-line no-new-func
@@ -432,6 +482,103 @@ describe('boot script evaluation (iOS × viewport × config matrix)', () => {
     // Narrow per default 768 band semantics stays true here; flip to wide.
     run.page.narrow = false
     run.fireResize()
+    expect(run.page.metas()[0]!.getAttribute('content')).toBe(STOCK)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Standalone display mode (v0.2.5, change `2026-09-03-zoomguard-standalone-
+// font-floor`). Real-device datum: standalone iOS HONORS user-scalable=no, so
+// the meta rewrite would kill pinch in the PWA. The section forks right
+// after the iOS gate: standalone injects the font-floor style and returns —
+// zero meta machinery, zero listeners, zero timers — while browser mode
+// runs the v0.2.4 machinery unchanged. Style injection is NOT width-gated
+// (design D1): the width dimension lives inside the CSS media query.
+// ---------------------------------------------------------------------------
+
+describe('boot script evaluation (standalone display mode matrix)', () => {
+  it('standalone (MQ source) ∧ iOS: font-floor style injected, meta bytes untouched, zero machinery traces', () => {
+    const spy = vi.spyOn(globalThis, 'setTimeout')
+    try {
+      const run = runBootScript({ mobile: {} }, IPHONE_UA, 5, true, true)
+      const styles = run.page.getElementsByTagName('style')
+      expect(styles).toHaveLength(1)
+      const floor = styles[0]!
+      expect(floor.getAttribute('id')).toBe('ios-zoom-font-floor')
+      expect(floor.getAttribute('data-plugin')).toBe('better-dsh')
+      expect(floor.getAttribute('data-plugin-css')).toBe('better-dsh/zoom-font-floor')
+      expect(floor.textContent).toBe(FONT_FLOOR_768)
+      // The fork returns before the narrow-band probe: only display-mode was queried.
+      expect(run.page.mediaQueries).toEqual(['(display-mode: standalone)'])
+      // No provisional meta; a late stock meta parses byte-identical (single meta doc).
+      expect(run.page.metas()).toHaveLength(0)
+      run.page.parse(run.page.stockMeta())
+      expect(run.page.metas()).toHaveLength(1)
+      expect(run.page.metas()[0]!.getAttribute('content')).toBe(STOCK)
+      // Zero listeners / observers / timers (design D1: the return precedes ALL wiring).
+      expect(run.page.resizeHandlers).toHaveLength(0)
+      expect(run.page.mqChangeHandlers).toHaveLength(0)
+      expect(run.page.observers).toHaveLength(0)
+      expect(spy).not.toHaveBeenCalled()
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
+  it('standalone ∧ iOS ∧ wide at script time: style STILL injected (width lives in the CSS media query)', () => {
+    const run = runBootScript({ mobile: {} }, IPHONE_UA, 5, false, true)
+    const styles = run.page.getElementsByTagName('style')
+    expect(styles).toHaveLength(1)
+    expect(styles[0]!.getAttribute('id')).toBe('ios-zoom-font-floor')
+    expect(styles[0]!.textContent).toBe(FONT_FLOOR_768) // rule scoped to the band; wide viewport simply does not match
+    expect(run.page.mediaQueries).toEqual(['(display-mode: standalone)']) // no JS-side width gate
+    expect(run.page.resizeHandlers).toHaveLength(0)
+    run.page.parse(run.page.stockMeta())
+    expect(run.page.metas()[0]!.getAttribute('content')).toBe(STOCK)
+  })
+
+  it('standalone via navigator.standalone alone (MQ says browser) — legacy iOS source', () => {
+    const run = runBootScript({ mobile: {} }, IPHONE_UA, 5, true, false, true)
+    expect(run.page.getElementsByTagName('style')).toHaveLength(1)
+    expect(run.page.metas()).toHaveLength(0)
+    expect(run.page.resizeHandlers).toHaveLength(0)
+  })
+
+  it('standalone with no matchMedia at all: navigator.standalone single source (design D4 fallback)', () => {
+    const doc = page = new StubDocument()
+    const text = buildBootScript({ mobile: {} })!
+    const window: Record<string, unknown> = { addEventListener: () => {} } // no matchMedia key at all
+    // eslint-disable-next-line no-new-func
+    new Function('window', 'location', 'document', 'navigator', 'MutationObserver', text)(
+      window, { hostname: 'x' }, doc, { userAgent: IPHONE_UA, maxTouchPoints: 5, standalone: true }, StubMutationObserver,
+    )
+    const styles = doc.getElementsByTagName('style')
+    expect(styles).toHaveLength(1)
+    expect(styles[0]!.textContent).toBe(FONT_FLOOR_768)
+    expect(doc.metas()).toHaveLength(0)
+  })
+
+  it('standalone font floor derives from the configured breakpoint (900 → 899.98px)', () => {
+    const run = runBootScript({ mobile: { breakpoint: 900 } }, IPHONE_UA, 5, true, true)
+    const floor = run.page.getElementsByTagName('style')[0]!
+    expect(floor.textContent).toBe(buildFontFloorCss(900))
+    expect(floor.textContent).toContain('(max-width:899.98px)')
+  })
+
+  it('browser mode explicitly: v0.2.4 meta machinery, no font-floor style', () => {
+    const run = runBootScript({ mobile: {} }, IPHONE_UA, 5, true, false, false)
+    expect(run.page.getElementsByTagName('style')).toHaveLength(0)
+    expect(run.page.metas()[0]!.getAttribute('content')).toBe('maximum-scale=1, user-scalable=no')
+  })
+
+  it('zoomGuard off: neither branch in any display mode', () => {
+    const off = buildBootScript({ mobile: { zoomGuard: 'off' } })!
+    expect(off).not.toContain('var ZD=')
+    expect(off).not.toContain('ios-zoom-font-floor')
+    const run = runBootScript({ mobile: { zoomGuard: 'off' } }, IPHONE_UA, 5, true, true)
+    expect(run.page.getElementsByTagName('style')).toHaveLength(0)
+    expect(run.page.metas()).toHaveLength(0)
+    run.page.parse(run.page.stockMeta())
     expect(run.page.metas()[0]!.getAttribute('content')).toBe(STOCK)
   })
 })
@@ -523,7 +670,9 @@ describe('initial-load re-evaluation ladder (viewport applied post-script, no re
     const legacy: (() => void)[] = []
     const text = buildBootScript({ mobile: {} })!
     const window: Record<string, unknown> = {
-      matchMedia: () => ({ get matches() { return doc.narrow }, addListener: (handler: () => void) => { legacy.push(handler) } }),
+      matchMedia: (query: string) => (query === '(display-mode: standalone)'
+        ? { matches: false }
+        : { get matches() { return doc.narrow }, addListener: (handler: () => void) => { legacy.push(handler) } }),
       addEventListener: () => {},
     }
     // eslint-disable-next-line no-new-func
