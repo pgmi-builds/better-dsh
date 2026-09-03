@@ -133,6 +133,22 @@ export function shouldApplyZoomGuard(config: { zoomGuard?: string } | undefined,
  * suppressive); the observer is never started once the stock meta was
  * found synchronously.
  *
+ * **Why the re-evaluation ladder exists (2026-09-03 rework, lead CDP
+ * finding on the 4999 instance).** The boot script runs during head parsing,
+ * BEFORE the engine applies the stock viewport meta — the layout viewport at
+ * first evaluation is the pre-meta engine default (980px observed), so
+ * `mq.matches` reads false on an initial narrow load, and the narrowing that
+ * follows meta application does NOT reliably dispatch `resize` to the page
+ * during load (headless Chrome: never). A ~10ms poll ladder therefore
+ * re-evaluates until the guard IS applied, `document.readyState` reaches
+ * `'complete'`, or ~2s elapse — the first layout always precedes deferred
+ * scripts, so the ladder lands the guard before any application bundle can
+ * focus an input. Steady-state ticks are idempotent no-ops; a wide load
+ * idles to the readyState stop and leaves no timer behind (a pending tick
+ * is also cancelled the moment the guard lands). MediaQuery `change` events
+ * (with the legacy `addListener` fallback) form a second re-evaluation
+ * channel alongside window `resize`.
+ *
  * State machine (ES5, zero dependencies, synchronous first evaluation):
  * `meta` is the element under management (provisional or reconciled stock),
  * `stock` its recorded stock content, `mine` whether we created it,
@@ -157,14 +173,16 @@ export function buildZoomGuardSection(): string {
     "var bp=((m&&typeof m.breakpoint==='number'&&m.breakpoint>0)?m.breakpoint:768)-0.02;",
     "var mq=(typeof window.matchMedia==='function')?window.matchMedia('(max-width:'+bp+'px)'):null;",
     "var T={'maximum-scale':'1','user-scalable':'no'};",
-    'var meta=null,stock=null,mine=false,applied=false,obs=null;',
+    'var meta=null,stock=null,mine=false,applied=false,obs=null,lad=null,lN=0;',
     "function findStock(){var s=document.getElementsByTagName('meta');for(var i=0;i<s.length;i++){var e=s[i];if(e!==meta&&(e.getAttribute('name')||'').toLowerCase()==='viewport')return e}return null}",
     "function headEl(){return document.head||document.getElementsByTagName('head')[0]||document.documentElement}",
     'function stopWatch(){if(obs){obs.disconnect();obs=null}}',
+    'function stopLadder(){if(lad){clearTimeout(lad);lad=null}}',
     "function dropMine(){if(meta&&mine){if(meta.parentNode)meta.parentNode.removeChild(meta);meta=null;mine=false}}",
     'function apply(on){',
     'if(on===applied)return;',
     'applied=on;',
+    'if(on)stopLadder();',
     'if(on){',
     'var el=findStock();',
     "if(el){meta=el;mine=false;stock=el.getAttribute('content')||''}",
@@ -187,8 +205,18 @@ export function buildZoomGuardSection(): string {
     'else{dropMine();meta=null;stock=null}',
     '}',
     'function re(){apply(ZS(m,true,mq?mq.matches:false))}',
+    'function tick(){',
+    'lad=null;',
+    're();',
+    'if(applied)return;',
+    'lN++;',
+    "if(document.readyState==='complete'||lN>=200)return;",
+    'lad=setTimeout(tick,10);',
+    '}',
     're();',
     "window.addEventListener('resize',re);",
+    "if(mq&&mq.addEventListener)mq.addEventListener('change',re);else if(mq&&mq.addListener)mq.addListener(re);",
+    "if(!applied&&typeof setTimeout==='function')lad=setTimeout(tick,10);",
     '})()',
   ].join('')
 }

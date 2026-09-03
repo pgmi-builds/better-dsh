@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   ZOOM_GUARD_TOKENS,
   buildZoomGuardSection,
@@ -171,6 +171,8 @@ class StubDocument {
   readonly mediaQueries: string[] = []
   narrow = true
   readonly resizeHandlers: (() => void)[] = []
+  readonly mqChangeHandlers: (() => void)[] = []
+  readyState = 'loading'
   constructor() {
     this.documentElement = new StubEl('html')
     this.head = new StubEl('head')
@@ -217,6 +219,7 @@ interface RunResult {
   page: StubDocument
   window: Record<string, unknown> & { __DASHR_MOBILE__?: unknown }
   fireResize(): void
+  fireMqChange(): void
 }
 
 /** Evaluate a built script exactly as a page's inline head script would. */
@@ -224,11 +227,18 @@ function runBootScript(
   config: Parameters<typeof buildBootScript>[0],
   ua = IPHONE_UA,
   maxTouchPoints = 5,
+  narrowAtScriptTime = true,
 ): RunResult {
   const text = buildBootScript(config)
   if (text === undefined) throw new Error('boot script injected nothing — nothing to run')
   const doc = page = new StubDocument()
-  const mql = { get matches() { return doc.narrow } }
+  doc.narrow = narrowAtScriptTime
+  const mql = {
+    get matches() { return doc.narrow },
+    addEventListener: (type: string, handler: () => void) => {
+      if (type === 'change') doc.mqChangeHandlers.push(handler)
+    },
+  }
   const window: Record<string, unknown> & { __DASHR_MOBILE__?: unknown } = {
     matchMedia: (query: string) => { doc.mediaQueries.push(query); return mql },
     addEventListener: (type: string, handler: () => void) => {
@@ -243,6 +253,7 @@ function runBootScript(
     page: doc,
     window,
     fireResize: () => { for (const handler of [...doc.resizeHandlers]) handler() },
+    fireMqChange: () => { for (const handler of [...doc.mqChangeHandlers]) handler() },
   }
 }
 
@@ -254,6 +265,7 @@ describe('generated zoomGuard section (shape)', () => {
       "matchMedia('(max-width:'", '-0.02',
       'maximum-scale', 'user-scalable',
       'MutationObserver', 'resize',
+      "addEventListener('change'", 'addListener', 'setTimeout(tick,10)', 'readyState',
       "createElement('meta')", "toLowerCase()==='viewport'", 'getElementsByTagName',
     ]) {
       expect(text).toContain(fragment)
@@ -421,5 +433,109 @@ describe('boot script evaluation (iOS × viewport × config matrix)', () => {
     run.page.narrow = false
     run.fireResize()
     expect(run.page.metas()[0]!.getAttribute('content')).toBe(STOCK)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Initial-load re-evaluation ladder (2026-09-03 rework). The engine applies
+// the stock viewport meta AFTER the head script runs, so the layout viewport
+// at first evaluation is the pre-meta default (980px) and the narrowing
+// that follows dispatches no resize during load. The ladder polls re()
+// until the guard lands / readyState completes / the ~2s cap.
+// ---------------------------------------------------------------------------
+
+describe('initial-load re-evaluation ladder (viewport applied post-script, no resize)', () => {
+  afterEach(() => { vi.useRealTimers() })
+
+  it('guards when matchMedia flips late with no resize dispatched, then stops with no leaked timer', () => {
+    vi.useFakeTimers()
+    const run = runBootScript({ mobile: {} }, IPHONE_UA, 5, false) // wide (980 default) at script time
+    expect(run.page.metas()).toHaveLength(0) // unguarded at script time
+    expect(vi.getTimerCount()).toBe(1) // the ladder, and only the ladder, is armed
+    run.page.parse(run.page.stockMeta()) // parser inserts the stock meta while still wide
+    vi.advanceTimersByTime(40) // ticks while wide: idempotent no-ops
+    expect(run.page.metas()).toHaveLength(1)
+    expect(run.page.metas()[0]!.getAttribute('content')).toBe(STOCK)
+    run.page.narrow = true // engine applies width=device-width: NO resize event
+    vi.advanceTimersByTime(10)
+    expect(run.page.metas()).toHaveLength(1)
+    expect(run.page.metas()[0]!.getAttribute('content')).toBe(STOCK_GUARDED)
+    expect(vi.getTimerCount()).toBe(0) // ladder stopped, nothing pending
+  })
+
+  it('ladder lands the guard before the stock meta parses: provisional first, reconcile on parse', () => {
+    vi.useFakeTimers()
+    const run = runBootScript({ mobile: {} }, IPHONE_UA, 5, false)
+    run.page.narrow = true
+    vi.advanceTimersByTime(10) // first tick applies with no stock in the DOM
+    expect(run.page.metas()).toHaveLength(1) // the provisional meta
+    expect(run.page.metas()[0]!.getAttribute('content')).toBe('maximum-scale=1, user-scalable=no')
+    run.page.parse(run.page.stockMeta()) // observer reconciles: single stock meta
+    expect(run.page.metas()).toHaveLength(1)
+    expect(run.page.metas()[0]!.getAttribute('content')).toBe(STOCK_GUARDED)
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('stops at readyState complete on a stay-wide load: no guard, no residual timer, listeners stay live', () => {
+    vi.useFakeTimers()
+    const run = runBootScript({ mobile: {} }, IPHONE_UA, 5, false)
+    run.page.readyState = 'complete'
+    vi.advanceTimersByTime(10) // first tick: still wide + complete → terminate
+    expect(vi.getTimerCount()).toBe(0)
+    run.page.narrow = true
+    vi.advanceTimersByTime(5000) // the ladder is dead, no resurrection
+    expect(run.page.metas()).toHaveLength(0)
+    run.page.parse(run.page.stockMeta())
+    run.fireResize() // but the resize channel still guards
+    expect(run.page.metas()[0]!.getAttribute('content')).toBe(STOCK_GUARDED)
+  })
+
+  it('non-iOS loads never start the ladder: zero setTimeout calls', () => {
+    const spy = vi.spyOn(globalThis, 'setTimeout')
+    try {
+      const run = runBootScript({ mobile: {} }, ANDROID_UA, 5, false)
+      expect(run.page.metas()).toHaveLength(0)
+      expect(run.page.resizeHandlers).toHaveLength(0)
+      expect(run.page.mqChangeHandlers).toHaveLength(0)
+      expect(spy).not.toHaveBeenCalled()
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
+  it('media-query change events guard and restore without any resize (second channel)', () => {
+    vi.useFakeTimers()
+    const run = runBootScript({ mobile: {} }, IPHONE_UA, 5, false)
+    run.page.readyState = 'complete'
+    vi.advanceTimersByTime(10) // retire the ladder first
+    run.page.parse(run.page.stockMeta())
+    run.page.narrow = true
+    run.fireMqChange() // no resize dispatched
+    expect(run.page.metas()[0]!.getAttribute('content')).toBe(STOCK_GUARDED)
+    run.page.narrow = false
+    run.fireMqChange()
+    expect(run.page.metas()[0]!.getAttribute('content')).toBe(STOCK)
+  })
+
+  it('legacy engines: mq.addListener is wired when addEventListener is missing', () => {
+    const doc = page = new StubDocument()
+    doc.narrow = true
+    const legacy: (() => void)[] = []
+    const text = buildBootScript({ mobile: {} })!
+    const window: Record<string, unknown> = {
+      matchMedia: () => ({ get matches() { return doc.narrow }, addListener: (handler: () => void) => { legacy.push(handler) } }),
+      addEventListener: () => {},
+    }
+    // eslint-disable-next-line no-new-func
+    new Function('window', 'location', 'document', 'navigator', 'MutationObserver', text)(
+      window, { hostname: 'x' }, doc, { userAgent: IPHONE_UA, maxTouchPoints: 5 }, StubMutationObserver,
+    )
+    expect(doc.metas()).toHaveLength(1) // narrow at script time: immediate guard
+    expect(legacy).toHaveLength(1) // the legacy change channel is wired
+    doc.parse(doc.stockMeta())
+    expect(doc.metas()).toHaveLength(1)
+    doc.narrow = false
+    legacy[0]!()
+    expect(doc.metas()[0]!.getAttribute('content')).toBe(STOCK)
   })
 })

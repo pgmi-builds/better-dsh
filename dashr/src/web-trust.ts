@@ -31,8 +31,6 @@
  * config still carries the mobile global. The script is a strict IIFE over
  * JSON-embedded literals — no config string is ever spliced into code
  * unescaped.
- * IIFE over JSON-embedded literals — no config string is ever spliced into
- * code unescaped.
  *
  * @module dashr/web-trust
  */
