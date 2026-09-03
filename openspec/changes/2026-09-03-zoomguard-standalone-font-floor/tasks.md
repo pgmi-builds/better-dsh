@@ -11,7 +11,7 @@
 
 - [x] 2.1 **回归**：vitest 全量 + tsc 0。
   - 证据：canonical `npx vitest --run` → **Test Files 36 passed (36), Tests 478 passed (478)**（基线 466 + 新增 12）；`npx tsc --noEmit` → 0 error。
-- [ ] 2.2 **4999 CDP 双形态**：`Emulation.setEmulatedMedia(features:[{name:'display-mode',value:'standalone'}])` —— standalone+iOS+390：meta stock、`#ios-zoom-font-floor` 在场、composer computed font-size ≥16px；browser（无 emulated media）：meta guarded、无 font-floor style；Android/桌面/宽屏双形态均双零；off 双零。**并含 client 特性探针**（本轮回归教训）：narrow 下 `[data-sidebar-collapsed]` computed 首列 0px、`style[data-plugin]` 认领在位。
+- [x] 2.2 **4999 CDP 双形态**：`Emulation.setEmulatedMedia(features:[{name:'display-mode',value:'standalone'}])` —— standalone+iOS+390：meta stock、`#ios-zoom-font-floor` 在场、composer computed font-size ≥16px；browser（无 emulated media）：meta guarded、无 font-floor style；Android/桌面/宽屏双形态均双零；off 双零。**并含 client 特性探针**（本轮回归教训）：narrow 下 `[data-sidebar-collapsed]` computed 首列 0px、`style[data-plugin]` 认领在位。
 - [x] 2.3 **部署流程**：tsdown 后**必须** `tsx scripts/build-client.ts`（lib/client 清洗陷阱，AGENTS.md 已焊）；重启前后 boot graph rev 变化确认。
   - 证据（doer 半）：rsync（--exclude node_modules/lib/.venv-kernel/.uv-cache/docs）→ `pnpm --filter better-dsh exec tsdown`（✔ 9 files, 533.34 kB）→ `node_modules/.bin/tsx scripts/build-client.ts` 直跑（✔ lib/client/index.js 17.82 kB, md5 `a88850ec056aae943934adfdeb79347e`）；lib/ 内 `display-mode: standalone`/`ios-zoom-font-floor`/ZD/ZF 嵌入在场。注：tsx 在 monorepo 根 node_modules（AGENTS 命令块里 `../../node_modules/.bin/tsx` 的相对深度按 `packages/better-dsh/` 层算，从包目录需 `../../../`，本次用绝对路径直跑成功）。**4999 未重启**（lead 统一处理 2.2）；boot graph rev 前后对比随 lead 重启回填。
 
