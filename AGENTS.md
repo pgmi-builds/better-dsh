@@ -27,7 +27,7 @@
 `~/.dsh/profiles/web/` 本身是一个 pnpm workspace：
 - `package.json` 的 `dsh.profile.bundles` = `["@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app", "dshmarket", "dsh-better-sidebar", "corti-memory", "@pgmi-builds/better-dsh"]`
 - `cordis.yml` 为空 `[]`（树由 patch 组成），实际 overlay 在 `cordis.patch.yml`。
-- **plugin add 的供应链年龄门（2026-09-02 实证）**：pnpm 11.7 自带 supply-chain 策略引擎（`minimumReleaseAge`/trust policy）；`pnpm-workspace.yaml` 的 `minimumReleaseAgeExclude` 按精确版本豁免。**刚发布的 better-dsh 新版本会被年龄门挡回旧豁免版并静默覆盖部署位**（0.2.1-d 曾因此被回落成 0.2.1-a）——升级时用精确版本 add（pnpm 会自动补 exclude 条目并提示 `minimumReleaseAgeStrict`），勿信 `@latest`。另：pnpm 打完 `Done` 后偶发子进程不退出（11.7.0 worker 边车问题，Ctrl-C 无损）；profile package.json 的 `pnpm.onlyBuiltDependencies` 已失效（继任 `allowBuilds` 在 pnpm-workspace.yaml），其 WARN 为噪音可清理。
+- **plugin add 的供应链年龄门（2026-09-02 实证；2026-09-03 修正 exclude 形式）**：pnpm 11.7.0 自带 supply-chain 策略引擎（默认 `minimumReleaseAge`≈24h）。**版本号形式的 exclude（`pkg@x.y.z`，含 pnpm 自动补的）只作用于解析相位，不盖锁文件校验相位**——条目发布未满 24h 时，后续任何 `pnpm install`/`add` 的锁文件校验都会再拦一次（0.2.2 发布当天装 prod 即中此坑）。**持久形式 = 裸包名**：`minimumReleaseAgeExclude: ['@pgmi-builds/better-dsh']` 全相位生效（scratch A5–A7 实证：校验/全新 add/复验全过）。升级仍用精确版本 add，勿信 `@latest`（回落+静默覆盖部署位的坑仍在）。**带 postinstall 的版本还需 `allowBuilds: {'@pgmi-builds/better-dsh': true}`**（strictDepBuilds 下未列 build script = 硬错；0.2.2 起 kernel-provision postinstall 属发布面）。另：pnpm 打完 `Done` 后偶发子进程不退出（11.7.0 worker 边车，Ctrl-C 无损）；`pnpm.onlyBuiltDependencies` 已失效（继任 `allowBuilds` 在 pnpm-workspace.yaml），其 WARN 为噪音。prod profile 的两处修正于 2026-09-03 落位（备份 `.scratch/pnpm-workspace.yaml.bak-0.2.2`）。
 
 ### 依赖解析 — 分层，不是一棵树
 
