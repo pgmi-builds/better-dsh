@@ -1,7 +1,6 @@
 {
-  "name": "@pgmi-builds/better-dsh",
-  "description": "Better Dsh (Dashr): a persistent Python-kernel REPL for DeepSeek Harness (dsh) — eval cells with tool.* bindings, scheme:// resource addressing, and a wired-in IDE (LSP, AST, hashline edit)",
-  "version": "0.2.2-a",
+  "name": "better-dsh",
+  "version": "0.2.3",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -105,7 +104,6 @@
     "@deepseek-ai/dsh-api-remotes": ">=0.1.2-alpha.1 <0.2.0-0",
     "@deepseek-ai/dsh-client-connection": ">=0.1.2-alpha.1 <0.2.0-0",
     "@deepseek-ai/dsh-client-locale": ">=0.1.2-alpha.1 <0.2.0-0",
-    "@deepseek-ai/dsh-client-runtime": ">=0.1.2-alpha.1 <0.2.0-0",
     "@deepseek-ai/dsh-client-ui-conversation": ">=0.1.2-alpha.1 <0.2.0-0",
     "@deepseek-ai/dsh-client-ui-primitives": ">=0.1.2-alpha.1 <0.2.0-0",
     "@deepseek-ai/dsh-client-ui-settings": ">=0.1.2-alpha.1 <0.2.0-0",
@@ -259,9 +257,6 @@
       "optional": true
     },
     "@deepseek-ai/dsh-client-locale": {
-      "optional": true
-    },
-    "@deepseek-ai/dsh-client-runtime": {
       "optional": true
     },
     "@deepseek-ai/dsh-client-ui-conversation": {

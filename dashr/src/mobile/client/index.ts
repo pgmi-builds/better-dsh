@@ -130,10 +130,10 @@ export function setupMobileLayout(ctx: ClientContext): void {
   const config = resolveMobileConfig(pageConfig)
   if (!config.enabled) return
 
-  const styleTagId = '@pgmi-builds/better-dsh/mobile'
+  const styleTagId = 'better-dsh/mobile'
   ctx.effect(() => {
     const tag = document.createElement('style')
-    tag.dataset.plugin = '@pgmi-builds/better-dsh'
+    tag.dataset.plugin = 'better-dsh'
     tag.dataset.pluginCss = styleTagId
     tag.textContent = mobileCss(config.breakpoint)
     document.head.append(tag)

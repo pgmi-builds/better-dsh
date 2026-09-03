@@ -27,7 +27,8 @@ dsh runtime package dependencies**: only `@deepseek-ai/cordis` (peer),
 
 ## Package positioning
 
-- npm name: `@pgmi-builds/better-dsh`.
+- npm name: `better-dsh` (unscoped; formerly `@pgmi-builds/better-dsh`, which
+  now stays published only as a deprecated pointer to this name).
 - A standard Cordis plugin (`Context` + schemastery `Config`, every tunable
   configurable from `cordis.yml`, no hardcoded tunables).
 - "Registrations are effects": the kernel lifecycle (lazy spawn on a key's
@@ -47,7 +48,7 @@ dsh runtime package dependencies**: only `@deepseek-ai/cordis` (peer),
 ## Install
 
 ```sh
-npm install @pgmi-builds/better-dsh
+npm install better-dsh
 ```
 
 The runtime OWNS its kernel environment. With `python` left at the
@@ -212,7 +213,7 @@ equivalent manual steps, for reference:
 #    by minutes-to-hours, so drop it first, or `@latest` resolves the OLD
 #    version right after a release:
 rm -rf ~/.cache/pnpm
-dsh plugin --profile web add --config.auto-install-peers=false @pgmi-builds/better-dsh@latest
+dsh plugin --profile web add --config.auto-install-peers=false better-dsh@latest
 
 # 2. restart the running instance:  systemctl --user restart dsh
 ```
@@ -235,7 +236,7 @@ the other's runtime.
 ## Composition
 
 ```ts
-import dashr from '@pgmi-builds/better-dsh'
+import dashr from 'better-dsh'
 
 ctx.plugin(dashr, { maxParallelSubCalls: 10 })
 ```

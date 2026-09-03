@@ -98,7 +98,7 @@ export function createLlmCompletionTool(deps: LlmCompletionDeps): ToolDefinition
       }
       const messages: Message[] = [createUserMessage({
         content: [{ type: 'text', text: prompt }],
-        source: { kind: 'plugin', plugin: '@pgmi-builds/better-dsh' },
+        source: { kind: 'plugin', plugin: 'better-dsh' },
       })]
       const options: GenerateOptions = {
         provider,

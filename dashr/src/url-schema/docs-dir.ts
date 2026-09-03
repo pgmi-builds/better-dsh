@@ -9,8 +9,8 @@
  * - source/dev: `dashr/src/url-schema/docs-dir.ts` → the built copy at
  *   `dashr/docs/` or the repo-root `docs/`
  * - bundled dev: `dashr/lib/index.js` → `dashr/docs/` or the repo-root `docs/`
- * - installed: `node_modules/@pgmi-builds/better-dsh/lib/index.js` → the packaged
- *   `node_modules/@pgmi-builds/better-dsh/docs/` (shipped via the `files` array)
+ * - installed: `node_modules/better-dsh/lib/index.js` → the packaged
+ *   `node_modules/better-dsh/docs/` (shipped via the `files` array)
  *
  * Near layers are probed first, so an unrelated ancestor `docs/` is only ever
  * reached when the package's own copy is absent.
