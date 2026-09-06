@@ -143,9 +143,15 @@ function installAgentTools(rootCtx: Context, agent: Agent, resolver: UrlResolver
     const native = captureNativeTools(rootCtx, agent)
     const disposers: Array<() => void> = []
 
+    // v0.2.2-c: instantiated BEFORE the write registration so the URL-aware
+    // wrapper can re-advertise the escalation fields (see WriteToolDeps.sandbox);
+    // the hashline edit family below shares the same controller instance.
+    const hashlineSandbox = new FsSandboxController(rootCtx)
+
     disposers.push(agent.ctx.tools.register(createReadTool({ resolver, fs: rootCtx.fs, ctx: rootCtx })))
     disposers.push(agent.ctx.tools.register(createWriteTool({
       nativeWrite: native.write,
+      sandbox: hashlineSandbox,
       ...buildLspWriteFeedback(),
     })))
 
@@ -155,7 +161,6 @@ function installAgentTools(rootCtx: Context, agent: Agent, resolver: UrlResolver
     // `read` needs no registration: the DASHR read wrapper already runs the
     // vendored hashline read pipeline.
     const hashlineIo = ctxFsIO(rootCtx.fs, rootCtx)
-    const hashlineSandbox = new FsSandboxController(rootCtx)
     disposers.push(registerEditTool(rootCtx, agent.ctx, hashlineIo, hashlineSandbox))
     disposers.push(registerUndoTool(rootCtx, agent.ctx, hashlineIo, hashlineSandbox))
     disposers.push(registerWriteHook(rootCtx, agent.ctx, hashlineIo))

@@ -25,6 +25,7 @@ import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
 
 import { dispatchDvcWrite } from '../handlers/dvc.ts'
+import type { FsSandboxController } from '../vendored/hashline/sandbox.js'
 import type { ResolverEnv } from '../resolver.ts'
 import { parseUrl, UrlSchemaError } from '../selector.ts'
 
@@ -66,6 +67,17 @@ export interface WriteToolDeps {
     content: string,
     env: ResolverEnv,
   ) => Promise<WriteOutcome>
+  /**
+   * Escalation advertisement surface (v0.2.2-c): when a confining backend is
+   * mounted, the wrapper RE-DECLARES the native write tool's escalation
+   * fields (`sandbox_permissions`/`justification`) in its own `parameters`.
+   * This registration shadows the native tool, so without it the model's
+   * advertised schema loses the fields and a schema-obedient model can never
+   * honor the denial marker's escalation hint (2026-09-06 incident: GLM-5.3
+   * looped on plain denials while the args passthrough itself was intact —
+   * the model simply never sent fields the schema never solicited).
+   */
+  sandbox?: Pick<FsSandboxController, 'escalationModes' | 'schemaFields'>
 }
 
 /**
@@ -126,7 +138,7 @@ async function defaultSchemeWrite(scheme: string, path: string, content: string)
  * write definition with args and exec passed through untouched.
  */
 export function createWriteTool(deps: WriteToolDeps): ToolDefinition {
-  const { nativeWrite, postWrite, preWriteFormat } = deps
+  const { nativeWrite, postWrite, preWriteFormat, sandbox } = deps
   const writeScheme = deps.writeScheme ?? defaultSchemeWrite
   return defineTool({
     name: 'write',
@@ -143,6 +155,12 @@ export function createWriteTool(deps: WriteToolDeps): ToolDefinition {
         required: true,
         description: 'Full new content (an empty string writes an empty file).',
       },
+      // v0.2.2-c: re-advertise the native escalation fields under a confining
+      // backend — the delegated execute forwards args verbatim, but a field
+      // the schema never solicited is a field the model never sends (the
+      // 09-03 fix covered edit's call-site drop; this closes write's
+      // advertisement gap of the same symptom class).
+      ...sandbox !== undefined && sandbox.escalationModes.length > 0 ? sandbox.schemaFields() : {},
     },
     output: {
       schema: {
