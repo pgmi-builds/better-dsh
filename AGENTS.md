@@ -4,6 +4,23 @@
 
 ---
 
+## 〇、Development Operation Contract — 发布与验收红线（2026-09-06 裁决）
+
+> 起因：0.2.2-c 违规发包——agent 只做了"4999 拉起来没崩"级别的检查就直发 npm，跳过了第一人称实测与 user 确认两道闸。
+> 先例与不可逆性：npm **发了就发了，撤不回、盖不掉**（registry 上的游离 `better-dsh@0.2.3` 即 2026-09-03 匆忙上错发、永留的先例）；GitHub 可逆——tag 可加、可摘、可挪。
+
+1. **npm publish 前置条件，缺一不可，顺序不可换**：
+   - a. **4999 第一人称实测通过**：真实 agent session 在实际运行时里走通改动路径（HTTP 端点发起 session 自测 / browser-use / 视觉模型操作，任一形态）。拉起进程没崩、单测绿、tsc 0、boot graph 在位、产物 grep 命中——这些是构建卫生，**不是验收**；带病工具的 prod 照样能拉起来。
+   - b. 实测结果落报告 `docs/50_test-reports/`。
+   - c. **user 明确确认放行**（第一人称实测通过 ≠ user 确认，两道独立闸门；agent 不得以"测试都绿了"推断放行）。
+   - d. 以上全齐后才 `npm publish`。
+2. **验收标准必须与改动点同类**：改的是"实际运行时上下文里工具/行为可不可用"，验收就必须是"实际运行时里该工具/行为可用"，由第一人称实测证明，不得降级为进程活性或静态证据。
+3. **未经 user 单次明确同意，不得 `npm publish`**。授权粒度单次有效：user 对某次发布的授权、或对"修这个 bug"的授权，都不自动覆盖下次发包。
+4. GitHub 侧（commit / tag / push）可逆，风险低，但同样跟随上述节奏走，不抢在 a–c 之前定版。
+5. **已发布版本的微小瑕疵：记录在案、攒批处理**，不为零碎微调烧版本号（0.2.2-c 后的措辞微调、附 C 类新 bug 一律并入下一次批量发布，见 `docs/50_test-reports/2026-09-06-write工具sandbox升级透传bug复发及挂起-事件报告.md` 附 A/B/C）。
+
+---
+
 ## 一、Production Native dsh 拓扑
 
 ### Core（`~/.local`）— 用户级全局安装
@@ -59,7 +76,7 @@ Node 从 better-dsh 的 `lib/index.js` 出发向上走：
 
 ### 组成
 
-- Harness: `./upstream/deepseek-harness`，git tag `dsh-v0.1.2-alpha.5`（2026-09-02 从 alpha.3 升级并全链路验证；prod npm 仍为 alpha.3，测试线领先一档），pnpm workspace（`linkWorkspacePackages: true`）。tag 间 `pnpm-workspace.yaml`/`tsdown.client.ts` 零改动，本地 patch 可经 `git stash` → checkout → `git stash pop` 干净重放（备份: `.scratch/alpha3-local-patches-backup.patch`）。
+- Harness: `./upstream/deepseek-harness`，git tag `dsh-v0.1.3-alpha.2`（2026-09-08 对齐轮从 alpha.5 切换并全链路验证，见 `docs/50_test-reports/upstream-dsh-0.1.3-alpha.2-local-test-report.md`；prod npm 仍为 alpha.3，测试线领先一档），pnpm workspace（`linkWorkspacePackages: true`）。**tag 间 `pnpm-workspace.yaml`/`tsdown.client.ts` 有改动**（alpha.2 起）——本地 patch（unrun devDep / storeDir+verifyDeps+zeromq / tsdown `resolveRepositoryRoot`）按对齐轮 S2 手工重放，勿盲 stash pop；alpha.5 overlay 已归档删除。
 - dashr 放置: `packages/better-dsh/better-dsh/`（`./dashr` 的副本，workspace 成员）。副本 package.json 现为 canonical 原样（npm range peerDeps；monorepo 内靠 `linkWorkspacePackages` 按 name+version 链到 workspace 副本，等效于早期 `workspace:*` 本地化）。canonical 已于 0.2.2-a re-port 时在源头删除 stale 的 `@deepseek-ai/dsh-client-runtime` peerDep（npm 无匹配版本，曾致 alpha.5 install `ERR_PNPM_NO_MATCHING_VERSION`）——rsync 不再带回，无需重删。另: `pnpm-workspace.yaml` allowBuilds 需 `zeromq: true`（better-dsh kernel IPC 依赖；pnpm 11.7 会插 `set this to true or false` 占位符，strictDepBuilds 下占位符=硬错）。
 - 用户数据: `DSH_HOME=/home/u1/workspaces/dashr/.dsh-test`。profile `web` 在 `.dsh-test/profiles/web/package.json` 声明 bundles `["@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app", "better-dsh"]`，其 node_modules symlink 指向 monorepo 的 `packages/bundle/base`、`packages/bundle/web-app`、`packages/better-dsh/better-dsh`。`.env` 从 `~/.dsh/.env` 拷贝（真实 key）。prod `~/.dsh` 完全不动。
 
@@ -84,9 +101,15 @@ systemctl --user stop dsh-4999-test 2>/dev/null
 systemd-run --user --unit=dsh-4999-test \
   -p WorkingDirectory=/home/u1/workspaces/dashr/upstream/deepseek-harness \
   -p Environment=DSH_HOME=/home/u1/workspaces/dashr/.dsh-test \
+  -p 'Environment="DSH_TRUSTED_HOSTS=test.pc.randomhash.app pc.randomhash.app 192.168.31.130"' \
+  -p 'UnsetEnvironment=DISPLAY WAYLAND_DISPLAY' \
   -p StandardOutput=append:/home/u1/workspaces/dashr/.scratch/dsh-4999.log \
   -p StandardError=append:/home/u1/workspaces/dashr/.scratch/dsh-4999.log \
   "$(which node)" --import tsx/esm apps/cli/src/bin.ts web --no-open --port 4999
+# ⚠ 与 prod 对齐的两行必须带：DSH_TRUSTED_HOSTS（fence + web-trust authorities 单源，
+#   覆盖 test.pc… / pc.randomhash.app / LAN）与 UnsetEnvironment=DISPLAY WAYLAND_DISPLAY
+#   （prod dsh.service 同款——否则 directory-picker auto 在图形 env 下选 native，zenity
+#   弹在宿主桌面，经 Caddy 远端访问时 Add workspace 表现为无响应后置灰；2026-09-08 实证）
 # user 终端（非沙箱）等价简式:
 # cd ~/workspaces/dashr/upstream/deepseek-harness && DSH_HOME=~/.dsh-test 的 npm run dsh -- web --no-open --port 4999
 ```
@@ -141,7 +164,7 @@ prod npm CLI 当 harness 核，只把插件本体和它的 harness 依赖换成 
 
 ## 四、dsh 插件开发面（机制速查）— 2026-09-03 研究裁决
 
-机制层知识已沉淀为 ws skill：**`.agents/skills/dsh-plugin-development/`**（core-framework / web-ui 两分量，源码锚点齐）。要点裁决（细节以 skill 为准）：
+机制层知识已从 ws skill 蒸馏入文档（2026-09-06，skill 已删）：**`docs/60_exploration-and-research/05-dashr-dev/plugin-development.md`**（决策树 + host core / client web-ui 两分量，源码锚点齐；论证底稿 = `docs/60_exploration-and-research/01-cordis-runtime/cordis-customization-and-override-mechanics.md`）。要点裁决（细节以该文档为准）：
 
 - **官方声明式 patch 线 = `cordis.patch.yml`**：行 schema `{id, name, config, inject, disabled}`；层序 bundles（列序）→ profile → home → `--patch`；后层按 id **整行重述**覆盖前层（非 merge）；`!!js` boot 表达式可读 `process.env` 与 loader 上下文服务。presets/features/settings 全是插件行 config → 全部 patch-线可达。dashr 自己的 bundle patch 已在用（compaction 三行 re-enable、`DASHR_KERNEL_PYTHON`）。
 - **override 的三条硬边界**（勿再凭直觉）：① 浏览器模块表同 id = 双侧硬错（无 last-wins，同名包遮蔽不可行）；② cordis 同 scope 同名 service = 硬错，"closest wins" 仅祖先/isolate 遮蔽（兄弟插件间不存在）；③ 官方 UI 组件遮蔽 = **slot 同 cell 更低 priority 注册（lowest renders）**，同 priority 才报错。整插件替换的正规入口 = patch 行 id 覆盖 + `name` 重指（记录未用）。
