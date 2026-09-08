@@ -12,7 +12,7 @@
  * edit-diff, drift, noop-guard are private helpers of this seam.
  *
  * Public surface:
- *   execute(io, items, {sessionKey, exec, sandbox, signal}) → string  — deep seam: ONE interface
+ *   execute(io, items, {exec, sandbox, signal}) → string  — deep seam: ONE interface
  *   applySingle(io, params, cwd, opts) → PipelineResult               — single-edit helper
  *   applySequence(io, items, ctx) → FileEditResult                    — per-file sequencer
  *   commit(io, files, {exec, sandboxPolicy, signal}) → void           — transaction
@@ -29,7 +29,7 @@ import { toCwd } from "./paths.js";
 import { resEdit } from "./hashline/anchor-pipeline.js";
 import { MAX_HASH_LINES } from "./hashline/hash-assign.js";
 import { AnchorMismatchError, ServedRejectionError, recordEchoServes, } from "./hashline/anchor-pipeline.js";
-import { loadServed, sessionKeyFor, scanDrift, recordServedTruncated } from "./session-view.js";
+import { loadServed, scanDrift, recordServedTruncated } from "./session-view.js";
 import { abortIf, splitLines } from "./utils.js";
 import { applyOne } from "./edit-engine.js";
 import { runFileEdits, resolveMissingPath, persistUndoAndWrite, enforceNoopLoop, collectRemovedHashes, countLineChanges, } from "./edit-engine.js";
@@ -61,8 +61,7 @@ export async function execPipeline(io, params, cwd, options) {
         store: hashStore,
         noPersist: options?.noPersist,
     });
-    const sessionKey = options?.sessionKey ?? sessionKeyFor(undefined);
-    const served = await loadServed(sessionKey, absolutePath);
+    const served = await loadServed(absolutePath);
     const policy = options?.noPersist === true ? 'preview' : 'live';
     const applied = await applyOne({
         content: originalNormalized,
@@ -81,7 +80,7 @@ export async function execPipeline(io, params, cwd, options) {
     }, async (error) => {
         if (error instanceof AnchorMismatchError ||
             error instanceof ServedRejectionError) {
-            await recordEchoServes(sessionKey, absolutePath, error.servedRows, policy, originalHashes.length);
+            await recordEchoServes(absolutePath, error.servedRows, policy, originalHashes.length);
         }
         throw error;
     });
@@ -92,7 +91,6 @@ export async function execPipeline(io, params, cwd, options) {
     if (options?.noPersist !== true) {
         try {
             driftNotice = await scanDrift({
-                sessionKey,
                 served,
                 resultHashes: applied.hashes,
                 resultLines: splitLines(result),
@@ -160,8 +158,8 @@ export { trackNoopPayload, clearNoopLoop, noopPayloadKey };
  * across every tool — it concentrates (deep).
  */
 export async function execute(opts) {
-    const { io, items, sessionKey, signal, exec, sandbox, sandboxPolicy } = opts;
-    const fileResult = await applySequence(io, items, { signal, sessionKey });
+    const { io, items, signal, exec, sandbox, sandboxPolicy } = opts;
+    const fileResult = await applySequence(io, items, { signal });
     const toSection = () => ({
         path: fileResult.displayPath,
         originalNormalized: fileResult.originalNormalized,
@@ -179,7 +177,7 @@ export async function execute(opts) {
         if (built.details.servedRows && built.details.servedRows.length > 0) {
             const entry = built.details.servedByPath?.[0];
             if (entry) {
-                await recordServedTruncated(sessionKey, fileResult.absolutePath, entry.servedRows, splitLines(fileResult.result).length, fileResult.range.startLine - 1);
+                await recordServedTruncated(fileResult.absolutePath, entry.servedRows, splitLines(fileResult.result).length, fileResult.range.startLine - 1);
             }
         }
     };

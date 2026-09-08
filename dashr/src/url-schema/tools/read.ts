@@ -34,7 +34,7 @@ import {
 } from '../vendored/hashline/contract.js'
 import { ctxFsIO } from '../vendored/hashline/fs-bridge.js'
 import { readAndServe } from '../vendored/hashline/read-and-serve.js'
-import { execCwd, execSessionKey, withWorkspace } from '../vendored/hashline/session-view.js'
+import { execCwd, withWorkspace } from '../vendored/hashline/session-view.js'
 
 /** Dependencies for the read tool, supplied by the wiring step. */
 export interface ReadToolDeps {
@@ -118,10 +118,8 @@ export function createReadTool(deps: ReadToolDeps): ToolDefinition {
       // workspace so served-row persistence keys by the right cwd.
       return withWorkspace(execCwd(exec), async () => {
         const cwd = execCwd(exec)
-        const sessionKey = execSessionKey(exec)
         const signal = exec.signal
         const { text, absolutePath } = await readAndServe(io, rawPath, cwd, {
-          sessionKey,
           signal,
           offset: canonical.offset,
           limit: canonical.limit,

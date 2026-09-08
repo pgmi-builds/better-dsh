@@ -454,7 +454,7 @@ export function fmtServedRows(rows, fileLines) {
         .join("\n");
 }
 function retryHint() {
-    return "Retry with these anchors (no read needed).";
+    return "Read the file once to refresh anchors, then resubmit the whole batch.";
 }
 function paginationHint(nextOffset, more) {
     return `[... ${more} more — read offset=${nextOffset}]`;
@@ -470,6 +470,12 @@ export function verifyServedRange(args) {
     const echo = fmtServedRows(echoRows, fileLines) + tail;
     const startPositions = servedPositionsOf(served, startHash);
     const endPositions = servedPositionsOf(served, endHash);
+    if (startPositions.length === 0 && endPositions.length === 0) {
+        // Content-anchored accept: both bounds already resolved against the
+        // current file (valEdit). The served ledger has never seen this file
+        // (fresh write, another session/fork) — no re-read required.
+        return;
+    }
     const currentLen = endLine - startLine + 1;
     let from;
     let to;
@@ -560,10 +566,10 @@ ${retryHint()}`,
         }
     }
 }
-export async function recordEchoServes(sessionKey, path, rows, policy, lineCount) {
+export async function recordEchoServes(path, rows, policy, lineCount) {
     if (policy !== "live")
         return;
-    await recordServed(sessionKey, path, rows, lineCount);
+    await recordServed(path, rows, lineCount);
 }
 export function buildIdx(content) {
     const fileLines = splitLines(content);

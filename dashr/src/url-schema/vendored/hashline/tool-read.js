@@ -9,8 +9,7 @@ import { defineTool } from "@deepseek-ai/dsh-tools";
 import { normalizeRequest as normReq, assertReadRequest, pathSchema } from "./contract.js";
 import { readAndServe } from "./read-and-serve.js";
 import { READ_DESCRIPTION } from "./prompts.js";
-import { execCwd, execSessionKey } from "./session-view.js";
-import { withWorkspace } from "./session-view.js";
+import { execCwd, withWorkspace } from "./session-view.js";
 /**
  * Register the hash-anchored `read` tool on the calling agent's scope.
  * @param _rootCtx - host context.
@@ -40,13 +39,11 @@ export function buildReadTool(io) {
         async execute(args, exec) {
             return withWorkspace(execCwd(exec), async () => {
                 const cwd = execCwd(exec);
-                const sessionKey = execSessionKey(exec);
                 const signal = exec.signal;
                 const canonical = normReq(args);
                 assertReadRequest(canonical);
                 const rawPath = canonical.path;
                 const { text, absolutePath } = await readAndServe(io, rawPath, cwd, {
-                    sessionKey,
                     signal,
                     offset: canonical.offset,
                     limit: canonical.limit,

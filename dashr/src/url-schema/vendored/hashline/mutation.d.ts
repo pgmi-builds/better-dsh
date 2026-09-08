@@ -12,7 +12,7 @@
  * edit-diff, drift, noop-guard are private helpers of this seam.
  *
  * Public surface:
- *   execute(io, items, {sessionKey, exec, sandbox, signal}) → string  — deep seam: ONE interface
+ *   execute(io, items, {exec, sandbox, signal}) → string  — deep seam: ONE interface
  *   applySingle(io, params, cwd, opts) → PipelineResult               — single-edit helper
  *   applySequence(io, items, ctx) → FileEditResult                    — per-file sequencer
  *   commit(io, files, {exec, sandboxPolicy, signal}) → void           — transaction
@@ -64,7 +64,6 @@ export interface ExecPipelineOptions {
     signal?: AbortSignal;
     store?: HashStore;
     noPersist?: boolean;
-    sessionKey?: string;
 }
 export declare function execPipeline(io: FileIO, params: EditParams, cwd: string, options?: ExecPipelineOptions): Promise<PipelineResult>;
 /** Resolve the display path a caller names against the session cwd. */
@@ -92,7 +91,6 @@ export { trackNoopPayload, clearNoopLoop, noopPayloadKey };
 export declare function execute(opts: {
     io: FileIO;
     items: PreparedItem[];
-    sessionKey: string;
     signal?: AbortSignal;
     exec: ToolExecution;
     sandbox: FsSandboxController;
@@ -100,14 +98,12 @@ export declare function execute(opts: {
 }): Promise<string>;
 /** Apply a single edit — owns read→normalize→loadServed→applyOne→stableRehash→drift. */
 export declare function applySingle(io: FileIO, params: EditParams, cwd: string, opts?: {
-    sessionKey?: string;
     signal?: AbortSignal;
     store?: HashStore;
     noPersist?: boolean;
 }): Promise<PipelineResult>;
 /** Apply a per-file sequence (batch's group) — owns the loop + unionRange + counters. */
 export declare function applySequence(io: FileIO, items: PreparedItem[], ctx: {
-    sessionKey: string;
     signal?: AbortSignal;
 }): Promise<FileEditResult>;
 /** Commit the transaction — owns persist-undo → write → restore. */

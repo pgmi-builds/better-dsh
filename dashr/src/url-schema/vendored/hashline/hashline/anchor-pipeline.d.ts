@@ -105,7 +105,7 @@ export interface ResolvedRange {
     delta: number;
 }
 export type ServeRecordPolicy = "live" | "preview";
-export declare function recordEchoServes(sessionKey: string, path: string, rows: ServedRow[], policy: ServeRecordPolicy, lineCount?: number): Promise<void>;
+export declare function recordEchoServes(path: string, rows: ServedRow[], policy: ServeRecordPolicy, lineCount?: number): Promise<void>;
 type LIdx = {
     fileLines: string[];
     lineStarts: number[];

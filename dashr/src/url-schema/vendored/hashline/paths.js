@@ -4,28 +4,24 @@ import { lstat, readlink } from "node:fs/promises";
 import { resolveDshHome } from "@deepseek-ai/dsh-home-paths";
 import { errCode } from "./utils.js";
 /**
- * On-disk home for dsh-better-edit state. Inside a tool call the store lives
- * co-located with the files being edited: `<workspace>/.dsh_better_edit/` (the
- * workspace is the session cwd, carried through the execution by
- * `withWorkspace`). Outside a tool call — tests, previews, startup — the store
- * falls back to the shared DeepSeek Harness home
- * (`$DSH_HOME/plugins/dsh-better-edit`, default `~/.dsh/plugins/dsh-better-edit`),
- * so a caller without a workspace never writes into an arbitrary cwd.
- * @param cwd - the workspace root, or undefined for the shared-home fallback.
+ * On-disk home for dsh-better-edit state: ONE centralized store per harness
+ * home — `$DSH_HOME/storages/dsh-better-edit` (default
+ * `~/.dsh/storages/dsh-better-edit`), resolved through the harness home
+ * resolver so `DSH_HOME` isolates deployments (test homes never touch prod).
+ * There is no per-workspace state directory: the store keys everything by
+ * canonical absolute path.
  */
-export function configDir(cwd) {
-    return cwd !== undefined
-        ? join(resolvePath(cwd), ".dsh_better_edit")
-        : join(resolveDshHome(), "plugins", "dsh-better-edit");
+export function configDir() {
+    return join(resolveDshHome(), "storages", "dsh-better-edit");
 }
-export function hashStorePath(cwd) {
-    return join(configDir(cwd), "hash-store.sqlite");
+export function hashStorePath() {
+    return join(configDir(), "hash-store.sqlite");
 }
-export function legacyHashStorePath(cwd) {
-    return join(configDir(cwd), "hash-store.json");
+export function legacyHashStorePath() {
+    return join(configDir(), "hash-store.json");
 }
-export function hashStoreDir(cwd) {
-    return dirname(hashStorePath(cwd));
+export function hashStoreDir() {
+    return dirname(hashStorePath());
 }
 function homeBase() {
     const envHome = process.env.HOME;

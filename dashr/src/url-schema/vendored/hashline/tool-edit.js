@@ -10,8 +10,7 @@ import { normalizeRequest as normReq, assertEditRequest, } from "./contract.js";
 import { abortIf } from "./utils.js";
 import { execute } from "./mutation.js";
 import { EDIT_DESCRIPTION } from "./prompts.js";
-import { execCwd, execSessionKey } from "./session-view.js";
-import { withWorkspace } from "./session-view.js";
+import { execCwd, withWorkspace } from "./session-view.js";
 import { findSnapshotPathsByHashes } from "./hash-store.js";
 import { parseHashRef } from "./hashline/anchor-pipeline.js";
 async function resolveNullPath(edits) {
@@ -64,7 +63,6 @@ export function buildEditTool(io, sandbox) {
         async execute(args, exec) {
             return withWorkspace(execCwd(exec), async () => {
                 const cwd = execCwd(exec);
-                const sessionKey = execSessionKey(exec);
                 const signal = exec.signal;
                 const canonical = normReq(args);
                 assertEditRequest(canonical);
@@ -101,7 +99,7 @@ export function buildEditTool(io, sandbox) {
                     });
                 }
                 // Deep seam: one interface, all lifecycle branching concentrates in Mutation
-                return execute({ io, items, sessionKey, signal, exec, sandbox, sandboxPolicy });
+                return execute({ io, items, signal, exec, sandbox, sandboxPolicy });
             });
         },
     });

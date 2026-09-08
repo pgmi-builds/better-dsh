@@ -7,10 +7,10 @@
  * + recording drift rows) — a side effect hidden inside a "notice" module.
  *
  * This seam co-locates that invariant. Public surface:
- *   view(sessionKey, path) -> {served, reported}
- *   recordRead(sessionKey, path, rows, lineCount)
- *   recordEdit(sessionKey, path, rows, lineCount, clearFrom)
- *   scanDrift(sessionKey, path, resultHashes, resultLines, range) -> notice?
+ \*   view(path) -> {served, reported}
+ \*   recordRead(path, rows, lineCount)
+ \*   recordEdit(path, rows, lineCount, clearFrom)
+ \*   scanDrift(input) -> notice?
  *   servedPositionsOf, currentPositionOfDrifted, _mergeServedRows (via served-store)
  *
  * Explicit Workspace note: loadHashStore(cwd) now requires cwd. The
@@ -32,7 +32,6 @@ import type { ServedRow, ResolvedRange } from "./hashline/served.js";
 import { configDir, hashStorePath, resolveTarget } from "./paths.js";
 export declare function withWorkspace<T>(cwd: string, fn: () => Promise<T>): Promise<T>;
 export declare function workspaceCwd(): string | undefined;
-export declare function sessionKeyFor(sessionId?: string): string;
 export declare function execCwd(exec: ToolExecution): string;
 export declare function execSessionKey(exec: ToolExecution): string;
 export { configDir, hashStorePath, resolveTarget };
@@ -53,13 +52,12 @@ export declare function _mergeServedRows(current: (string | null)[], rows: Serve
     truncateTo?: number;
     clearFrom?: number;
 }): (string | null)[];
-export declare function loadServed(sessionKey: string, path: string): Promise<(string | null)[]>;
-export declare function recordServed(sessionKey: string, path: string, rows: ServedEntry[], lineCount?: number): Promise<void>;
-export declare function recordServedTruncated(sessionKey: string, path: string, rows: ServedEntry[], lineCount: number, clearFrom?: number): Promise<void>;
-export declare function driftReported(sessionKey: string, path: string): Promise<Set<string>>;
-export declare function markDriftReported(sessionKey: string, path: string, hashes: string[]): Promise<void>;
-export declare function clearDriftReported(sessionKey: string, path: string): Promise<void>;
-export declare function wipeServedState(sessionKey: string): Promise<void>;
+export declare function loadServed(path: string): Promise<(string | null)[]>;
+export declare function recordServed(path: string, rows: ServedEntry[], lineCount?: number): Promise<void>;
+export declare function recordServedTruncated(path: string, rows: ServedEntry[], lineCount: number, clearFrom?: number): Promise<void>;
+export declare function driftReported(path: string): Promise<Set<string>>;
+export declare function markDriftReported(path: string, hashes: string[]): Promise<void>;
+export declare function clearDriftReported(path: string): Promise<void>;
 export declare function servedPositionsOf(served: (string | null)[], hash: string): number[];
 export declare function currentPositionOfDrifted(served: (string | null)[], currentPositions: Map<string, number>, surviving: Set<string>, servedIndex: number, delta: number): number;
 export declare const DRIFT_NOTICE_HEADING = "drift:";
@@ -83,7 +81,7 @@ export interface DriftNoticeResult {
 }
 export declare function computeDrift(input: ComputeDriftInput): DriftNoticeResult | undefined;
 export declare function scanDrift(input: {
-    sessionKey: string;
+
     served: (string | null)[];
     resultHashes: string[];
     resultLines: string[];

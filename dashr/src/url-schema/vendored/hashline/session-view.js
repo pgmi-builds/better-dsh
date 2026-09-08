@@ -10,15 +10,15 @@
  *   view(sessionKey, path) -> {served, reported}
  *   recordRead(sessionKey, path, rows, lineCount)
  *   recordEdit(sessionKey, path, rows, lineCount, clearFrom)
- *   scanDrift(sessionKey, path, resultHashes, resultLines, range) -> notice?
+ *   scanDrift(input) -> notice?
  *   servedPositionsOf, currentPositionOfDrifted, _mergeServedRows (via served-store)
  *
- * Explicit Workspace note: loadHashStore(cwd) now requires cwd. The
- * AsyncLocalStorage magic in workspace.ts is @internal — new code should pass
- * cwd explicitly through read-and-serve / edit-pipeline / drift. Forgetting
- * cwd is now a compile error where callers use this seam; legacy callers
- * via served-store still fall back to workspaceCwd() for backwards compat
- * but are marked deprecated.
+ * Storage note: the served ledger is keyed by canonical absolute PATH only
+ * (no session identity) and lives in the centralized store under
+ * `$DSH_HOME/storages/dsh-better-edit`. Verification authority is the current
+ * file content (see anchor-pipeline verifyServedRange); served rows are the
+ * advisory echo/undo/drift auxiliary. The AsyncLocalStorage cwd seam is
+ * @internal and only carries the workspace for file IO.
  *
  * Ownership: This file now OWNS the served-merge invariant
  * (_mergeServedRows), the position-reconstruction math, and the drift
@@ -27,7 +27,6 @@
  *
  * @module dsh-better-edit/session-view
  */
-import { randomUUID } from "node:crypto";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { HASH_RE } from "./hashline/hash-assign.js";
 import { loadHashStore, withStore } from "./hash-store.js";
@@ -43,18 +42,8 @@ export function workspaceCwd() {
     return current.getStore();
 }
 // --- dsh-context (private to this seam) ---
-let fallbackSessionKey;
-export function sessionKeyFor(sessionId) {
-    if (sessionId && sessionId.length > 0)
-        return sessionId;
-    // fallback for previews/tests
-    return fallbackSessionKey ??= randomUUID();
-}
 export function execCwd(exec) {
     return exec.agent?.session.header.cwd ?? process.cwd();
-}
-export function execSessionKey(exec) {
-    return sessionKeyFor(exec.agent?.session.id);
 }
 // --- paths re-export (seam visibility) ---
 export { configDir, hashStorePath, resolveTarget };
@@ -120,90 +109,81 @@ export function _mergeServedRows(current, rows, options) {
         updated.pop();
     return updated;
 }
-export async function loadServed(sessionKey, path) {
+export async function loadServed(path) {
     const store = await loadHashStore();
-    return store.getServed(sessionKey, path);
+    return store.getServed(path);
 }
-export async function recordServed(sessionKey, path, rows, lineCount) {
+export async function recordServed(path, rows, lineCount) {
     if (rows.length === 0)
         return;
     try {
         const store = await loadHashStore();
         withStore(() => {
-            const current = store.getServed(sessionKey, path);
+            const current = store.getServed(path);
             const updated = _mergeServedRows(current, rows, lineCount === undefined ? undefined : { truncateTo: lineCount });
             if (current.length === updated.length && current.every((v, i) => v === updated[i]))
                 return;
-            store.upsertServed(sessionKey, path, JSON.stringify(updated));
+            store.upsertServed(path, JSON.stringify(updated));
         });
     }
     catch (error) {
         console.error("Failed to record served rows:", error);
     }
 }
-export async function recordServedTruncated(sessionKey, path, rows, lineCount, clearFrom = 0) {
+export async function recordServedTruncated(path, rows, lineCount, clearFrom = 0) {
     if (rows.length === 0)
         return;
     try {
         const store = await loadHashStore();
         withStore(() => {
-            const current = store.getServed(sessionKey, path);
+            const current = store.getServed(path);
             const updated = _mergeServedRows(current, rows, { truncateTo: lineCount, clearFrom });
             // Avoid no-op writes (perf: O(1) check, no extra I/O beyond current read)
             if (current.length === updated.length && current.every((v, i) => v === updated[i]))
                 return;
-            store.upsertServed(sessionKey, path, JSON.stringify(updated));
+            store.upsertServed(path, JSON.stringify(updated));
         });
     }
     catch (error) {
         console.error("Failed to record truncated served rows:", error);
     }
 }
-export async function driftReported(sessionKey, path) {
+export async function driftReported(path) {
     try {
         const store = await loadHashStore();
-        return store.getServedReported(sessionKey, path);
+        return store.getServedReported(path);
     }
     catch (error) {
         console.error("Failed to load reported drift set:", error);
         return new Set();
     }
 }
-export async function markDriftReported(sessionKey, path, hashes) {
+export async function markDriftReported(path, hashes) {
     try {
         const valid = hashes.filter((hash) => HASH_RE.test(hash));
         if (valid.length === 0)
             return;
         const store = await loadHashStore();
         withStore(() => {
-            const current = store.getServedReported(sessionKey, path);
+            const current = store.getServedReported(path);
             for (const hash of valid)
                 current.add(hash);
-            store.upsertServedReported(sessionKey, path, JSON.stringify([...current]));
+            store.upsertServedReported(path, JSON.stringify([...current]));
         });
     }
     catch (error) {
         console.error("Failed to record reported drift set:", error);
     }
 }
-export async function clearDriftReported(sessionKey, path) {
+export async function clearDriftReported(path) {
     try {
         const store = await loadHashStore();
         withStore(() => {
-            store.clearServedReported(sessionKey, path);
+            store.clearServedReported(path);
         });
     }
     catch (error) {
         console.error("Failed to clear reported drift set:", error);
-    }
-}
-export async function wipeServedState(sessionKey) {
-    try {
-        const store = await loadHashStore();
-        store.wipeServed(sessionKey);
-    }
-    catch (error) {
-        console.error("Failed to wipe served state:", error);
     }
 }
 export function servedPositionsOf(served, hash) {
@@ -322,11 +302,11 @@ export function computeDrift(input) {
     };
 }
 export async function scanDrift(input) {
-    const reported = await driftReported(input.sessionKey, input.path);
+    const reported = await driftReported(input.path);
     const result = computeDrift({ ...input, reported });
     if (!result || result.allAlreadyReported)
         return result?.text;
-    await recordServed(input.sessionKey, input.path, result.rows.map((row) => ({ position: row.position, hash: row.hash })), input.resultLines.length);
-    await markDriftReported(input.sessionKey, input.path, result.rows.filter((row) => row.drifted).map((row) => row.hash));
+    await recordServed(input.path, result.rows.map((row) => ({ position: row.position, hash: row.hash })), input.resultLines.length);
+    await markDriftReported(input.path, result.rows.filter((row) => row.drifted).map((row) => row.hash));
     return result.text;
 }

@@ -7,10 +7,11 @@
  * the AGENT's own scope layer, so they shadow the preset's built-in `read` /
  * `edit` for that agent (nearest layer wins in dsh's tool registry) and unwind
  * automatically when the agent is disposed. The built-in `write` stays in
- * place; a scoped `tools/post-execute` listener appends the fresh hashline
- * preview to write results.
+ * place, untouched — full-file writes carry their own confirmation and need no
+ * hashline replay; edit verification is content-anchored (see
+ * hashline/anchor-pipeline.js verifyServedRange).
  *
- * The four `tool:*` guidance sections resolve per agent preset from override
+ * The three `tool:*` guidance sections resolve per agent preset from override
  * files in the shared home (see `src/guidance.ts`); deployments without the
  * `agentPresets` service keep the compiled defaults unchanged.
  * @module dsh-better-edit
@@ -20,7 +21,6 @@ import { FsSandboxController } from "./sandbox.js";
 import { registerReadTool } from "./tool-read.js";
 import { registerEditTool } from "./tool-edit.js";
 import { registerUndoTool } from "./tool-undo.js";
-import { registerWriteHook } from "./write-hook.js";
 import { initHasher } from "./hashline/hash-assign.js";
 import { composeSections, ensurePresetGuidance, GUIDANCE_SECTIONS, } from "./guidance.js";
 import { configDir } from "./paths.js";
@@ -82,7 +82,6 @@ function installAgentTools(rootCtx, agent) {
         const sandbox = new FsSandboxController(rootCtx);
         disposers.push(registerEditTool(rootCtx, agent.ctx, io, sandbox));
         disposers.push(registerUndoTool(rootCtx, agent.ctx, io, sandbox));
-        disposers.push(registerWriteHook(rootCtx, agent.ctx, io));
         // Shadow the preset's built-in tool guidance with the hashline
         // contract. Same section names on the agent's own layer win over the
         // preset's; text and order come from the per-preset resolution.
@@ -98,9 +97,9 @@ function installAgentTools(rootCtx, agent) {
 }
 /** Mount the bundle: initialize the store, then install tools per agent. */
 export function apply(rootCtx) {
-    // Warm the hasher once; the per-workspace stores are opened lazily on the
-    // first tool call in each workspace (there is no shared store to prune at
-    // boot anymore).
+    // Warm the hasher once; the single centralized store (under
+    // `$DSH_HOME/storages/dsh-better-edit`) is opened lazily on the first
+    // tool call.
     initHasher().catch((error) => {
         rootCtx.logger.warn(`dsh-better-edit: hasher warm-up failed: ${error instanceof Error ? error.message : String(error)}`);
     });

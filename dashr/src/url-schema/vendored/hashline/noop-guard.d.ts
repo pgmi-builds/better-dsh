@@ -16,7 +16,6 @@ export interface NoopPolicyInput {
     };
     hashes: string[];
     lines: string[];
-    sessionKey: string;
 }
 export type NoopPolicyOutcome = {
     action: "proceed";

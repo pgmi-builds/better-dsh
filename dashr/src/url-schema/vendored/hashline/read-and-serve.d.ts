@@ -13,7 +13,6 @@ import type { ServedRow } from "./hashline/served.js";
 export declare const UTF8_REWRITE_NOTE = "[Non-UTF-8 bytes shown as U+FFFD; editing rewrites the file as UTF-8.]";
 export interface ReadAndServeOptions {
     /** The session whose served rows these lines belong to. */
-    sessionKey: string;
     signal?: AbortSignal;
     /** Pagination for the rendered preview (undefined = from the start). */
     offset?: number;

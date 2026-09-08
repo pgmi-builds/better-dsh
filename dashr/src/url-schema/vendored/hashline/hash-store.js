@@ -18,7 +18,6 @@ import { readFile, rename, mkdir, stat } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { hashStorePath } from "./paths.js";
-import { workspaceCwd } from "./workspace.js";
 import { errCode, splitLines } from "./utils.js";
 import { initHasher, contentChecksum, HASH_RE, CANON_VERSION } from "./hashline/hash-assign.js";
 import { HASH_STORE_VERSION, HASH_STORE_BUSY_TIMEOUT, SERVED_TTL_MS } from "./constants.js";
@@ -155,16 +154,14 @@ function buildStore(db) {
     }
     const servedColumns = db.prepare("PRAGMA table_info(served)").all();
     if (versionChanged ||
-        !servedColumns.some((column) => column.name === "session_id")) {
+        servedColumns.some((column) => column.name === "session_id")) {
         db.exec("DROP TABLE IF EXISTS served");
     }
     db.exec("CREATE TABLE IF NOT EXISTS served (" +
-        "session_id TEXT NOT NULL, " +
-        "path TEXT NOT NULL, " +
+        "path TEXT NOT NULL PRIMARY KEY, " +
         "hashes TEXT NOT NULL, " +
         "reported TEXT, " +
-        "updated_at INTEGER NOT NULL, " +
-        "PRIMARY KEY (session_id, path)" +
+        "updated_at INTEGER NOT NULL" +
         ")");
     db.prepare("INSERT INTO meta (key, value) VALUES ('version', ?) " +
         "ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(String(HASH_STORE_VERSION));
@@ -178,15 +175,14 @@ function buildStore(db) {
         "ON CONFLICT(path) DO UPDATE SET content = excluded.content, bom = excluded.bom, ending = excluded.ending, hashes = excluded.hashes, result_content = excluded.result_content, updated_at = excluded.updated_at");
     const undoGetStmt = db.prepare("SELECT content, bom, ending, hashes, result_content FROM undo WHERE path = ?");
     const undoDelStmt = db.prepare("DELETE FROM undo WHERE path = ?");
-    const servedGetStmt = db.prepare("SELECT hashes, reported FROM served WHERE session_id = ? AND path = ?");
-    const servedUpsertStmt = db.prepare("INSERT INTO served (session_id, path, hashes, updated_at) VALUES (?, ?, ?, ?) " +
-        "ON CONFLICT(session_id, path) DO UPDATE SET hashes = excluded.hashes, updated_at = excluded.updated_at");
-    const servedReportedUpsertStmt = db.prepare("INSERT INTO served (session_id, path, hashes, reported, updated_at) VALUES (?, ?, '[]', ?, ?) " +
-        "ON CONFLICT(session_id, path) DO UPDATE SET reported = excluded.reported, updated_at = excluded.updated_at");
-    const servedReportedClearStmt = db.prepare("UPDATE served SET reported = NULL, updated_at = ? WHERE session_id = ? AND path = ?");
-    const servedDeleteStmt = db.prepare("DELETE FROM served WHERE session_id = ? AND path = ?");
+    const servedGetStmt = db.prepare("SELECT hashes, reported FROM served WHERE path = ?");
+    const servedUpsertStmt = db.prepare("INSERT INTO served (path, hashes, updated_at) VALUES (?, ?, ?) " +
+        "ON CONFLICT(path) DO UPDATE SET hashes = excluded.hashes, updated_at = excluded.updated_at");
+    const servedReportedUpsertStmt = db.prepare("INSERT INTO served (path, hashes, reported, updated_at) VALUES (?, '[]', ?, ?) " +
+        "ON CONFLICT(path) DO UPDATE SET reported = excluded.reported, updated_at = excluded.updated_at");
+    const servedReportedClearStmt = db.prepare("UPDATE served SET reported = NULL, updated_at = ? WHERE path = ?");
+    const servedDeleteStmt = db.prepare("DELETE FROM served WHERE path = ?");
     const servedDeletePathStmt = db.prepare("DELETE FROM served WHERE path = ?");
-    const servedWipeStmt = db.prepare("DELETE FROM served WHERE session_id = ?");
     const servedPruneOlderThanStmt = db.prepare("DELETE FROM served WHERE updated_at < ?");
     const stmts = {
         get: (...params) => getStmt.get(...params),
@@ -224,9 +220,9 @@ function buildStore(db) {
                 servedReportedUpsertStmt.run(...params);
             });
         },
-        servedReportedClear: (...params) => {
+        servedReportedClear: (path) => {
             withBusyRetry(() => {
-                servedReportedClearStmt.run(params[1], params[0], params[2]);
+                servedReportedClearStmt.run(Date.now(), path);
             });
         },
         servedDelete: (...params) => {
@@ -237,11 +233,6 @@ function buildStore(db) {
         servedDeletePath: (...params) => {
             withBusyRetry(() => {
                 servedDeletePathStmt.run(...params);
-            });
-        },
-        servedWipe: (...params) => {
-            withBusyRetry(() => {
-                servedWipeStmt.run(...params);
             });
         },
         servedPruneOlderThan: (...params) => {
@@ -334,24 +325,24 @@ function makeDomainStore(stmts) {
         deleteUndo(path) {
             stmts.undoDelete(path);
         },
-        getServed(sessionKey, path) {
-            const row = stmts.servedGet(sessionKey, path);
+        getServed(path) {
+            const row = stmts.servedGet(path);
             if (!row)
                 return [];
             try {
                 const parsed = JSON.parse(row.hashes);
                 if (isValidServedList(parsed))
                     return parsed;
-                stmts.servedDelete(sessionKey, path);
+                stmts.servedDelete(path);
                 return [];
             }
             catch {
-                stmts.servedDelete(sessionKey, path);
+                stmts.servedDelete(path);
                 return [];
             }
         },
-        getServedReported(sessionKey, path) {
-            const row = stmts.servedGet(sessionKey, path);
+        getServedReported(path) {
+            const row = stmts.servedGet(path);
             if (!row)
                 return new Set();
             const raw = row.reported;
@@ -367,23 +358,20 @@ function makeDomainStore(stmts) {
                 return new Set();
             }
         },
-        upsertServed(sessionKey, path, hashesJson) {
-            stmts.servedUpsert(sessionKey, path, hashesJson, Date.now());
+        upsertServed(path, hashesJson) {
+            stmts.servedUpsert(path, hashesJson, Date.now());
         },
-        upsertServedReported(sessionKey, path, reportedJson) {
-            stmts.servedReportedUpsert(sessionKey, path, reportedJson, Date.now());
+        upsertServedReported(path, reportedJson) {
+            stmts.servedReportedUpsert(path, reportedJson, Date.now());
         },
-        clearServedReported(sessionKey, path) {
-            stmts.servedReportedClear(sessionKey, Date.now(), path);
+        clearServedReported(path) {
+            stmts.servedReportedClear(path);
         },
-        deleteServed(sessionKey, path) {
-            stmts.servedDelete(sessionKey, path);
+        deleteServed(path) {
+            stmts.servedDelete(path);
         },
         deleteServedByPath(path) {
             stmts.servedDeletePath(path);
-        },
-        wipeServed(sessionKey) {
-            stmts.servedWipe(sessionKey);
         },
         pruneServedOlderThan(ts) {
             stmts.servedPruneOlderThan(ts);
@@ -501,18 +489,16 @@ async function openStore(storePath) {
     }
     return store;
 }
-/** Resolve the store path for this call: explicit cwd, the active workspace, or the shared-home fallback. */
-function storePathFor(cwd) {
-    return hashStorePath(cwd ?? workspaceCwd());
+/** Resolve the store path: the single centralized store under `$DSH_HOME/storages`. */
+function storePathFor() {
+    return hashStorePath();
 }
 /**
- * Load (and cache) the hash store for the given cwd — or, when omitted, the
- * workspace active for this async execution (`withWorkspace`), falling back to
- * the shared `$DSH_HOME` store outside a tool call.
- * @param cwd - optional explicit workspace root; defaults to the active workspace.
+ * Load (and cache) the centralized hash store. There is exactly one store per
+ * harness home; `DSH_HOME` isolates deployments (test homes never touch prod).
  */
-export function loadHashStore(cwd) {
-    const storePath = storePathFor(cwd);
+export function loadHashStore() {
+    const storePath = storePathFor();
     const cached = stores.get(storePath);
     if (cached && cached.db.isOpen) {
         return Promise.resolve(cached.store);

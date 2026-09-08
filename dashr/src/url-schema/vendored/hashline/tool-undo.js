@@ -16,8 +16,7 @@ import { changedRange } from "./hashline/anchor-pipeline.js";
 import { getUndo, clearUndo } from "./undo-edit.js";
 import { recordServedTruncated } from "./session-view.js";
 import { UNDO_DESCRIPTION } from "./prompts.js";
-import { execCwd, execSessionKey } from "./session-view.js";
-import { withWorkspace } from "./session-view.js";
+import { execCwd, withWorkspace } from "./session-view.js";
 /**
  * Register the `undo_last_edit` tool on the calling agent's scope.
  * @param _rootCtx - host context.
@@ -44,7 +43,6 @@ export function buildUndoTool(io, sandbox) {
         async execute(args, exec) {
             return withWorkspace(execCwd(exec), async () => {
                 const cwd = execCwd(exec);
-                const sessionKey = execSessionKey(exec);
                 const signal = exec.signal;
                 const canonical = normReq(args);
                 assertUndoRequest(canonical);
@@ -105,7 +103,7 @@ export function buildUndoTool(io, sandbox) {
                 }
                 parts.push("File reverted to previous state. The post-edit diff rows carry the restored file\u2019s fresh anchors for follow-up edits.");
                 if (undoDenseRows.length > 0) {
-                    await recordServedTruncated(sessionKey, absolutePath, undoDenseRows, splitLines(undo.content).length, restoredRange?.firstChangedLine ?? undoDiffResult.firstChangedLine ?? 0);
+                    await recordServedTruncated(absolutePath, undoDenseRows, splitLines(undo.content).length, restoredRange?.firstChangedLine ?? undoDiffResult.firstChangedLine ?? 0);
                 }
                 return [parts.join("\n"), "", "Diff of the revert:", "", undoDiff].join("\n");
             });

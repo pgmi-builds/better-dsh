@@ -15,8 +15,7 @@ import { buildBatchResult } from "./mutation.js";
 import { recordServedTruncated } from "./session-view.js";
 import { BATCH_EDIT_DESCRIPTION } from "./prompts.js";
 import { pathSchema, removeFromSchema, removeToSchema, replacementTextSchema, } from "./contract.js";
-import { execCwd, execSessionKey } from "./session-view.js";
-import { withWorkspace } from "./session-view.js";
+import { execCwd, withWorkspace } from "./session-view.js";
 async function prepareItems(io, params, cwd, signal) {
     const items = [];
     for (let index = 0; index < params.edits.length; index++) {
@@ -121,7 +120,6 @@ export function buildBatchEditTool(io, sandbox) {
         async execute(args, exec) {
             return withWorkspace(execCwd(exec), async () => {
                 const cwd = execCwd(exec);
-                const sessionKey = execSessionKey(exec);
                 const signal = exec.signal;
                 const canonical = normReq(args);
                 if (isRec(canonical) && Array.isArray(canonical.edits)) {
@@ -142,7 +140,6 @@ export function buildBatchEditTool(io, sandbox) {
                     abortIf(signal);
                     processed.push(await applySequence(io, groupItems, {
                         signal,
-                        sessionKey,
                     }));
                 }
                 await commit({
@@ -173,7 +170,7 @@ export function buildBatchEditTool(io, sandbox) {
                             continue;
                         const file = processed.find((f) => f.displayPath === entry.path);
                         if (file) {
-                            await recordServedTruncated(sessionKey, file.absolutePath, entry.servedRows, splitLines(file.result).length, file.range.startLine - 1);
+                            await recordServedTruncated(file.absolutePath, entry.servedRows, splitLines(file.result).length, file.range.startLine - 1);
                         }
                     }
                 }

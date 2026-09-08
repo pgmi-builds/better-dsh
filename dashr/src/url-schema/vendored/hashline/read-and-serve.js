@@ -3,8 +3,8 @@
  *
  * FileView owns normalize → hash → render → truncate → served selection.
  * This module only adds the persistence seam: recordServed + clearDriftReported
- * + UTF-8 rewrite note. Used by the `read` tool and by the write auto-read
- * hook, so the model is always shown fresh anchors the same way.
+ * + UTF-8 rewrite note. Used by the `read` tool, so the model is always shown
+ * fresh anchors the same way.
  * @module dsh-better-edit/read-and-serve
  */
 import { abortIf } from "./utils.js";
@@ -23,7 +23,7 @@ export const UTF8_REWRITE_NOTE = "[Non-UTF-8 bytes shown as U+FFFD; editing rewr
  * context.
  */
 export async function readAndServe(io, rawPath, cwd, options) {
-    const { sessionKey, signal } = options;
+    const { signal } = options;
     abortIf(signal);
     const view = await readView(io, rawPath, cwd, {
         offset: options.offset,
@@ -31,9 +31,9 @@ export async function readAndServe(io, rawPath, cwd, options) {
         signal,
     });
     if (view.served.length > 0) {
-        await recordServed(sessionKey, view.absolutePath, view.served, view.hashes.length);
+        await recordServed(view.absolutePath, view.served, view.hashes.length);
     }
-    await clearDriftReported(sessionKey, view.absolutePath);
+    await clearDriftReported(view.absolutePath);
     const text = view.hadUtf8DecodeErrors
         ? `${view.text}\n\n${UTF8_REWRITE_NOTE}`
         : view.text;

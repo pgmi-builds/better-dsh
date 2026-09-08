@@ -166,12 +166,12 @@ export async function applyOne(input, onReject) {
  * with no change. Messages are byte-identical to the pre-engine tools.
  */
 export async function enforceNoopLoop(opts) {
-    const { absolutePath, removeFrom, removeTo, displayPath, index, count, sessionKey, originalHashes, } = opts;
+    const { absolutePath, removeFrom, removeTo, displayPath, index, count, originalHashes, } = opts;
     if (index === undefined) {
         if (count >= NOOP_LOOP_THRESHOLD) {
             const echoRows = buildRangeEcho(opts.range.startLine, opts.range.endLine, originalHashes);
             const echo = fmtServedRows(echoRows, splitLines(opts.originalNormalized));
-            await recordEchoServes(sessionKey, absolutePath, echoRows, "live", originalHashes.length);
+            await recordEchoServes(absolutePath, echoRows, "live", originalHashes.length);
             throw new Error(`[E_NOOP_LOOP] identical edit (${removeFrom} → ${removeTo} in ${displayPath}) submitted ${count}×, no changes each time. Range already contains this text; resend will reject. Current range:\n${echo}`);
         }
         if (count === 2) {
@@ -183,7 +183,7 @@ export async function enforceNoopLoop(opts) {
         const originalLines = splitLines(opts.originalNormalized);
         const echoRows = opts.echoRows;
         if (echoRows) {
-            await recordEchoServes(sessionKey, absolutePath, echoRows, "live", originalHashes.length);
+            await recordEchoServes(absolutePath, echoRows, "live", originalHashes.length);
         }
         throw new Error(`[E_NOOP_LOOP] edits[${index}] (${displayPath}): identical edit (${removeFrom} → ${removeTo}) submitted ${count}×, no changes each time. Range already has this text; resend will reject the batch.` +
             (echoRows
@@ -224,7 +224,7 @@ export async function runFileEdits(io, items, opts) {
         signal: opts.signal,
         maxLines: MAX_HASH_LINES,
     });
-    const served = await loadServed(opts.sessionKey, absolutePath);
+    const served = await loadServed(absolutePath);
     const warnings = [];
     let currentContent = originalNormalized;
     let currentHashes = originalHashes;
@@ -262,7 +262,7 @@ export async function runFileEdits(io, items, opts) {
                         ? echoRowsForItem(edit, originalHashes)
                         : undefined;
                 if (echoRows) {
-                    await recordEchoServes(opts.sessionKey, absolutePath, echoRows, "live", originalHashes.length);
+                    await recordEchoServes(absolutePath, echoRows, "live", originalHashes.length);
                 }
                 const echoBlock = echoRows
                     ? ` Current on-disk range for edits[${item.index}] (unchanged — nothing was written):\n${fmtServedRows(echoRows, originalLines)}`
@@ -295,7 +295,6 @@ export async function runFileEdits(io, items, opts) {
                 displayPath: item.path,
                 index: item.index,
                 count,
-                sessionKey: opts.sessionKey,
                 originalHashes,
                 originalNormalized,
                 echoRows: echoRowsForItem(applied.edit, originalHashes),
@@ -342,7 +341,6 @@ export async function runFileEdits(io, items, opts) {
         const originalLines = splitLines(originalNormalized);
         try {
             driftNotice = await scanDrift({
-                sessionKey: opts.sessionKey,
                 served,
                 resultHashes,
                 resultLines,

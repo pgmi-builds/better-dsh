@@ -1,4 +1,3 @@
-export declare const AUTO_READ_MAX = 2000;
 export declare const SNIFF_BYTES = 8192;
 export declare const MAX_BYTES: number;
 export declare const MAX_READ_LINE_BYTES: number;

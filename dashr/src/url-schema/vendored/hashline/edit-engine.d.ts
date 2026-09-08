@@ -118,7 +118,6 @@ export interface NoopLoopOptions {
     /** Batch item index; undefined = single-edit flavor. */
     index?: number;
     count: number;
-    sessionKey: string;
     originalHashes: string[];
     originalNormalized: string;
     /** Single-edit flavor only: the edit's range, for the echo rows. */
@@ -141,7 +140,6 @@ export declare function enforceNoopLoop(opts: NoopLoopOptions): Promise<string |
  */
 export declare function runFileEdits(io: FileIO, items: PreparedItem[], opts: {
     signal?: AbortSignal;
-    sessionKey: string;
 }): Promise<FileEditResult>;
 export interface UndoWriteFile {
     absolutePath: string;

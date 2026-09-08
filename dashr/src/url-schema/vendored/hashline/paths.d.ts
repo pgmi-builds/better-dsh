@@ -8,10 +8,10 @@
  * so a caller without a workspace never writes into an arbitrary cwd.
  * @param cwd - the workspace root, or undefined for the shared-home fallback.
  */
-export declare function configDir(cwd?: string): string;
-export declare function hashStorePath(cwd?: string): string;
-export declare function legacyHashStorePath(cwd?: string): string;
-export declare function hashStoreDir(cwd?: string): string;
+export declare function configDir(): string;
+export declare function hashStorePath(): string;
+export declare function legacyHashStorePath(): string;
+export declare function hashStoreDir(): string;
 export declare function toCwd(filePath: string, cwd: string): string;
 /**
  * Canonicalize a path, resolving every symlink component to its target

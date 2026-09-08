@@ -51,7 +51,6 @@ import { ctxFsIO } from './vendored/hashline/fs-bridge.js'
 import { FsSandboxController } from './vendored/hashline/sandbox.js'
 import { registerEditTool } from './vendored/hashline/tool-edit.js'
 import { registerUndoTool } from './vendored/hashline/tool-undo.js'
-import { registerWriteHook } from './vendored/hashline/write-hook.js'
 import { composeSections, ensurePresetGuidance, GUIDANCE_SECTIONS } from './vendored/hashline/guidance.js'
 import { configDir } from './vendored/hashline/paths.js'
 import { initHasher } from './vendored/hashline/hashline/hash-assign.js'
@@ -163,7 +162,6 @@ function installAgentTools(rootCtx: Context, agent: Agent, resolver: UrlResolver
     const hashlineIo = ctxFsIO(rootCtx.fs, rootCtx)
     disposers.push(registerEditTool(rootCtx, agent.ctx, hashlineIo, hashlineSandbox))
     disposers.push(registerUndoTool(rootCtx, agent.ctx, hashlineIo, hashlineSandbox))
-    disposers.push(registerWriteHook(rootCtx, agent.ctx, hashlineIo))
     // The lsp feedback loop rides edit too — but NOT through the write
     // wrapper (edit lands through hashline's own fs-write). A post-execute
     // listener covers every successful edit with an explicit path; `write`
