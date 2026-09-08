@@ -288,6 +288,7 @@ describe('agent:// roster', () => {
       version: SESSION_FORMAT_VERSION,
       id,
       createdAt,
+      isSeeded: false,
       ...header.origin === undefined ? {} : { origin: header.origin },
       ...header.parentSession === undefined ? {} : { parentSession: header.parentSession },
     }

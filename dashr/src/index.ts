@@ -1258,7 +1258,7 @@ export function apply(ctx: Context, config: Config): void {
         if (!sandboxPolicy) return ''
         const policy = sandboxPolicy.resolve({ session })
         return policy.mode === 'workspace-write'
-          ? 'Restricted operations may be retried once with sandbox_permissions for single-call escalation, pending user approval.'
+          ? 'A sandbox-deniable/denied call may be escalated with `sandbox_permissions="danger-full-access"` and a one-line `justification`; the runtime will prompt for user approval. Escalation and its approval/denial are per-call.'
           : ''
       },
     })

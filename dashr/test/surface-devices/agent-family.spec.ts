@@ -43,7 +43,7 @@ function assistantMessage(id: string, text: string): AssistantMessage {
  * surface carries the given assistant outputs in order.
  */
 function liveSession(id: string, createdAt: number, lastTime: number, outputs: readonly string[]): Session {
-  const header: SessionHeader = { version: SESSION_FORMAT_VERSION, id: SessionId(id), createdAt, origin: 'subagent' }
+  const header: SessionHeader = { version: SESSION_FORMAT_VERSION, id: SessionId(id), createdAt, origin: 'subagent', isSeeded: false }
   const events: SessionEvent[] = [
     { type: 'turn/start', seq: 0, time: createdAt, data: { turn: 0 } },
     { type: 'step/start', seq: 1, time: createdAt, data: { turn: 0, step: 0 } },

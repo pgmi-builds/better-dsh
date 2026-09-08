@@ -315,7 +315,7 @@ async function renderRoster(
 /** One child's last activity: its live log's last event, else its persisted one. */
 async function lastActivityOf(rawId: string, family: FamilyReads): Promise<string> {
   const live = family.sessions.get(SessionId(rawId))
-  if (live !== undefined) return lastEventTime(live.events)
+  if (live !== undefined) return lastEventTime(live.snapshotEvents())
   const inspection = await family.sessionPersistence.inspect(SessionId(rawId))
   return inspection === undefined ? '-' : lastEventTime(inspection.events)
 }

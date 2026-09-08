@@ -256,17 +256,15 @@ const here = path.dirname(fileURLToPath(import.meta.url))
 const requireHere = createRequire(import.meta.url)
 
 /**
- * Locate the leaf package directory: first via `require.resolve` from
- * `fromDir` (honors the usual node_modules walk), then via an explicit
- * node_modules-walk upward from `fromDir`. Returns `undefined` when absent.
+ * Locate the leaf package directory with an explicit node_modules-walk upward
+ * from `fromDir` — the ONLY mechanism. `require.resolve` is deliberately not
+ * used here: its fallback through the process global paths (which include the
+ * pnpm virtual-store hoist root `.pnpm/node_modules`) can resolve the leaf
+ * package from ANY anchor, defeating the anchor-bounded contract this loader
+ * guarantees for its degradation tests and unsupported-platform probes.
+ * Returns `undefined` when absent.
  */
 function findPackageDir(packageName: string, fromDir: string): string | undefined {
-  try {
-    const manifest = createRequire(path.join(fromDir, 'noop.js')).resolve(`${packageName}/package.json`)
-    return path.dirname(manifest)
-  } catch {
-    // fall through to the explicit walk
-  }
   let dir = fromDir
   for (;;) {
     const candidate = path.join(dir, 'node_modules', packageName)

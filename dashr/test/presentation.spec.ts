@@ -263,7 +263,9 @@ describe('v0.2.1b — model-surface contracts (eval description, mask list, esca
     const assembly = await ctx.systemPrompt.assemble({ scope: agent.agent, agent: agent.agent })
     const guidance = assembly.contexts.find(context => context.name === 'dashr:escalation-guidance')
     expect(guidance).toBeDefined()
-    expect(guidance?.text).toContain('Restricted operations may be retried once with sandbox_permissions')
+    expect(guidance?.text).toContain('A sandbox-deniable/denied call may be escalated with `sandbox_permissions="danger-full-access"`')
+    expect(guidance?.text).not.toContain('retried once')
+    expect(guidance?.text).toContain('approval/denial are per-call')
   })
 
   it('escalation guidance renders empty under read-only and danger-full-access', async () => {
