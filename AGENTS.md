@@ -30,7 +30,7 @@
    └─ symlink → /home/u1/.local/lib/node_modules/@deepseek-ai/dsh/lib/bin.js
 ```
 
-- `@deepseek-ai/dsh` = **v0.1.2-alpha.3**（npm 发布版），约 313MB，自带 vendored `node_modules`。`npm install -g --prefix ~/.local` 的用户级全局安装。
+- `@deepseek-ai/dsh` = **0.1.3-alpha.2**（npm dist-tag `alpha`，2026-09-08 user 裁决 prod 对齐 npm 最高版，与 4999 测试线同版；旧值 0.1.2-alpha.3），约 313MB，自带 vendored `node_modules`。`npm install -g --prefix ~/.local` 的用户级全局安装。
 - `dsh` 不是 ELF，是 `#!/usr/bin/env node` 的 JS 入口。**它只当启动器**：`bin.js` 解析 boot 哪个 profile、哪些 patch overlay，其余参数透传；`web` 是 `--profile web` 的硬别名；`plugin` 子命令转发给 pnpm 管 profile 依赖。
 - systemd unit `dsh.service`（user）: `ExecStart=/opt/node-v22.23.2/bin/node /home/u1/.local/bin/dsh web --no-open --trusted-host dsh.pc.randomhash.app pc.randomhash.app 192.168.31.130`，`Environment=DSH_HOME=/home/u1/.dsh`，端口 **3080**，Caddy 代理 `dsh.pc.randomhash.app` → `127.0.0.1:3080`（`/etc/caddy/Caddyfile`，未经明确批准勿改）。`/opt/node-v22.23.2` 官方 Node（bundled amaro）是 PTC 模式 `run_code` type-stripping 必需。
 
@@ -76,7 +76,7 @@ Node 从 better-dsh 的 `lib/index.js` 出发向上走：
 
 ### 组成
 
-- Harness: `./upstream/deepseek-harness`，git tag `dsh-v0.1.3-alpha.2`（2026-09-08 对齐轮从 alpha.5 切换并全链路验证，见 `docs/50_test-reports/upstream-dsh-0.1.3-alpha.2-local-test-report.md`；prod npm 仍为 alpha.3，测试线领先一档），pnpm workspace（`linkWorkspacePackages: true`）。**tag 间 `pnpm-workspace.yaml`/`tsdown.client.ts` 有改动**（alpha.2 起）——本地 patch（unrun devDep / storeDir+verifyDeps+zeromq / tsdown `resolveRepositoryRoot`）按对齐轮 S2 手工重放，勿盲 stash pop；alpha.5 overlay 已归档删除。
+- Harness: `./upstream/deepseek-harness`，git tag `dsh-v0.1.3-alpha.2`（2026-09-08 对齐轮从 alpha.5 切换并全链路验证，见 `docs/50_test-reports/upstream-dsh-0.1.3-alpha.2-local-test-report.md`；prod npm 已对齐 0.1.3-alpha.2（2026-09-08，测试=prod 同版，"领先一档"作废）），pnpm workspace（`linkWorkspacePackages: true`）。**tag 间 `pnpm-workspace.yaml`/`tsdown.client.ts` 有改动**（alpha.2 起）——本地 patch（unrun devDep / storeDir+verifyDeps+zeromq / tsdown `resolveRepositoryRoot`）按对齐轮 S2 手工重放，勿盲 stash pop；alpha.5 overlay 已归档删除。
 - dashr 放置: `packages/better-dsh/better-dsh/`（`./dashr` 的副本，workspace 成员）。副本 package.json 现为 canonical 原样（npm range peerDeps；monorepo 内靠 `linkWorkspacePackages` 按 name+version 链到 workspace 副本，等效于早期 `workspace:*` 本地化）。canonical 已于 0.2.2-a re-port 时在源头删除 stale 的 `@deepseek-ai/dsh-client-runtime` peerDep（npm 无匹配版本，曾致 alpha.5 install `ERR_PNPM_NO_MATCHING_VERSION`）——rsync 不再带回，无需重删。另: `pnpm-workspace.yaml` allowBuilds 需 `zeromq: true`（better-dsh kernel IPC 依赖；pnpm 11.7 会插 `set this to true or false` 占位符，strictDepBuilds 下占位符=硬错）。
 - 用户数据: `DSH_HOME=/home/u1/workspaces/dashr/.dsh-test`。profile `web` 在 `.dsh-test/profiles/web/package.json` 声明 bundles `["@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app", "better-dsh"]`，其 node_modules symlink 指向 monorepo 的 `packages/bundle/base`、`packages/bundle/web-app`、`packages/better-dsh/better-dsh`。`.env` 从 `~/.dsh/.env` 拷贝（真实 key）。prod `~/.dsh` 完全不动。
 
@@ -156,7 +156,7 @@ cd packages/better-dsh/better-dsh && ../../node_modules/.bin/tsx scripts/build-c
 
 prod npm CLI 当 harness 核，只把插件本体和它的 harness 依赖换成 dev 版。
 
-- 核: `~/.local` npm 全局 `@deepseek-ai/dsh` 0.1.2-alpha.3（`bin.js` 启动器）；profile `web` 在 `~/.dsh/profiles/web`（pnpm hoisted 物理 tree）。
+- 核: `~/.local` npm 全局 `@deepseek-ai/dsh` 0.1.3-alpha.2（`bin.js` 启动器；2026-09-08 对齐）；profile `web` 在 `~/.dsh/profiles/web`（pnpm hoisted 物理 tree）。
 - 插件线: `./dashr` `npm run build`（= `tsdown && npm run build-client`）→ md5 核对同步 `lib/` 到 `~/.dsh/profiles/web/node_modules/better-dsh/lib`（v0.2.1c 的部署方式）→ 重启 `dsh.service`。
 - harness 依赖线: **已退役**（原 `better-dsh/node_modules/@deepseek-ai/*` symlink 到 dsh-alpha 源码的方案，2026-09-02 已删——实测 host ②③ 层全量自供，嵌套 symlink 无一必需，且 alpha.1 指向对 alpha.3 host 是版本偏斜负债）。
 - 解析即第一节 ①→④ 分层；现已验证插件运行期只依赖 ②③（host 自供）+ ① 的 schemastery/cosmokit。
