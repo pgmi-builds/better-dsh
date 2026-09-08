@@ -24,5 +24,5 @@
 
 ## 3. 收口
 
-- [ ] 3.1 AGENTS.md ✅ 条目更新 + 诊断报告 §7 回填落地结果。
-- [ ] 3.2 版本 0.2.3-b（`dashr/package.json` + lock），本地 commit + tag `v0.2.3b`；**publish 另走年龄门 + user 单次确认**（授权单次有效）。
+- [x] 3.1 AGENTS.md ✅ 条目更新 + 诊断报告 §7 回填落地结果。  # AGENTS ✅ 条目已落（commit 4f9982a/4b296e7，含新坑段）；诊断报告 §8 落地回执已落（2026-09-08）
+- [x] 3.2 版本 0.2.3-b（`dashr/package.json` + lock），本地 commit + tag `v0.2.3b`；**publish 另走年龄门 + user 单次确认**（授权单次有效）。  # 0.2.3-b：commit 4f9982a + tag v0.2.3b；npm publish 2026-09-08 18:15 UTC+8（registry dist-tag latest，user 单次确认已获）；prod 装机 18:19 + dsh.service 重启 18:44 上线

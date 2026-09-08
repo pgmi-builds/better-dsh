@@ -1,6 +1,6 @@
 ## Context
 
-研究 v2（`docs/60_exploration-and-research/dsh-mobile-spa-ios-input-experience-research.md`）已定案：focus 放大 = iOS 对 <16px 可聚焦控件的自动放大；DSH 输入面全线 13–14px；上游 viewport 行 `width=device-width, initial-scale=1`（`apps/web/index.html:5`）无缩放约束。user 主用法为 Add to Home Screen 的 **PWA standalone**，放大在该模式同样发生，且放大态破坏 standalone 引擎的键盘避让几何（键盘遮蔽的可能放大器）。
+研究 v2（`docs/60_exploration-and-research/03-mobile-ios/dsh-mobile-spa-ios-input-experience-research.md`）已定案：focus 放大 = iOS 对 <16px 可聚焦控件的自动放大；DSH 输入面全线 13–14px；上游 viewport 行 `width=device-width, initial-scale=1`（`apps/web/index.html:5`）无缩放约束。user 主用法为 Add to Home Screen 的 **PWA standalone**，放大在该模式同样发生，且放大态破坏 standalone 引擎的键盘避让几何（键盘遮蔽的可能放大器）。
 
 现有可复用基建：better-dsh host 半 `src/web-trust.ts` 经 `webserver/index-inject` 往页面 head 推内联 boot script（当前职责：trusted hostname → `__DSH_TRANSPORT__`；mobile config → `__DASHR_MOBILE__` payload）—— head 内联、早于一切 application bundle 物化，天然满足"先于任何 focus"的时序要求，无新注入通道需求。client 半 v0.2.1f 已有 mobile 模块（CSS + 手势），本 change **纯 host 半**，client 零改动。
 

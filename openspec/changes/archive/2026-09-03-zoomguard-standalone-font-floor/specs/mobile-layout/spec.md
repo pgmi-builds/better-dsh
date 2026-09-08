@@ -9,6 +9,16 @@ The plugin's host half SHALL suppress the iOS Safari focus-triggered auto-zoom w
 
 Both branches SHALL be config-gated via `mobile.zoomGuard` (`'meta'` default = auto dual-mode behavior; `'off'` emits neither branch on any platform). Non-iOS browsers and wide viewports SHALL observe stock behavior in both display modes.
 
+#### Scenario: iOS narrow focus does not zoom
+
+- **WHEN** an input, select, checkbox, or contenteditable receives focus on an iOS-class browser below the breakpoint with `zoomGuard: 'meta'`
+- **THEN** no auto-zoom occurs in either display mode: browser mode suppresses it via the rewritten viewport meta, standalone mode via the 16px font-floor style
+
+#### Scenario: Rewrite lands before first possible focus
+
+- **WHEN** the head boot script executes during page load in browser (non-standalone) display mode
+- **THEN** the viewport meta rewrite is applied synchronously before any application bundle materializes, so no zoom flash can occur on an early auto-focus
+
 #### Scenario: Browser mode rewrites meta (unchanged from v0.2.4)
 
 - **WHEN** an iOS-class browser below the breakpoint loads in a non-standalone display mode with `zoomGuard: 'meta'`
@@ -29,6 +39,16 @@ Both branches SHALL be config-gated via `mobile.zoomGuard` (`'meta'` default = a
 - **WHEN** an input, textarea, select, or `[contenteditable="true"]` element receives focus in standalone mode below the breakpoint
 - **THEN** its computed font-size is at least 16px and no auto-zoom occurs
 
+#### Scenario: Non-iOS touch browsers unaffected
+
+- **WHEN** the page loads on a non-iOS touch browser (e.g. Android Chrome) below the breakpoint, in either display mode
+- **THEN** the viewport meta is not rewritten and no font-floor style is injected (Android never focus-zooms; the iOS gate avoids `maximum-scale` side effects there)
+
+#### Scenario: Breakpoint crossing re-evaluates
+
+- **WHEN** the viewport crosses the breakpoint after load (rotation, split-screen) in browser display mode
+- **THEN** the rewrite is applied on entering the narrow band and the stock meta content is restored on leaving it; in standalone mode the font-floor style's media query naturally stops matching above the breakpoint (no JS re-evaluation exists there)
+
 #### Scenario: Desktop and wide viewports unaffected
 
 - **WHEN** the page loads on a desktop browser, a non-iOS browser, or at/above the breakpoint (either display mode)
@@ -39,7 +59,7 @@ Both branches SHALL be config-gated via `mobile.zoomGuard` (`'meta'` default = a
 - **WHEN** `mobile.zoomGuard` is `'off'`
 - **THEN** neither the meta machinery nor the font-floor style exists in any display mode
 
-#### Scenario: Idempotent evaluation (browser mode, unchanged)
+#### Scenario: Idempotent evaluation
 
-- **WHEN** the browser-mode re-evaluation runs multiple times within one state
-- **THEN** the meta content does not accumulate duplicate tokens or regress
+- **WHEN** the browser-mode re-evaluation runs multiple times within one state (load, resize storms, repeated crossings)
+- **THEN** the meta content does not accumulate duplicate tokens or regress (standalone mode arms no re-evaluation machinery at all)

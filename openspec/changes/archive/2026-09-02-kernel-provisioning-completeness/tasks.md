@@ -22,4 +22,4 @@
 ## 5. 文档与回归收口
 
 - [x] 5.1 供给一页文档 `docs/kernel-provisioning.md`（原则/版本锁/三级触发/梯子/各 profile 速查/错误出路）+ AGENTS.md 对应条目（本地 patch 第 3 条 + 已验证清单）
-- [ ] 5.2 全量 `npx vitest run`（**403/403 ✓**）+ `tsc --noEmit`（**0 错误 ✓**）+ 4999 冷启动冒烟（**✓**）；剩余：prod 装机路径核验（发布时：pnpm add 精确版本 → daemon 日志见 `kernel ready` → REPL 首 cell 即时）
+- [x] 5.2 全量 `npx vitest run`（**403/403 ✓**）+ `tsc --noEmit`（**0 错误 ✓**）+ 4999 冷启动冒烟（**✓**）；剩余：prod 装机路径核验（发布时：pnpm add 精确版本 → daemon 日志见 `kernel ready` → REPL 首 cell 即时）  # 核验 2026-09-08：0.2.3-b 发布装机路径——registry latest 18:15 UTC+8 → prod 装机 18:19 → 18:44 重启上线后 `.venv-kernel` 3.11.15/ipykernel 7.3.0/dill 0.4.1 在位 + REPL 首 cell 活体（prod 会话探活）

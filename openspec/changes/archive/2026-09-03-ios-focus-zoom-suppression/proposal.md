@@ -1,6 +1,6 @@
 ## Why
 
-iOS Safari 上 DSH Web UI 的第一个 breaking point：任何 focus（用户点击或 JS 自动定位到 input/checkbox/select/contenteditable）都把页面从 100% 瞬间放大到约 115–120%，渲染内容溢出屏幕。研究（`docs/60_exploration-and-research/dsh-mobile-spa-ios-input-experience-research.md` v2）已定案机制：iOS Safari 对 computed font-size < 16px 的可聚焦控件自动放大，DSH 全线输入面 13–14px（composer 默认 14px、原生 select 13px），viewport 无 maximum-scale —— 必然触发。实测对照：TypingMind 手机端刻意维持 16px（390px 视口实测 16px / 桌面 14px）。
+iOS Safari 上 DSH Web UI 的第一个 breaking point：任何 focus（用户点击或 JS 自动定位到 input/checkbox/select/contenteditable）都把页面从 100% 瞬间放大到约 115–120%，渲染内容溢出屏幕。研究（`docs/60_exploration-and-research/03-mobile-ios/dsh-mobile-spa-ios-input-experience-research.md` v2）已定案机制：iOS Safari 对 computed font-size < 16px 的可聚焦控件自动放大，DSH 全线输入面 13–14px（composer 默认 14px、原生 select 13px），viewport 无 maximum-scale —— 必然触发。实测对照：TypingMind 手机端刻意维持 16px（390px 视口实测 16px / 桌面 14px）。
 
 **user 2026-09-03 裁决**：放大防护选方案 B（JS 改写 viewport meta 追加 `user-scalable=no` / `maximum-scale=1`）先行观察行为 —— 零视觉扰动（UI 放大缩小全由 UI 自己实现），且 Discourse PR #30877 实证该手法在 iOS 10+ 只杀 focus 自动放大、并不禁双指缩放。方案 A（字号地板 16px）保留为后续可选。同轮裁决：左栏挤压（原 D4）no-go；键盘遮蔽问题按"先修放大、真机观察是否自愈"推进（user 主用法是 Add to Home Screen 的 PWA 模式，放大在 PWA 态同样发生，且放大态会破坏 standalone 引擎的键盘避让几何 —— 有相当概率放大压制后键盘遮蔽随之缓解）。
 
