@@ -17,18 +17,18 @@
 - Universal **Tools** - `read`, `write`, `grep`, `glob`.
 - **URL schemas** - `skill://`, `ctx://`, `agent://`, `dvc://`, `dsh://`, an intuitive, unified interface for runtime resources.
 - **Persistent REPL Kernel** - IPython (compared with the native ephemeral TS REPL).
-- (30+ tools × 5 schemas) ^ REPL free composition = <∞>
+- (20+ tools × 5 schemas) ^ REPL free composition = **∞**
+
 - **Context as Variables** - full session transcripts are accessible as variables, even cross compactions.
 - **Full Context Revive** — full-namespace `dill` snapshots save and restore kernel state across restarts.
 
-One `eval` call — the formula made concrete:
 
 ```json
 { "cell": "
   scout = await agent('agent://ralph', 'graph-analyze this codebase; scout the breaking points to add tests')
-  ui    = await read('dvc://browser/127.0.0.1:3080')   # the live web UI as a device
-  me    = await read('ctx://transcript')               # this session, as a variable
-", "description": "one cell: agents × devices × session" }
+  ui    = await read('dvc://browser/127.0.0.1:3080')
+  me    = await read('ctx://transcript')",
+  "description": "one cell: agents × devices × session" }
 ```
 
 ---
@@ -41,7 +41,7 @@ One `eval` call — the formula made concrete:
 - keeps the system prompt to ~3–4K tokens.
 - **`dvc://browser`** - browser use ready.
 - All `host plane` wired — you do not even see any difference from your `dsh` UI; it just silently fuels up the `dsh` base.
-- **iOS PWA Ready** - minor UI twists that make it a decent PWA for iOS `Add to Home Screen`.
+- **iOS PWA Ready** - minor UI twists that make the webUI a decent PWA for iOS `Add to Home Screen`.
 
 ## Recommended Companion Plugin(s)
 

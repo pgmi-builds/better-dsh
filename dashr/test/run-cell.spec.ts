@@ -184,7 +184,7 @@ describe('eval end-to-end on a real kernel', () => {
     expect(peak).toBe(3)
     // Submission order is preserved as start order.
     expect(intervals.slice(0, 3)).toEqual(['enter:a', 'enter:b', 'enter:c'])
-    const starts = agent.events.filter(event => event.type === 'tool/code-dispatch-start').map(event => (event.data as { subCallId: string }).subCallId)
+    const starts = agent.events.filter(event => event.type === 'tool/ptc-dispatch-start').map(event => (event.data as { subCallId: string }).subCallId)
     expect(starts).toEqual(['call-1:code:1', 'call-1:code:2', 'call-1:code:3'])
   })
 
@@ -223,7 +223,7 @@ describe('eval end-to-end on a real kernel', () => {
     ].join('\n'), { agent: agent.agent })
     expect(result.isError).toBe(false)
     expect(valueOf(result)).toEqual({ logs: [], result: 'echo:two' })
-    expect(agent.events.filter(event => event.type === 'tool/code-dispatch-start').map(event => event.data)).toEqual([
+    expect(agent.events.filter(event => event.type === 'tool/ptc-dispatch-start').map(event => event.data)).toEqual([
       {
         rootCallId: 'call-1', parentCallId: 'call-1', subCallId: 'call-1:code:1',
         name: 'echo', arguments: { value: 'one' },
@@ -233,7 +233,7 @@ describe('eval end-to-end on a real kernel', () => {
         name: 'echo', arguments: { value: 'two' },
       },
     ])
-    expect(agent.events.filter(event => event.type === 'tool/code-dispatch').map(event => event.data)).toEqual([
+    expect(agent.events.filter(event => event.type === 'tool/ptc-dispatch').map(event => event.data)).toEqual([
       {
         rootCallId: 'call-1', parentCallId: 'call-1', subCallId: 'call-1:code:1', name: 'echo',
         arguments: { value: 'one' }, isError: false, content: [{ type: 'text', text: 'echo:one' }],

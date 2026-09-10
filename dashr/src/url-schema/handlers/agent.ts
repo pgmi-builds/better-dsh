@@ -82,7 +82,7 @@ export interface AgentRegistrySurface {
  * Structural mirror of one persisted session event — only what the settled
  * output fallback and the roster's last-activity column read. The real
  * `SessionEvent` is a discriminated union over `data`; this looser shape
- * stays structurally assignable from `SessionPersistence.inspect`.
+ * stays structurally assignable from a read handle's `events` slice.
  */
 export interface PersistedSessionEvent {
   readonly type: string
@@ -90,12 +90,22 @@ export interface PersistedSessionEvent {
   readonly data?: unknown
 }
 
-/** The subset of `ctx.sessionPersistence` this handler calls. */
+/** Read-only view of one open persistence handle (0.1.5 seam). */
+export interface SessionReadHandleSurface {
+  /** Read a slice of the validated contiguous log (defaults: whole log). */
+  read(offset?: number, length?: number, options?: { readonly signal?: AbortSignal }): Promise<{ readonly events: readonly PersistedSessionEvent[] }>
+  /** Release the handle (idempotent, uncancellable). */
+  close(): Promise<void>
+}
+
+/** The subset of `ctx.sessionPersistence` this handler calls (0.1.5 seam: no
+ *  `inspect` anymore — metadata comes from `stat`, events from a read-mode
+ *  `open` handle). */
 export interface SessionPersistenceSurface {
-  inspect(id: SessionId, signal?: AbortSignal): Promise<
-    | { readonly meta: { readonly createdAt: number }; readonly events: readonly PersistedSessionEvent[] }
-    | undefined
-  >
+  /** Detached metadata, or `undefined` when the session was never materialized. */
+  stat(id: SessionId, options?: { readonly signal?: AbortSignal }): Promise<{ readonly header: { readonly createdAt: number } } | undefined>
+  /** Open a read-only handle onto one stored session's append-only log. */
+  open(id: SessionId, access: 'read', options?: { readonly signal?: AbortSignal }): Promise<SessionReadHandleSurface>
 }
 
 /** Dependencies captured by the agent:// handler. */
@@ -247,8 +257,24 @@ async function newestByCreation(
 async function createdAtOf(entry: AgentDescendantEntry, family: FamilyReads): Promise<number> {
   const live = family.sessions.get(entry.id)
   if (live !== undefined) return live.header.createdAt
-  const inspection = await family.sessionPersistence.inspect(entry.id)
-  return inspection?.meta.createdAt ?? 0
+  const snapshot = await family.sessionPersistence.stat(entry.id)
+  return snapshot?.header.createdAt ?? 0
+}
+
+/**
+ * The persisted log's events for one settled session, or `undefined` when the
+ * session was never materialized (0.1.5 seam: `stat` guards materialization,
+ * then a read-mode `open` handle slices the validated contiguous log).
+ */
+async function persistedEventsOf(id: SessionId, family: FamilyReads): Promise<readonly PersistedSessionEvent[] | undefined> {
+  const snapshot = await family.sessionPersistence.stat(id)
+  if (snapshot === undefined) return undefined
+  const handle = await family.sessionPersistence.open(id, 'read')
+  try {
+    return (await handle.read()).events
+  } finally {
+    await handle.close()
+  }
 }
 
 /**
@@ -259,11 +285,11 @@ async function createdAtOf(entry: AgentDescendantEntry, family: FamilyReads): Pr
 async function outputFor(target: AddressResolution, family: FamilyReads): Promise<string> {
   const live = family.sessions.get(SessionId(target.rawId))
   if (live !== undefined) return outputArtifact(live)
-  const inspection = await family.sessionPersistence.inspect(SessionId(target.rawId))
-  if (inspection === undefined) {
+  const events = await persistedEventsOf(SessionId(target.rawId), family)
+  if (events === undefined) {
     throw unknownId(target, `agent "${target.rawId}" has no live session and no persisted log`)
   }
-  return persistedOutput(inspection.events)
+  return persistedOutput(events)
 }
 
 /** The live session for one resolved address, or a structured error. */
@@ -316,8 +342,8 @@ async function renderRoster(
 async function lastActivityOf(rawId: string, family: FamilyReads): Promise<string> {
   const live = family.sessions.get(SessionId(rawId))
   if (live !== undefined) return lastEventTime(live.snapshotEvents())
-  const inspection = await family.sessionPersistence.inspect(SessionId(rawId))
-  return inspection === undefined ? '-' : lastEventTime(inspection.events)
+  const events = await persistedEventsOf(SessionId(rawId), family)
+  return events === undefined ? '-' : lastEventTime(events)
 }
 
 /** The last event's time as ISO 8601, `-` for an empty log. */

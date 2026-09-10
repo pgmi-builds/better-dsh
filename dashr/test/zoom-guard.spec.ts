@@ -324,12 +324,12 @@ describe('generated zoomGuard section (shape)', () => {
     expect(text).not.toContain('</script')
   })
 
-  it('derives the media query from the payload breakpoint (768 → 767.98px)', () => {
+  it('derives the media query from the fixed internal band (768 → 767.98px)', () => {
     const run = runBootScript({ mobile: {} })
     // Browser mode probes display-mode FIRST (the fork verdict), then the band.
+    // 2026-09-11 mobile wave: the band is zoomGuard's own internal constant —
+    // the mobile.breakpoint config is gone (responsive state is upstream's).
     expect(run.page.mediaQueries).toEqual(['(display-mode: standalone)', '(max-width:767.98px)'])
-    const tuned = runBootScript({ mobile: { breakpoint: 900 } })
-    expect(tuned.page.mediaQueries).toEqual(['(display-mode: standalone)', '(max-width:899.98px)'])
   })
 
   it('serializes the configured zoomGuard into the payload verbatim', () => {
@@ -476,10 +476,10 @@ describe('boot script evaluation (iOS × viewport × config matrix)', () => {
     expect(run.page.metas()[0]!.getAttribute('content')).toBe('maximum-scale=1, user-scalable=no')
   })
 
-  it('a custom breakpoint bounds the band (900 → 899.98px media query)', () => {
-    const run = runBootScript({ mobile: { breakpoint: 900 } })
+  it('a wide viewport outside the fixed band removes the merged tokens', () => {
+    const run = runBootScript({ mobile: {} })
     run.page.parse(run.page.stockMeta())
-    // Narrow per default 768 band semantics stays true here; flip to wide.
+    // Narrow per the fixed 768 band semantics stays true here; flip to wide.
     run.page.narrow = false
     run.fireResize()
     expect(run.page.metas()[0]!.getAttribute('content')).toBe(STOCK)
@@ -558,11 +558,11 @@ describe('boot script evaluation (standalone display mode matrix)', () => {
     expect(doc.metas()).toHaveLength(0)
   })
 
-  it('standalone font floor derives from the configured breakpoint (900 → 899.98px)', () => {
-    const run = runBootScript({ mobile: { breakpoint: 900 } }, IPHONE_UA, 5, true, true)
+  it('standalone font floor derives from the fixed internal band (768 → 767.98px)', () => {
+    const run = runBootScript({ mobile: {} }, IPHONE_UA, 5, true, true)
     const floor = run.page.getElementsByTagName('style')[0]!
-    expect(floor.textContent).toBe(buildFontFloorCss(900))
-    expect(floor.textContent).toContain('(max-width:899.98px)')
+    expect(floor.textContent).toBe(buildFontFloorCss(768))
+    expect(floor.textContent).toContain('(max-width:767.98px)')
   })
 
   it('browser mode explicitly: v0.2.4 meta machinery, no font-floor style', () => {

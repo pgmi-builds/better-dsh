@@ -97,8 +97,8 @@ describe('the sub-dispatch scheduler (native concurrency contract)', () => {
     expect(gated.peakLive()).toBe(3)
     if (result.isError) throw new Error('expected success')
     expect(result.value).toMatchObject({ result: 'safe_read:a,safe_read:b,safe_read:c' })
-    const starts = agent.events.filter(event => event.type === 'tool/code-dispatch-start').map(event => (event.data as { subCallId: string }).subCallId)
-    const settles = agent.events.filter(event => event.type === 'tool/code-dispatch').map(event => (event.data as { subCallId: string }).subCallId)
+    const starts = agent.events.filter(event => event.type === 'tool/ptc-dispatch-start').map(event => (event.data as { subCallId: string }).subCallId)
+    const settles = agent.events.filter(event => event.type === 'tool/ptc-dispatch').map(event => (event.data as { subCallId: string }).subCallId)
     expect(starts).toEqual(['call-1:code:1', 'call-1:code:2', 'call-1:code:3'])
     expect(new Set(settles)).toEqual(new Set(starts))
   })
@@ -208,8 +208,8 @@ describe('the sub-dispatch scheduler (native concurrency contract)', () => {
     }
     const result = await runCell(ctx, 'program', { agent: agent.agent })
     expect(result.isError).toBe(true)
-    const starts = agent.events.filter(event => event.type === 'tool/code-dispatch-start').map(event => (event.data as { subCallId: string }).subCallId)
-    const settles = agent.events.filter(event => event.type === 'tool/code-dispatch').map(event => (event.data as { subCallId: string }).subCallId)
+    const starts = agent.events.filter(event => event.type === 'tool/ptc-dispatch-start').map(event => (event.data as { subCallId: string }).subCallId)
+    const settles = agent.events.filter(event => event.type === 'tool/ptc-dispatch').map(event => (event.data as { subCallId: string }).subCallId)
     expect(starts).toEqual(['call-1:code:1'])
     expect(settles).toEqual(['call-1:code:1'])
     expect(abandoned).toEqual(['eval run is over (eval settled); writer tool call abandoned'])
@@ -242,7 +242,7 @@ describe('the sub-dispatch scheduler (native concurrency contract)', () => {
     // The program-side binding observed the run-over rejection.
     expect(bindingOutcome).toEqual([expect.stringContaining('safe_read result discarded')])
     // The started call settled with exactly one dispatch event (isError).
-    const settles = agent.events.filter(event => event.type === 'tool/code-dispatch')
+    const settles = agent.events.filter(event => event.type === 'tool/ptc-dispatch')
     expect(settles.map(event => (event.data as { subCallId: string }).subCallId)).toEqual(['call-1:code:1'])
   })
 })
@@ -265,7 +265,7 @@ describe('the eval dispatch bridge (result shaping)', () => {
     expect(result.value).toEqual({ logs: ['saw echo:one'], result: 'echo:two' })
     expect(result.content).toEqual([{ type: 'text', text: 'saw echo:one\necho:two' }])
     expect(calls).toEqual([{ value: 'one' }, { value: 'two' }])
-    expect(agent.events.filter(event => event.type === 'tool/code-dispatch').map(event => event.data)).toEqual([
+    expect(agent.events.filter(event => event.type === 'tool/ptc-dispatch').map(event => event.data)).toEqual([
       {
         rootCallId: 'call-1', parentCallId: 'call-1', subCallId: 'call-1:code:1', name: 'echo',
         arguments: { value: 'one' }, isError: false, content: [{ type: 'text', text: 'echo:one' }],
@@ -303,7 +303,7 @@ describe('the eval dispatch bridge (result shaping)', () => {
     const result = await runCell(ctx, 'program', { agent: agent.agent })
     expect(result.content[0]).toEqual({ type: 'text', text: 'caught: deliberate failure' })
     // The settle event carries the error outcome.
-    const settle = agent.events.find(event => event.type === 'tool/code-dispatch')?.data as { isError: boolean; name: string }
+    const settle = agent.events.find(event => event.type === 'tool/ptc-dispatch')?.data as { isError: boolean; name: string }
     expect(settle).toMatchObject({ name: 'fail', isError: true })
   })
 
@@ -323,7 +323,7 @@ describe('the eval dispatch bridge (result shaping)', () => {
     const result = await runCell(ctx, 'program', { agent: agent.agent })
     expect((result.content[0] as { text: string }).text).toContain('lossless JSON')
     expect(calls).toEqual([])
-    expect(agent.events.filter(event => event.type === 'tool/code-dispatch')).toEqual([])
+    expect(agent.events.filter(event => event.type === 'tool/ptc-dispatch')).toEqual([])
   })
 
   it('a failed run surfaces as CODE_RUN_FAILED with the failure kind and captured logs', async () => {
@@ -404,7 +404,7 @@ describe('the eval dispatch bridge (result shaping)', () => {
     }
     const result = await runCell(ctx, 'program', { agent: agent.agent })
     expect(result.isError).toBe(false)
-    const settle = agent.events.find(event => event.type === 'tool/code-dispatch')
+    const settle = agent.events.find(event => event.type === 'tool/ptc-dispatch')
     expect(settle?.data).toMatchObject({ name: 'echo', isError: false, content: [{ type: 'text', text: 'echo:x' }] })
   })
 
@@ -426,7 +426,7 @@ describe('the eval dispatch bridge (result shaping)', () => {
     // The program's value is untouched...
     expect(result.value).toMatchObject({ result: 'program:echo:x' })
     // ...only the durable log copy changed.
-    const settle = agent.events.find(event => event.type === 'tool/code-dispatch')
+    const settle = agent.events.find(event => event.type === 'tool/ptc-dispatch')
     expect(settle?.data).toMatchObject({ content: [{ type: 'text', text: 'spilled: locator' }] })
   })
 
@@ -451,7 +451,7 @@ describe('the eval dispatch bridge (result shaping)', () => {
     // The program's value is untouched...
     expect(result.value).toMatchObject({ result: 'echo:x' })
     // ...and the upstream arm's bound copy lands in the durable log event.
-    const settle = agent.events.find(event => event.type === 'tool/code-dispatch')
+    const settle = agent.events.find(event => event.type === 'tool/ptc-dispatch')
     expect(settle?.data).toMatchObject({ name: 'echo', content: [{ type: 'text', text: 'spilled: bounded' }] })
   })
 

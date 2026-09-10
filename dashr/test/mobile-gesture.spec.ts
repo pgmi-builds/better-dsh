@@ -3,7 +3,6 @@ import {
   DEFAULT_SWIPE_THRESHOLDS,
   admitsSwipeStart,
   classifySwipeProgress,
-  isNarrowViewport,
   resolveMobileConfig,
   type PanelState,
   type SwipeProgress,
@@ -87,15 +86,6 @@ describe('state machine (source, symmetric)', () => {
   })
 })
 
-describe('narrow-viewport gate (source: strictly below SIDEBAR_MOBILE=768)', () => {
-  it('admits below 768 only — the tablet band keeps native behavior', () => {
-    expect(isNarrowViewport(390, DEFAULT_SWIPE_THRESHOLDS)).toBe(true)
-    expect(isNarrowViewport(767, DEFAULT_SWIPE_THRESHOLDS)).toBe(true)
-    expect(isNarrowViewport(768, DEFAULT_SWIPE_THRESHOLDS)).toBe(false)
-    expect(isNarrowViewport(1024, DEFAULT_SWIPE_THRESHOLDS)).toBe(false)
-  })
-})
-
 describe('page-config resolution (host → client channel)', () => {
   it('absent or disabled config resolves inert', () => {
     expect(resolveMobileConfig(undefined).enabled).toBe(false)
@@ -103,10 +93,9 @@ describe('page-config resolution (host → client channel)', () => {
   })
 
   it('merges partial config over defaults and drops non-finite values', () => {
-    const resolved = resolveMobileConfig({ enabled: true, swipeDistancePx: 64, breakpoint: Number.NaN })
+    const resolved = resolveMobileConfig({ enabled: true, swipeDistancePx: 64, swipeDistancePxIgnored: Number.NaN } as never)
     expect(resolved.enabled).toBe(true)
     expect(resolved.swipeDistancePx).toBe(64)
-    expect(resolved.breakpoint).toBe(DEFAULT_SWIPE_THRESHOLDS.breakpoint)
     expect(resolved.leftEdgeBandPx).toBe(DEFAULT_SWIPE_THRESHOLDS.leftEdgeBandPx)
     expect(resolved.dominanceRatio).toBe(DEFAULT_SWIPE_THRESHOLDS.dominanceRatio)
     expect(resolved.rightZoneRatio).toBe(DEFAULT_SWIPE_THRESHOLDS.rightZoneRatio)

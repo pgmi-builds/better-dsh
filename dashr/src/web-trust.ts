@@ -66,7 +66,6 @@ export interface WebTrustConfig {
   trustedPageAuthorities?: readonly string[]
   mobile?: {
     enabled?: boolean
-    breakpoint?: number
     swipeDistancePx?: number
     dominanceRatio?: number
     leftEdgeBandPx?: number
@@ -120,7 +119,6 @@ export function buildBootScript(config: WebTrustConfig): string | undefined {
   const mobilePayload = mobileEnabled
     ? {
       enabled: true,
-      ...(mobile?.breakpoint !== undefined ? { breakpoint: mobile.breakpoint } : {}),
       ...(mobile?.swipeDistancePx !== undefined ? { swipeDistancePx: mobile.swipeDistancePx } : {}),
       ...(mobile?.dominanceRatio !== undefined ? { dominanceRatio: mobile.dominanceRatio } : {}),
       ...(mobile?.leftEdgeBandPx !== undefined ? { leftEdgeBandPx: mobile.leftEdgeBandPx } : {}),

@@ -10,31 +10,33 @@
  * channel):
  *
  * - **CSS** (the upstream-paradigm route — static rules, zero JS
- *   geometry): below the 768 breakpoint the AppFrame's inline
- *   `grid-template-columns: <rail>px minmax(0,1fr) <details>px` is
- *   overridden with `!important` on the semantic `[data-sidebar-collapsed]`
- *   attribute, collapsing the 56px rail to a zero-width track — the
- *   source's `SIDEBAR_MOBILE`/`computeColumns(mobile)` behavior. The
- *   768–1023 tablet band keeps the native rail (and no gestures).
- *   Degradation is benign: if upstream renames the attribute, the rule
- *   stops matching and the native rail simply renders.
+ *   geometry): keyed PURELY on AppFrame's semantic
+ *   `[data-sidebar-collapsed]` attribute — whenever upstream's layout
+ *   collapses the sidebar (their auto-collapse threshold, 1024 today,
+ *   theirs to move freely), our rule further compresses the 56px rail to
+ *   a zero-width track. No pixel cut-off of our own (2026-09-11 mobile
+ *   wave ruling). Degradation is benign: if upstream renames the
+ *   attribute, the rule stops matching and the native rail simply
+ *   renders.
  *
  * - **Gesture** (additive — upstream ships no swipe code): document-level
- *   CAPTURE listeners (Better Sidebar's open panel is a full-width fixed
- *   layer covering the frame — a frame-level listener would never see the
- *   closing swipe, exactly as the source's comment records). The drag is
+ *   CAPTURE listeners (an open overlay panel covers the frame — a
+ *   frame-level listener would never see the closing swipe). The drag is
  *   decided on `pointermove` the moment the thresholds are met (one
  *   shot), never at pointerup. Left panel actions go through the layout
- *   service (`ctx.layout.toggleSidebar()`); the right panel is Better
- *   Sidebar's floating layer, toggled through its persistent DOM cluster
- *   (`[data-dsh-toggle-cluster]`, last button) with its open state read
- *   synchronously off `body[data-dsh-sidebar-collapsed]`.
+ *   service (`ctx.layout.toggleSidebar()`); right panel actions go
+ *   through the OFFICIAL 0.1.5 controls (`[data-sidebar-right-expand]`
+ *   to open, `[data-sidebar-right-toggle]` to close) with the open state
+ *   read off AppFrame's `[data-rightbar-collapsed]`. Both reads address
+ *   official surfaces only — third-party plugin DOM is never a state
+ *   input. Absent right panel (pre-0.1.5 hosts, no session): right
+ *   actions no-op silently; LEFT gestures keep working regardless.
  *
  * @module dashr/mobile/client
  */
 
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
-import { admitsSwipeStart, classifySwipeProgress, isNarrowViewport, resolveMobileConfig, type PanelState } from '../gesture.ts'
+import { admitsSwipeStart, classifySwipeProgress, resolveMobileConfig, type PanelState } from '../gesture.ts'
 
 /** Structural layout face (`ctx.layout`): exactly what this feature calls. */
 interface LayoutPanelFace {
@@ -47,20 +49,33 @@ function readLeftCollapsed(): boolean {
 }
 
 /**
- * Better Sidebar's right-panel state, live off the body attribute the
- * plugin itself publishes (collapsed = closed). Read SYNCHRONOUSLY in the
- * handlers — a cached mirror lags the panel's own DOM write by a render,
- * and a close-swipe issued right after an open-swipe would misroute.
+ * The OFFICIAL right sidebar's state (0.1.5 ui-sidebar-right), read from
+ * AppFrame's TWO presentation facets, synchronously (a cached mirror lags
+ * the panel's own DOM write by a render, and a close-swipe issued right
+ * after an open-swipe would misroute):
+ *
+ * - `[data-rightbar-collapsed]` — the reserved GRID TRACK facet (present =
+ *   zero-width right column). On phones (<768) the panel presents FULLSCREEN
+ *   WITHOUT a track (`autoFullscreen` in SidebarRight), so this attribute
+ *   alone misreads a panel that covers the whole frame as "closed" — the
+ *   2026-09-11 field bug: every close-swipe misrouted to open-left.
+ * - `[data-rightbar-fullscreen]` — the overlay facet (present = fullscreen
+ *   presentation active, open by definition).
+ *
+ * Open = track reserved OR fullscreen overlay. On hosts before 0.1.5 both
+ * attributes never appear: closed, permanently — left gestures unaffected.
  */
 function readRightOpen(): boolean {
-  return !document.body.hasAttribute('data-dsh-sidebar-collapsed')
+  const fullscreen = document.querySelector('[data-rightbar-fullscreen]') !== null
+  const trackless = document.querySelector('[data-rightbar-collapsed]') !== null
+  return fullscreen || !trackless
 }
 
 /**
  * Whether a session is current — the plugin-side stand-in for the source's
- * `detailsSession !== undefined` guard (the right panel opens in a session
- * only). Better Sidebar's own shipped CSS keys off the same slot selector,
- * so it is load-bearing beyond this feature.
+ * `detailsSession !== undefined` guard (the right panel is a
+ * session-scoped surface; without a session its expand button is not
+ * rendered, so opening would be a no-op anyway).
  */
 function readSessionLive(): boolean {
   return document.querySelector('[data-slot="conversation.session.header"]') !== null
@@ -72,26 +87,29 @@ function readPanelState(): PanelState {
 }
 
 /**
- * Toggle Better Sidebar's right panel through its persistent DOM: the
- * plugin exposes no JS toggle on its client service (its open/close
- * reducer is store-internal), so the swipe reaches it the same way the
- * source did — clicking the LAST button of its always-rendered
- * `[data-dsh-toggle-cluster]` (the bottom-panel button precedes it and is
- * absent below the plugin's 768px narrow breakpoint). Absent cluster or
- * buttons: a no-op, never a crash.
+ * Drive the OFFICIAL right sidebar through its own controls (0.1.5
+ * ui-sidebar-right): opening clicks `[data-sidebar-right-expand]` (the
+ * conversation header corner button — the panel's own documented "way
+ * into a hidden panel", rendered exactly while collapsed with a session);
+ * closing clicks `[data-sidebar-right-toggle]` (the dock chrome toggle).
+ * The store action behind them (`setExpanded`/`toggleExpanded`) is
+ * slot-store-internal — cross-plugin imports are the hard boundary, so
+ * the native buttons ARE the sanctioned entry. Absent button (pre-0.1.5
+ * host, no session, or already in the target state): a no-op, never a
+ * crash.
  */
-function toggleBetterSidebar(): void {
-  const cluster = document.querySelector('[data-dsh-toggle-cluster]')
-  const buttons = cluster?.querySelectorAll('button')
-  const toggle = buttons?.[buttons.length - 1]
-  toggle?.click()
+function openRightPanel(): void {
+  document.querySelector<HTMLButtonElement>('[data-sidebar-right-expand]')?.click()
+}
+
+function closeRightPanel(): void {
+  document.querySelector<HTMLButtonElement>('[data-sidebar-right-toggle]')?.click()
 }
 
 /** Page global left by the host half's boot script (see `src/web-trust.ts`). */
 interface DashrMobileGlobal {
   __DASHR_MOBILE__?: {
     enabled?: boolean
-    breakpoint?: number
     swipeDistancePx?: number
     dominanceRatio?: number
     leftEdgeBandPx?: number
@@ -101,19 +119,20 @@ interface DashrMobileGlobal {
 }
 
 /**
- * The narrow-viewport CSS: zero-width sidebar track under the breakpoint,
- * keyed to AppFrame's semantic attribute (survives class-hash churn).
- * Rendered with the breakpoint baked in (media queries cannot read JS
- * config); the tag carries the plugin-owned dataset so the loader's
- * style-claim machinery removes it on unload, like module CSS.
+ * The responsive CSS: zero-width sidebar track whenever upstream's layout
+ * has collapsed the sidebar, keyed PURELY to AppFrame's semantic
+ * attribute (survives class-hash churn). No width media query of our own
+ * (2026-09-11 ruling): upstream owns the auto-collapse threshold (1024
+ * today), and this rule simply takes the 56px rail they leave behind to
+ * zero. If upstream renames the attribute the rule stops matching and
+ * their native rail renders (benign degradation). The tag carries the
+ * plugin-owned dataset so the loader's style-claim machinery removes it
+ * on unload, like module CSS.
  */
-function mobileCss(breakpointPx: number): string {
-  const wide = Math.max(1, Math.floor(breakpointPx) - 0.02)
+function mobileCss(): string {
   return [
-    `@media (max-width: ${String(wide)}px) {`,
-    `  [data-sidebar-collapsed] {`,
-    `    grid-template-columns: 0px minmax(0, 1fr) 0px !important;`,
-    `  }`,
+    `[data-sidebar-collapsed] {`,
+    `  grid-template-columns: 0px minmax(0, 1fr) 0px !important;`,
     `}`,
   ].join('\n')
 }
@@ -135,7 +154,7 @@ export function setupMobileLayout(ctx: ClientContext): void {
     const tag = document.createElement('style')
     tag.dataset.plugin = 'better-dsh'
     tag.dataset.pluginCss = styleTagId
-    tag.textContent = mobileCss(config.breakpoint)
+    tag.textContent = mobileCss()
     document.head.append(tag)
 
     // The layout service is a conditional peer: a composition without
@@ -148,12 +167,19 @@ export function setupMobileLayout(ctx: ClientContext): void {
       const onPointerDown = (event: PointerEvent): void => {
         start = undefined
         const viewport = window.innerWidth
-        // Gesture band at gesture time (source: `viewport < SIDEBAR_MOBILE`).
-        if (!isNarrowViewport(viewport, config)) return
+        // Feature band (2026-09-11 ruling): no pixel cut-off of our own —
+        // live on coarse pointers (phones/tablets), and on any pointer
+        // wherever a panel already sits in its narrow-viewport state
+        // (upstream auto-collapse or an open panel). Fine pointers with
+        // every panel at rest (desktop) stay inert so text-selection
+        // drags can never fire a panel action.
+        const coarsePointer = window.matchMedia?.('(pointer: coarse)').matches === true
+        const panels = readPanelState()
+        if (!coarsePointer && !panels.leftCollapsed && !panels.rightOpen) return
         // Start admission (source pointerdown gate: X120 left band / right
         // three quarters while both panels are closed, anywhere once one
         // is open).
-        if (!admitsSwipeStart(event.clientX, viewport, readPanelState(), config)) return
+        if (!admitsSwipeStart(event.clientX, viewport, panels, config)) return
         start = { x: event.clientX, y: event.clientY, t: event.timeStamp }
       }
       const onPointerMove = (event: PointerEvent): void => {
@@ -174,15 +200,15 @@ export function setupMobileLayout(ctx: ClientContext): void {
         // semantics — the ref is nulled inside the move handler).
         start = undefined
         if (action === 'open-left' || action === 'close-left') layout.toggleSidebar()
-        else toggleBetterSidebar()
+        else if (action === 'open-right') openRightPanel()
+        else closeRightPanel()
       }
       const onPointerEnd = (): void => {
         start = undefined
       }
-      // CAPTURE on `document`: the open Better Sidebar panel is a
-      // full-width fixed layer over the frame; bubbling listeners on the
-      // frame would never see its closing swipe (source comment, verbatim
-      // rationale).
+      // CAPTURE on `document`: an open overlay panel (fullscreen right
+      // sidebar, dialogs) is a fixed layer over the frame; bubbling
+      // listeners on the frame would never see its closing swipe.
       document.addEventListener('pointerdown', onPointerDown, true)
       document.addEventListener('pointermove', onPointerMove, true)
       document.addEventListener('pointerup', onPointerEnd, true)

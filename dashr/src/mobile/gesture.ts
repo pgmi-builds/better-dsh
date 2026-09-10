@@ -26,16 +26,22 @@
  *                  (Better Sidebar) when a session is current;
  *     right-swipe: close the right panel if open, else open the sidebar
  *                  when collapsed.
- * - **Breakpoint**: gestures live strictly below 768 (`SIDEBAR_MOBILE` in
- *   the source; the 768–1023 tablet band keeps the native 56px rail and
- *   no gestures).
+ * - **Band admission (2026-09-11 mobile wave)**: no own pixel cut-off. The
+ *   feature is live on coarse pointers (phones/tablets) and wherever a
+ *   panel is already in its narrow-viewport state — i.e. it follows the
+ *   upstream layout STATE, never a threshold we invented. Upstream may
+ *   move their auto-collapse boundary (1024 today) freely; we track the
+ *   resulting state attributes.
  *
- * The right panel is Better Sidebar's floating layer, NOT the frame's
- * details column: its toggle is reached through the plugin's persistent
- * DOM (`[data-dsh-toggle-cluster]`, last button) and its open state is
- * read synchronously off `body[data-dsh-sidebar-collapsed]` — exactly the
- * source's mechanism (a React-state mirror lags the panel's own DOM
- * write by a render).
+ * Both panel reads address OFFICIAL upstream surfaces ONLY (hard rule,
+ * 2026-09-11): the left sidebar through the layout service
+ * (`ctx.layout.toggleSidebar()`) and AppFrame's `[data-sidebar-collapsed]`;
+ * the right panel through the official 0.1.5 controls — expand
+ * `[data-sidebar-right-expand]` (conversation header corner) and toggle
+ * `[data-sidebar-right-toggle]` (dock chrome) — with its open state read
+ * off AppFrame's `[data-rightbar-collapsed]`. Third-party plugin DOM is
+ * never a state input again (the retired Better Sidebar coupling poisoned
+ * the whole state machine once that plugin was removed).
  *
  * No DOM here: these are pure predicates over gesture facts plus the
  * panel state the caller reads off live DOM.
@@ -45,8 +51,6 @@
 
 /** Recognition thresholds, resolved from the host-injected page config. */
 export interface SwipeThresholds {
-  /** Viewport width strictly below which gestures are admitted (px). */
-  breakpoint: number
   /** Minimum horizontal displacement (px). */
   swipeDistancePx: number
   /** Horizontal dominance factor: `|dx|` must EXCEED `|dy|` × this. */
@@ -59,14 +63,12 @@ export interface SwipeThresholds {
   swipeVelocityPxPerMs: number
 }
 
-/**
- * Resolved defaults — the `1706b81` constants (120 / viewport÷4 / 40 / 1.3 /
- * 768) plus the one addition, the velocity gate. A slow text-selection drag
- * runs ~0.13 px/ms; 0.15 px/ms filters those while any comfortable sweep
- * (0.4 px/ms and up) passes.
+/** Resolved defaults — the `1706b81` constants (120 / viewport÷4 / 40 / 1.3)
+ * plus the one addition, the velocity gate. A slow text-selection drag runs
+ * ~0.13 px/ms; 0.15 px/ms filters those while any comfortable sweep (0.4
+ * px/ms and up) passes.
  */
 export const DEFAULT_SWIPE_THRESHOLDS: SwipeThresholds = {
-  breakpoint: 768,
   swipeDistancePx: 40,
   dominanceRatio: 1.3,
   leftEdgeBandPx: 120,
@@ -76,25 +78,14 @@ export const DEFAULT_SWIPE_THRESHOLDS: SwipeThresholds = {
 
 /** Panel state at gesture time (read live off the DOM by the caller). */
 export interface PanelState {
-  /** Whether the left sidebar is collapsed (narrow viewport). */
+  /** Whether the left sidebar is collapsed (upstream auto-collapse state). */
   leftCollapsed: boolean
-  /** Whether Better Sidebar's right panel is open. */
+  /** Whether the official right sidebar panel is open (0.1.5 ui-sidebar-right). */
   rightOpen: boolean
 }
 
 /** The panel action a recognized swipe maps to. */
 export type SwipeAction = 'open-left' | 'close-left' | 'open-right' | 'close-right'
-
-/**
- * Whether one completed gesture's viewport is in the gesture band.
- *
- * @param viewportWidth - viewport width at gesture time (px).
- * @param thresholds - resolved recognition thresholds (`.breakpoint`).
- * @returns `true` when `viewportWidth` is strictly below the breakpoint.
- */
-export function isNarrowViewport(viewportWidth: number, thresholds: SwipeThresholds): boolean {
-  return viewportWidth < thresholds.breakpoint
-}
 
 /**
  * Whether a pointerdown may START a gesture — the source's pointerdown
@@ -164,7 +155,6 @@ export function classifySwipeProgress(progress: SwipeProgress, panels: PanelStat
 /** Resolve the page config left by the host half's injected boot script. */
 export interface MobilePageConfig {
   enabled: boolean
-  breakpoint?: number
   swipeDistancePx?: number
   dominanceRatio?: number
   leftEdgeBandPx?: number
@@ -191,7 +181,6 @@ export function resolveMobileConfig(pageConfig: MobilePageConfig | undefined): {
     typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : fallback
   return {
     enabled: true,
-    breakpoint: n(pageConfig.breakpoint, DEFAULT_SWIPE_THRESHOLDS.breakpoint),
     swipeDistancePx: n(pageConfig.swipeDistancePx, DEFAULT_SWIPE_THRESHOLDS.swipeDistancePx),
     dominanceRatio: n(pageConfig.dominanceRatio, DEFAULT_SWIPE_THRESHOLDS.dominanceRatio),
     leftEdgeBandPx: n(pageConfig.leftEdgeBandPx, DEFAULT_SWIPE_THRESHOLDS.leftEdgeBandPx),

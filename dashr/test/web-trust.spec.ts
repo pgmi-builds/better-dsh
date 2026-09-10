@@ -69,9 +69,9 @@ describe('web-trust boot script (buildBootScript)', () => {
     const window = runScript(enabled, { window: {}, location: { hostname: 'x' } })
     expect(window.__DASHR_MOBILE__).toEqual({ enabled: true })
 
-    const tuned = buildBootScript({ mobile: { breakpoint: 900, swipeDistancePx: 64 } })!
+    const tuned = buildBootScript({ mobile: { swipeDistancePx: 64 } })!
     const win2 = runScript(tuned, { window: {}, location: { hostname: 'x' } })
-    expect(win2.__DASHR_MOBILE__).toEqual({ enabled: true, breakpoint: 900, swipeDistancePx: 64 })
+    expect(win2.__DASHR_MOBILE__).toEqual({ enabled: true, swipeDistancePx: 64 })
   })
 
   it('omits the mobile global when explicitly disabled', () => {

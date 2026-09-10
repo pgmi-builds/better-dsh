@@ -11,8 +11,9 @@ import { FakeCellRuntime, fakeRuntime, fakeSubagentsService, registerFakeDelegat
  * members when the registry mask has NOT landed (this harness never fires
  * `agent/session-start`), through the same nested sub-dispatch pipeline. The
  * displaced A2A bridge is now named `agent_message` (Wave5 renamed it from
- * `send_message`): receiver 'child' → `ctx.subagents.followup`, 'parent' →
- * `ctx.subagents.reportFrom`, and 'interrupt' → `ctx.subagents.interrupt`.
+ * `send_message`): receiver 'child' → `ctx.subagents.sendMessage` downlink,
+ * 'parent' → the sendMessage uplink (target = the sender's parentSession),
+ * and 'interrupt' → `ctx.subagents.interrupt`.
  * The sibling `agent` and `agent_workflow` bridges are covered by
  * `test/surface-devices/bridges.spec.ts`.
  */
@@ -100,8 +101,8 @@ describe('native delegation tools exposed directly as tool.* members', () => {
       return { logs: [], value: 'done' }
     }
     await cell(ctx, agent.agent, 'program')
-    const starts = agent.events.filter(event => event.type === 'tool/code-dispatch-start').map(event => (event.data as { name: string }).name)
-    const settles = agent.events.filter(event => event.type === 'tool/code-dispatch').map(event => (event.data as { name: string }).name)
+    const starts = agent.events.filter(event => event.type === 'tool/ptc-dispatch-start').map(event => (event.data as { name: string }).name)
+    const settles = agent.events.filter(event => event.type === 'tool/ptc-dispatch').map(event => (event.data as { name: string }).name)
     expect(starts).toEqual(['subagent'])
     expect(settles).toEqual(['subagent'])
   })
@@ -110,11 +111,11 @@ describe('native delegation tools exposed directly as tool.* members', () => {
 describe('agent_message() — the A2A bridge', () => {
   it("receiver='child' follows up to the child through the service layer", async () => {
     const { ctx, agent } = await setupPresentation(fakeRuntime)
-    const followups: { childId: string, content: unknown[], source: { kind: string, form: string, senderSessionId: string } }[] = []
+    const sends: { sender: unknown, targetId: string, content: unknown[] }[] = []
     await ctx.plugin({ name: 'fake-followup', apply(c) {
       c.provide('subagents', {
-        followup: (_parent: unknown, childId: string, content: unknown[], options: { source: { kind: string, form: string, senderSessionId: string } }) => {
-          followups.push({ childId, content, source: options.source })
+        sendMessage: (sender: unknown, targetId: string, content: unknown[], _options: { signal: AbortSignal }) => {
+          sends.push({ sender, targetId, content })
           return Promise.resolve('mid-1')
         },
       })
@@ -126,10 +127,10 @@ describe('agent_message() — the A2A bridge', () => {
     }
     const result = await cell(ctx, agent.agent, 'program')
     expect(result.value.result).toEqual({ messageId: 'mid-1' })
-    expect(followups).toHaveLength(1)
-    expect(followups[0]!.childId).toBe('child-1')
-    expect(followups[0]!.content).toEqual([{ type: 'text', text: 'here is more work' }])
-    expect(followups[0]!.source.kind).toBe('coordinator')
+    expect(sends).toHaveLength(1)
+    expect(sends[0]!.sender).toBe(agent.agent)
+    expect(sends[0]!.targetId).toBe('child-1')
+    expect(sends[0]!.content).toEqual([{ type: 'text', text: 'here is more work' }])
   })
 
   it("receiver='child' without subagent_id is a structured error, calling nothing", async () => {
@@ -143,7 +144,7 @@ describe('agent_message() — the A2A bridge', () => {
     expect(result.value.result).toEqual({ error: expect.stringContaining('requires {"subagent_id"') })
   })
 
-  it("receiver='parent' bridges the service layer: reportFrom with zero ids, next-step delivery", async () => {
+  it("receiver='parent' bridges the service layer: sendMessage uplink to the recorded parentSession", async () => {
     const { ctx, agent } = await setupPresentation(fakeRuntime)
     const reports = await fakeSubagentsService(ctx)
     const runtime = ctx.get('replRuntime') as FakeCellRuntime
@@ -154,9 +155,9 @@ describe('agent_message() — the A2A bridge', () => {
     const result = await cell(ctx, agent.agent, 'program')
     expect(result.value.result).toEqual({ delivered: true, message_id: 'mid-1' })
     expect(reports).toHaveLength(1)
-    expect(reports[0]!.child).toBe(agent.agent)
+    expect(reports[0]!.sender).toBe(agent.agent)
+    expect(reports[0]!.targetId).toBe('dashr-parent')
     expect(reports[0]!.content).toEqual([{ type: 'text', text: 'task complete' }])
-    expect(reports[0]!.delivery).toBe('next-step')
     expect(reports[0]!.signal).toBeInstanceOf(AbortSignal)
   })
 

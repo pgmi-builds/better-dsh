@@ -23,10 +23,9 @@
  *
  * Wave5 (v0.1.8e+): the bridges now call the SERVICE layer directly — the
  * upstream delegation tools are masked from the model surface, and the
- * service's own authorization (authorizeLineage / authorizeReporter) is the
+ * service's own authorization (authorizeLineage / admissions) is the
  * deployment enforcement, preserved verbatim. The earlier "downlink goes
- * through the TOOL layer" split (ADR-0001) is gone for spawn/followup/
- * interrupt/workflow; `reportFrom` remains the one direction no tool covers.
+ * through the TOOL layer" split (ADR-0001) is gone for spawn/sendMessage/
  * @module dashr-repl/subagents-surface
  */
 
@@ -35,32 +34,13 @@ import type { ContentBlock, MessageId } from '@deepseek-ai/dsh-llm'
 import type { SessionId } from '@deepseek-ai/dsh-session'
 
 /**
- * The subset of upstream `SubagentReportOptions` the bridge constructs.
- * `delivery` is the parent scheduling policy (always `'next-step'` — 0.1.2+
- * renamed the RC `'wakeup'`), deliberately not exposed to the model. The field
- * type stays a supertype of `SubagentRuntime.reportFrom`'s `'quiet' | 'next-step'`
- * so this local surface casts cleanly.
+ * The subset of upstream `SubagentSendMessageOptions` the bridge constructs
+ * (0.1.5 unified seam: one `sendMessage` covers both directions — down to a
+ * continuable child, and up to the parent when `targetId` is the sender's
+ * `parentSession`). The old `source`/`delivery` knobs are gone: the runtime
+ * stamps its own durable attribution and parent scheduling policy.
  */
-export interface DASHRSubagentReportOptions {
-  /** Already-resolved parent scheduling policy (always `'next-step'`). */
-  readonly delivery: 'quiet' | 'next-step'
-  /** Caller cancellation, owning authorization and admission until acceptance. */
-  readonly signal: AbortSignal
-}
-
-/**
- * The subset of upstream `SubagentFollowupOptions` the bridge constructs.
- * `source` is the durable attribution the native `send_message` tool stamps
- * (`coordinator` / `relay`); it grants no authority — the live `parent`
- * agent is the authority credential.
- */
-export interface DASHRSubagentFollowupOptions {
-  /** Durable attribution retained on the delivered message. */
-  readonly source: {
-    readonly kind: 'coordinator'
-    readonly form: 'relay'
-    readonly senderSessionId: SessionId
-  }
+export interface DASHRSubagentSendMessageOptions {
   /** Caller cancellation, owning the operation only until inbox acceptance. */
   readonly signal: AbortSignal
 }
@@ -138,22 +118,21 @@ export interface DASHRContinuableStart {
 
 /**
  * The `ctx.subagents` service surface the delegation bridges call: one-shot
- * `start`, continuable `startContinuable`, the `followup` downlink, the
- * `interrupt` stop request, and the `reportFrom` uplink. Each is the same
- * call the native delegation/control tools make, so the service's own
- * authorization is preserved verbatim.
+ * `start`, continuable `startContinuable`, the `sendMessage` adjacency
+ * downlink (child) and uplink (parent), and the `interrupt` stop request.
+ * Each is the same call the native delegation/control tools make, so the
+ * service's own authorization is preserved verbatim.
  */
 export interface DASHRSubagentsSurface {
   /** Establish a published one-shot child on the named provider. */
   start(provider: string, request: DASHRSubagentStartRequest): Promise<DASHRSubagentRun>
   /** Establish a durable continuable child and deliver its initial prompt. */
   startContinuable(spec: DASHRContinuableStartSpec): Promise<DASHRContinuableStart>
-  /** Deliver one later message to a continuable child as its next FIFO turn. */
-  followup(parent: Agent, childId: SessionId, content: ContentBlock[], options: DASHRSubagentFollowupOptions): Promise<MessageId>
+  /** Deliver one message to an adjacent agent: next FIFO turn for a continuable
+ *  child target, or the report-up path when the target is the sender's parent. */
+  sendMessage(sender: Agent, targetId: SessionId, content: ContentBlock[], options: DASHRSubagentSendMessageOptions): Promise<MessageId>
   /** Interrupt one live continuable child's current turn under the live ancestor. */
   interrupt(targetSessionId: SessionId, authority: DASHRSubagentInterruptAuthority): void
-  /** Report content up to this child's direct parent. */
-  reportFrom(child: Agent, content: ContentBlock[], options: DASHRSubagentReportOptions): Promise<MessageId>
 }
 
 

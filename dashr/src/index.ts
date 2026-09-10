@@ -139,7 +139,9 @@ export interface Config extends RuntimeConfig {
 /** Runtime schema. */
 const MOBILE_CONFIG: z<Required<WebTrustConfig['mobile']>> = z.object({
   enabled: z.boolean().default(true),
-  breakpoint: z.natural().min(200).default(768),
+  // `breakpoint` removed (2026-09-11 mobile wave): responsive behavior tracks
+  // the upstream sidebar auto-collapse STATE ([data-sidebar-collapsed]), never
+  // our own pixel cut-off; zoomGuard carries its own internal narrow band.
   swipeDistancePx: z.natural().min(8).default(40),
   dominanceRatio: z.number().min(1).default(1.3),
   leftEdgeBandPx: z.natural().min(8).default(120),
@@ -482,7 +484,7 @@ declare module '@deepseek-ai/cordis' {
     /**
      * Allow a listener to replace content in the DURABLE LOG COPY of one
      * `eval` sub-dispatch outcome before the bridge appends its
-     * `tool/code-dispatch` event. `next()` keeps the content unchanged; a
+     * `tool/ptc-dispatch` event. `next()` keeps the content unchanged; a
      * listener may return replacement blocks (e.g. the spill policy's preview
      * + locator for an oversized text result). Scope-filtered dispatch
      * (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only that
@@ -534,7 +536,7 @@ export interface RunCellBridgeOptions {
  * in the module doc. Sub-calls ride the registry's exported staged scheduler
  * (`prepare`/`dispatch`/`finalize`/`finish`) under the native concurrency
  * contract; each sub-dispatch is logged for reconstruction
- * (`tool/code-dispatch-start` / `tool/code-dispatch`) while only the outer
+ * (`tool/ptc-dispatch-start` / `tool/ptc-dispatch`) while only the outer
  * curated result enters model history.
  * @param registry - the host tool registry (sub-calls go through its staged
  *   scheduler, bindings cover its registered tools).
@@ -764,7 +766,7 @@ export function createRunCellTool(registry: ToolRuntime, options: RunCellBridgeO
               // carrier, same containment) so durable copies keep the
               // reshape extension point.
               const logged = await shapeDispatchLog({ exec, agent, subCallId, name, isError: result.isError, content: result.content })
-              agent.session.append('tool/code-dispatch', {
+              agent.session.append('tool/ptc-dispatch', {
                 rootCallId: exec.rootCallId,
                 parentCallId: exec.callId,
                 subCallId,
@@ -802,7 +804,7 @@ export function createRunCellTool(registry: ToolRuntime, options: RunCellBridgeO
               settleError(error)
             },
             async start(): Promise<void> {
-              exec.agent?.session.append('tool/code-dispatch-start', {
+              exec.agent?.session.append('tool/ptc-dispatch-start', {
                 rootCallId: exec.rootCallId,
                 parentCallId: exec.callId,
                 subCallId,
@@ -1096,7 +1098,7 @@ export function apply(ctx: Context, config: Config): void {
     // (`dashr/repl-dispatch-log`, self-registered), decoupled from upstream's
     // PTC `tools/ptc-dispatch-log` in NAME but not in carrier: the harness's
     // spill-policy dispatch-log arm (`ctx.on('tools/ptc-dispatch-log')`)
-    // still bounds oversized `tool/code-dispatch` log copies, so after our
+    // still bounds oversized `tool/ptc-dispatch` log copies, so after our
     // own waterfall we feed the same dispatch through the upstream carrier
     // (structurally identical payload) to keep that arm live — v0.2.1
     // decoupling silently disabled it for eval sub-dispatches. Both are

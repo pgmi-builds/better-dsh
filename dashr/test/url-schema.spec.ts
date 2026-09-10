@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { applySelector, parseUrl, UrlSchemaError } from '../src/url-schema/selector.ts'
 import { UrlResolver } from '../src/url-schema/resolver.ts'
 import type { ResolverEnv, SchemeHandler } from '../src/url-schema/resolver.ts'
-import { SESSION_FORMAT_VERSION, Session, SessionId, type SessionHeader } from '@deepseek-ai/dsh-session'
+import { SESSION_FORMAT_VERSION, Session, SessionId, SessionSeq, type SessionHeader } from '@deepseek-ai/dsh-session'
 import { createAgentHandler } from '../src/url-schema/handlers/agent.ts'
 import { createDvcHandler, dispatchDvcWrite } from '../src/url-schema/handlers/dvc.ts'
 
@@ -293,8 +293,8 @@ describe('agent:// roster', () => {
       ...header.parentSession === undefined ? {} : { parentSession: header.parentSession },
     }
     return Session.create(id, [
-      { type: 'turn/start', seq: 0, time: createdAt, data: { turn: 0 } },
-      { type: 'session/end-seed', seq: 1, time: lastTime, data: {} },
+      { type: 'turn/start', seq: SessionSeq(0), time: createdAt, data: { turn: 0 } },
+      { type: 'session/end-seed', seq: SessionSeq(1), time: lastTime, data: {} },
     ], headerFull)
   }
 
@@ -319,7 +319,10 @@ describe('agent:// roster', () => {
           depth: 1,
         }],
       },
-      sessionPersistence: { inspect: async () => undefined },
+      sessionPersistence: {
+        stat: async () => undefined,
+        open: async () => { throw new Error('unexpected open on an unmaterialized session') },
+      },
       ...agents === undefined ? {} : { agents },
     })
   }
@@ -337,7 +340,10 @@ describe('agent:// roster', () => {
     const handler = createAgentHandler({
       sessions: { get: () => undefined },
       subagents: { listDescendants: async () => [] },
-      sessionPersistence: { inspect: async () => undefined },
+      sessionPersistence: {
+        stat: async () => undefined,
+        open: async () => { throw new Error('unexpected open on an unmaterialized session') },
+      },
     })
     await expect(handler.resolve({ agent: { id: callerId } }, '')).resolves.toBe('no agents')
   })

@@ -83,7 +83,7 @@ describe('centralized hash store (schema v7)', () => {
     await recordServed(FILE_A, rows, undefined)
     const served = await loadServed(FILE_A)
     expect(served).toEqual(rows.map((row) => row.hash))
-    const db = new DatabaseSync(hashStorePath(), { readonly: true })
+    const db = new DatabaseSync(hashStorePath(), { readOnly: true })
     try {
       const count = db.prepare('SELECT COUNT(*) AS n FROM served WHERE path = ?').get(FILE_A) as { n: number }
       expect(count.n).toBe(1)
@@ -136,7 +136,7 @@ describe('schema v6 → v7 migration', () => {
     const store = await loadHashStore()
     expect(store.getServed(FILE_A)).toEqual([])
     expect(store.getServed('session-legacy/nonexistent')).toEqual([])
-    const db = new DatabaseSync(storePath, { readonly: true })
+    const db = new DatabaseSync(storePath, { readOnly: true })
     try {
       const columns = db.prepare('PRAGMA table_info(served)').all() as Array<{ name: string }>
       expect(columns.some((column) => column.name === 'session_id')).toBe(false)

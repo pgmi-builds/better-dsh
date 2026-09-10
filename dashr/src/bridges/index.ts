@@ -14,7 +14,7 @@
  * Bridge → native mapping (the deny list keeps the native names masked, so no
  * name collision exists):
  * - `agent`            ← `subagent` (provider `spawn`) + `subagent_fork` (provider `fork`)
- * - `agent_message`    ← `send_message` (followup) + `report` (reportFrom) + `interrupt_agent` (interrupt)
+ * - `agent_message`    ← `send_message` + `report` (both sendMessage; down to child / up to parentSession) + `interrupt_agent` (interrupt)
  * - `agent_workflow`   ← `workflow` (script) + `ralph` (rfc loop)
  *
  * Each bridge is a REAL registry tool (same host layer as `eval`), built by
@@ -305,8 +305,7 @@ const agentMessageExecutor: AgentBridgeExecutor = async (rawArgs, exec, deps): P
         return { error: "agent_message(receiver='child') is unavailable: no ctx.subagents service is mounted in this composition" }
       }
       try {
-        const messageId = await subagents.followup(exec.agent, subagentId as SessionId, [{ type: 'text', text: message }], {
-          source: { kind: 'coordinator', form: 'relay', senderSessionId: exec.agent.id },
+        const messageId = await subagents.sendMessage(exec.agent, subagentId as SessionId, [{ type: 'text', text: message }], {
           signal: exec.signal,
         })
         return { messageId }
@@ -327,7 +326,15 @@ const agentMessageExecutor: AgentBridgeExecutor = async (rawArgs, exec, deps): P
         return { error: "agent_message(receiver='parent') is unavailable: no ctx.subagents service is mounted in this composition" }
       }
       try {
-        const messageId = await subagents.reportFrom(exec.agent, [{ type: 'text', text: message }], { delivery: 'next-step', signal: exec.signal })
+        // 0.1.5 unified seam: reporting up is `sendMessage` targeting the
+        // sender's `parentSession` (the runtime routes it through its
+        // send-to-parent path). A root agent has no parent — same structured
+        // error the old `reportFrom` UNAUTHORIZED produced, decided locally.
+        const parentId = exec.agent.session.header.parentSession
+        if (parentId === undefined) {
+          return { error: "agent_message(receiver='parent') rejected: only a live continuable child agent can report to its parent (a root agent has none)" }
+        }
+        const messageId = await subagents.sendMessage(exec.agent, parentId, [{ type: 'text', text: message }], { signal: exec.signal })
         return { delivered: true, message_id: messageId }
       } catch (error: unknown) {
         if ((error as { code?: unknown }).code === 'UNAUTHORIZED') {

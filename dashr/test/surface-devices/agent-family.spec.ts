@@ -7,7 +7,7 @@
 
 import { describe, expect, it } from 'vitest'
 import { MessageId, type AssistantMessage } from '@deepseek-ai/dsh-llm'
-import { SESSION_FORMAT_VERSION, Session, SessionId, type SessionEvent, type SessionHeader } from '@deepseek-ai/dsh-session'
+import { SESSION_FORMAT_VERSION, Session, SessionId, SessionSeq, type SessionEvent, type SessionHeader } from '@deepseek-ai/dsh-session'
 
 import { createAgentHandler } from '../../src/url-schema/handlers/agent.ts'
 import type { AgentDescendantEntry, PersistedSessionEvent } from '../../src/url-schema/handlers/agent.ts'
@@ -45,16 +45,16 @@ function assistantMessage(id: string, text: string): AssistantMessage {
 function liveSession(id: string, createdAt: number, lastTime: number, outputs: readonly string[]): Session {
   const header: SessionHeader = { version: SESSION_FORMAT_VERSION, id: SessionId(id), createdAt, origin: 'subagent', isSeeded: false }
   const events: SessionEvent[] = [
-    { type: 'turn/start', seq: 0, time: createdAt, data: { turn: 0 } },
-    { type: 'step/start', seq: 1, time: createdAt, data: { turn: 0, step: 0 } },
+    { type: 'turn/start', seq: SessionSeq(0), time: createdAt, data: { turn: 0 } },
+    { type: 'step/start', seq: SessionSeq(1), time: createdAt, data: { turn: 0, step: 0 } },
     ...outputs.map((text, index): SessionEvent => ({
       type: 'assistant/message',
-      seq: 2 + index,
+      seq: SessionSeq(2 + index),
       time: lastTime - (outputs.length - index),
       surfaceOp: 'append',
-      data: { turn: 0, step: 0, message: assistantMessage(`${id}-msg-${index}`, text) },
+      data: { turn: 0, step: 0, message: assistantMessage(`${id}-msg-${index}`, text), stream: [] },
     })),
-    { type: 'session/end-seed', seq: 2 + outputs.length, time: lastTime, data: {} },
+    { type: 'session/end-seed', seq: SessionSeq(2 + outputs.length), time: lastTime, data: {} },
   ]
   return Session.create(SessionId(id), events, header)
 }
@@ -68,11 +68,11 @@ function persistedLog(createdAt: number, lastTime: number, outputs: readonly str
       type: 'assistant/message',
       time: lastTime - (outputs.length - index),
       surfaceOp: 'append',
-      data: { turn: 0, step: 0, message: assistantMessage(`p-msg-${index}`, text) },
+      data: { turn: 0, step: 0, message: assistantMessage(`p-msg-${index}`, text), stream: [] },
     })),
     { type: 'turn/end', time: lastTime, data: {} },
   ]
-  return { meta: { createdAt }, events }
+  return { header: { createdAt }, events }
 }
 
 /** One `child` row of the descendant listing. */
@@ -99,7 +99,7 @@ function childEntry(
 }
 
 /** What a fake persistence surface stores, keyed by raw session id. */
-type Persisted = Record<string, { meta: { createdAt: number }; events: PersistedSessionEvent[] }>
+type Persisted = Record<string, { header: { createdAt: number }; events: PersistedSessionEvent[] }>
 
 /** Build the handler plus its caller env over one fake family. */
 function makeHandler(options: {
@@ -113,7 +113,16 @@ function makeHandler(options: {
   const handler = createAgentHandler({
     sessions: { get: (id: SessionId) => options.sessions?.find((session) => session.id === id) },
     subagents: { listDescendants: async () => options.descendants ?? [] },
-    sessionPersistence: { inspect: async (id: SessionId) => options.persisted?.[String(id)] },
+    sessionPersistence: {
+      stat: async (id: SessionId) => {
+        const log = options.persisted?.[String(id)]
+        return log === undefined ? undefined : { header: log.header }
+      },
+      open: async (id: SessionId) => {
+        const log = options.persisted?.[String(id)]
+        return { read: async () => ({ events: log?.events ?? [] }), close: async () => {} }
+      },
+    },
     ...options.registry === undefined ? {} : {
       agents: {
         get: (id: SessionId) => {

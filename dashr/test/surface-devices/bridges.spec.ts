@@ -8,7 +8,7 @@ import type { ReplJsonValue } from '../../src/runtime-surface.ts'
 
 /**
  * The three delegation bridges (Wave5): `agent` (spawn/fork), `agent_message`
- * (followup/report/interrupt), `agent_workflow` (workflow/ralph). `agent` and
+ * (sendMessage downlink/uplink/interrupt), `agent_workflow` (workflow/ralph). `agent` and
  * `agent_message` are thin adapters over the host-plane `ctx.subagents`
  * service; `agent_workflow` passes through the CAPTURED native workflow/ralph
  * definitions (the workflowEngine service is entry-local to the preset's
@@ -40,7 +40,7 @@ async function cell(ctx: Context, agent: Agent, code: string): Promise<{ value: 
 interface DelegationCalls {
   starts: { provider: string, label: string, promptText: string, parent: Agent, maxDepth: number }[]
   continuableStarts: { provider: string, label: string, promptText: string, maxDepth: number }[]
-  followups: { childId: string, message: string, sourceKind: string, senderId: string }[]
+  followups: { childId: string, message: string, senderId: string }[]
   interrupts: { targetId: string, authorityKind: string, authorityAgent: Agent }[]
   reports: { message: string }[]
   workflowStarts: { script: string, metaName: string, objective: unknown, subagentProvider: unknown, maxTotalAgents: unknown, args: unknown }[]
@@ -53,7 +53,7 @@ interface DelegationCalls {
  */
 async function fakeDelegationServices(
   ctx: Context,
-  overrides: { startStopReason?: string, reportFrom?: (call: { message: string }) => Promise<string> } = {},
+  overrides: { startStopReason?: string, sendMessage?: (call: { message: string }) => Promise<string> } = {},
 ): Promise<DelegationCalls> {
   const calls: DelegationCalls = { starts: [], continuableStarts: [], followups: [], interrupts: [], reports: [], workflowStarts: [] }
   const fiber = await ctx.plugin({ name: 'fake-delegation-services', apply(c) {
@@ -70,16 +70,18 @@ async function fakeDelegationServices(
         calls.continuableStarts.push({ provider: spec.provider, label: spec.label, promptText: spec.request.prompt[0]!.text, maxDepth: spec.request.maxDepth })
         return Promise.resolve({ childId: 'child-1' })
       },
-      followup: (parent: Agent, childId: string, content: { text: string }[], options: { source: { kind: string, senderSessionId: string } }) => {
-        calls.followups.push({ childId, message: content[0]!.text, sourceKind: options.source.kind, senderId: options.source.senderSessionId })
+      sendMessage: (sender: Agent, targetId: string, content: { text: string }[], _options: { signal: AbortSignal }) => {
+        const message = content[0]!.text
+        const parentId = (sender.session.header as { parentSession?: string }).parentSession
+        if (targetId === parentId) {
+          calls.reports.push({ message })
+          return overrides.sendMessage !== undefined ? overrides.sendMessage({ message }) : Promise.resolve('mid-1')
+        }
+        calls.followups.push({ childId: targetId, message, senderId: String(sender.id) })
         return Promise.resolve('msg-1')
       },
       interrupt: (targetSessionId: string, authority: { kind: string, agent: Agent }) => {
         calls.interrupts.push({ targetId: targetSessionId, authorityKind: authority.kind, authorityAgent: authority.agent })
-      },
-      reportFrom: (child: Agent, content: { text: string }[]) => {
-        calls.reports.push({ message: content[0]!.text })
-        return overrides.reportFrom !== undefined ? overrides.reportFrom({ message: content[0]!.text }) : Promise.resolve('mid-1')
       },
     })
     c.provide('workflowEngine', {
@@ -176,8 +178,8 @@ describe('agent bridge — spawn/fork unified', () => {
   })
 })
 
-describe('agent_message bridge — followup / report / interrupt', () => {
-  it("receiver='child' follows up through the service layer with the coordinator source", async () => {
+describe('agent_message bridge — sendMessage downlink / uplink / interrupt', () => {
+  it("receiver='child' sends down through the service layer sendMessage downlink", async () => {
     const { ctx, agent } = await setupPresentation(fakeRuntime)
     const calls = await fakeDelegationServices(ctx)
     const runtime = ctx.get('replRuntime') as FakeCellRuntime
@@ -190,11 +192,10 @@ describe('agent_message bridge — followup / report / interrupt', () => {
     expect(calls.followups).toHaveLength(1)
     expect(calls.followups[0]!.childId).toBe('child-9')
     expect(calls.followups[0]!.message).toBe('more work')
-    expect(calls.followups[0]!.sourceKind).toBe('coordinator')
-    expect(calls.followups[0]!.senderId).toBe(agent.agent.id)
+    expect(calls.followups[0]!.senderId).toBe(String(agent.agent.id))
   })
 
-  it("receiver='parent' reports up through reportFrom", async () => {
+  it("receiver='parent' reports up through the sendMessage uplink", async () => {
     const { ctx, agent } = await setupPresentation(fakeRuntime)
     const calls = await fakeDelegationServices(ctx)
     const runtime = ctx.get('replRuntime') as FakeCellRuntime

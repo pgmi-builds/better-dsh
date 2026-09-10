@@ -42,7 +42,7 @@
 | `~/.dsh/profiles/web/node_modules/` | 物理文件（pnpm hoisted 树，有 `.pnpm/`、`.modules.yaml`） |
 
 `~/.dsh/profiles/web/` 本身是一个 pnpm workspace：
-- `package.json` 的 `dsh.profile.bundles` = `["@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app", "dshmarket", "dsh-better-sidebar", "corti-memory", "better-dsh"]`
+- `package.json` 的 `dsh.profile.bundles` = `["@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app", "dshmarket", "corti-memory", "better-dsh"]`（2026-09-11 user 裁决移除 dsh-better-sidebar，prod 3080 已重启验证；测试 profile 同步移除。遗留已清：2026-09-11 mobile wave 已把右滑重指向原生 ui-sidebar-right 官方控件（见 §二 mobile wave 条目））
 - `cordis.yml` 为空 `[]`（树由 patch 组成），实际 overlay 在 `cordis.patch.yml`。
 - **plugin add 的供应链年龄门（2026-09-02 实证；2026-09-03 修正 exclude 形式）**：pnpm 11.7.0 自带 supply-chain 策略引擎（默认 `minimumReleaseAge`≈24h）。**版本号形式的 exclude（`pkg@x.y.z`，含 pnpm 自动补的）只作用于解析相位，不盖锁文件校验相位**——条目发布未满 24h 时，后续任何 `pnpm install`/`add` 的锁文件校验都会再拦一次（0.2.2 发布当天装 prod 即中此坑）。**持久形式 = 裸包名**：`minimumReleaseAgeExclude: ['better-dsh']` 全相位生效（scratch A5–A7 实证：校验/全新 add/复验全过）。升级仍用精确版本 add，勿信 `@latest`（回落+静默覆盖部署位的坑仍在）。**v0.2.2a 起包为零 lifecycle script**（owner 裁决 2026-09-03：postinstall 移除，kernel 供给 = spin-up 主路径 + 首用 lazy 两级；`npm run kernel:venv` 手动入口保留）——0.2.2-a 及以后**无 allowBuilds 要求**（该条仅对 0.2.2 这一个带 postinstall 的版本有意义）。~~带 postinstall 的版本还需 `allowBuilds: {'@pgmi-builds/better-dsh': true}`**（strictDepBuilds 下未列 build script = 硬错；0.2.2 起 kernel-provision postinstall 属发布面）。另：pnpm 打完 `Done` 后偶发子进程不退出（11.7.0 worker 边车，Ctrl-C 无损）；`pnpm.onlyBuiltDependencies` 已失效（继任 `allowBuilds` 在 pnpm-workspace.yaml），其 WARN 为噪音。prod profile 的两处修正于 2026-09-03 落位（备份 `.scratch/pnpm-workspace.yaml.bak-0.2.2`）。
 
@@ -76,8 +76,8 @@ Node 从 better-dsh 的 `lib/index.js` 出发向上走：
 
 ### 组成
 
-- Harness: `./upstream/deepseek-harness`，git tag `dsh-v0.1.3-alpha.2`（2026-09-08 对齐轮从 alpha.5 切换并全链路验证，见 `docs/50_test-reports/upstream-dsh-0.1.3-alpha.2-local-test-report.md`；prod npm 已对齐 0.1.3-alpha.2（2026-09-08，测试=prod 同版，"领先一档"作废）），pnpm workspace（`linkWorkspacePackages: true`）。**tag 间 `pnpm-workspace.yaml`/`tsdown.client.ts` 有改动**（alpha.2 起）——本地 patch（unrun devDep / storeDir+verifyDeps+zeromq / tsdown `resolveRepositoryRoot`）按对齐轮 S2 手工重放，勿盲 stash pop；alpha.5 overlay 已归档删除。
-- dashr 放置: `packages/better-dsh/better-dsh/`（`./dashr` 的副本，workspace 成员）。副本 package.json 现为 canonical 原样（npm range peerDeps；monorepo 内靠 `linkWorkspacePackages` 按 name+version 链到 workspace 副本，等效于早期 `workspace:*` 本地化）。canonical 已于 0.2.2-a re-port 时在源头删除 stale 的 `@deepseek-ai/dsh-client-runtime` peerDep（npm 无匹配版本，曾致 alpha.5 install `ERR_PNPM_NO_MATCHING_VERSION`）——rsync 不再带回，无需重删。另: `pnpm-workspace.yaml` allowBuilds 需 `zeromq: true`（better-dsh kernel IPC 依赖；pnpm 11.7 会插 `set this to true or false` 占位符，strictDepBuilds 下占位符=硬错）。
+- Harness: `./upstream/deepseek-harness`，git tag `dsh-v0.1.5-rc.2`（2026-09-11 对齐轮从 0.1.3-alpha.2 切换并全链路验证，见 `docs/50_test-reports/upstream-dsh-0.1.5-rc.2-local-test-report.md`；prod npm 仍 0.1.3-alpha.2，**测试线领先 prod 一档**——升 prod 需另行裁决），pnpm workspace（`linkWorkspacePackages: true`）。**tag 间 `pnpm-workspace.yaml` 有实质改动**（0.1.5 起：native/landlock-run→native/system、allowBuilds 去 fs-ext 加 electron-winstaller/msgpackr-extract）——本地 patch（unrun devDep / storeDir+verifyDeps+zeromq / tsdown `resolveRepositoryRoot`）按对齐轮 S2 手工重放，勿盲 stash pop（allowBuilds 区必冲突，按 0.1.5-rc.2 报告 §二的手解顺序）。
+- dashr 放置: `packages/better-dsh/better-dsh/`（`./dashr` 的副本，workspace 成员）。**rsync 后必打 devDeps 手术（2026-09-11 实证）**：副本 package.json 的 devDependencies 注入 14 个 `@deepseek-ai/dsh-*` = `workspace:*`（dashr src/test 实际 import 的名单：dsh-agent/fs/host-webserver/llm/llm-retry/sandbox/scope/session/session-persistence/settings/skill/subagent/system-prompt/tools）。原因：canonical 的 npm-range optional peers（`>=0.1.2-alpha.1 <0.2.0-0`）在 pnpm 11 严格预发布 semver 下不匹配 workspace `0.1.5-rc.2`（元组规则），autoInstallPeers 落 registry `0.1.2-rc.1` → 副本 node_modules 双身份 → tsc 品牌类型互斥报错。canonical 保持 npm range 不动（发布语义）；手术只在副本。stale `dsh-client-runtime` peerDep 已于 0.2.2-a 在源头删除，rsync 不带回。另: `pnpm-workspace.yaml` allowBuilds 需 `zeromq: true`（better-dsh kernel IPC 依赖）。
 - 用户数据: `DSH_HOME=/home/u1/workspaces/dashr/.dsh-test`。profile `web` 在 `.dsh-test/profiles/web/package.json` 声明 bundles `["@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app", "better-dsh"]`，其 node_modules symlink 指向 monorepo 的 `packages/bundle/base`、`packages/bundle/web-app`、`packages/better-dsh/better-dsh`。`.env` 从 `~/.dsh/.env` 拷贝（真实 key）。prod `~/.dsh` 完全不动。
 
 ### harness 本地 patch（该环境必须，缺一 build 即挂）
@@ -90,12 +90,24 @@ Node 从 better-dsh 的 `lib/index.js` 出发向上走：
 ```bash
 cd ~/workspaces/dashr/upstream/deepseek-harness
 pnpm install        # store 已重定向到 .scratch/pnpm-store
-pnpm run build      # tsc lib/types + tsdown host/client + vite web + client build record（269 projects）
+pnpm run build      # tsc lib/types + tsdown host/client + vite web + client build record（0.1.5-rc.2: 234 client artifacts，含 build:native-system）
 ```
 
 ### 启动 / 重启
 
 ```bash
+# ⚠ 2026-09-11 起：测试实例一律用 `bash test/start-4999.sh`（PORT=xxxx 可覆盖）。
+#   默认 = 无中继（superd start-4999.sh 模板：纯 systemd-run，loopback）；仅当 user
+#   要求外网/LAN 直达 **且没有 Caddy 可用** 时加 `LAN=1`（用户态 socat 中继）。
+#   机制事实：webserver 配置只收 127.0.0.1|0.0.0.0 两个字面量（zod union）且 startup
+#   硬拒 0.0.0.0（RCE 安全门）→ 直接绑 LAN IP 不可能；LAN=1 的中继只绑 LAN IP 转发
+#   loopback（⚠ 万不可绑 0.0.0.0——与 loopback 同端口 EADDRINUSE）。2026-09-06 port
+#   3098 首创，2026-09-11 固化进脚本。脚本自带：端口占用拒绝（外来进程）、停旧+等
+#   端口真释放（node drain 竞态）、本 boot token 轮询提取（append 日志防串台）。
+# ⚠ 端口现状（2026-09-11 实证）：4997/4998/4999 被 superd multi-context PoC 占用
+#   （~/workspaces/superd/.scratch/multi-context-poc/poc4-v3-e2e.mjs，独立 DSH_HOME，user 在跑实验勿杀）。
+#   对齐轮实例换可用端口（0.1.5-rc.2 轮用了 4988/unit dsh-4988-test）；若 Caddy test.pc 后端指 4999，
+#   域名叫到的是 superd 实例——域名验收前先对齐端口。下例保留 4999 形参，按实际替换：
 # 首选（agent 从沙箱会话重启时必须用这条；user 从自己终端（非沙箱）也可直接跑下面的 npm 形式）:
 systemctl --user stop dsh-4999-test 2>/dev/null
 systemd-run --user --unit=dsh-4999-test \
@@ -129,7 +141,8 @@ rsync -a --delete --exclude node_modules --exclude lib --exclude .venv-kernel --
 cd ~/workspaces/dashr/upstream/deepseek-harness
 pnpm --filter better-dsh exec tsdown
 # ⚠ tsdown 默认 clean lib/ —— 会连带抹掉 lib/client/！client 半必须重跑（直跑 tsx，勿 npm/npx，ENOTDIR 陷阱）：
-cd packages/better-dsh/better-dsh && ../../node_modules/.bin/tsx scripts/build-client.ts && cd ../../..
+cd packages/better-dsh/better-dsh && ../../../node_modules/.bin/tsx scripts/build-client.ts && cd ../../..
+# ⚠ 0.1.5-rc.2 起路径为三级 ../..（packages/node_modules 不再生成，../.. 直跑必 127）
 # 然后重启上面的启动命令
 ```
 
@@ -149,6 +162,8 @@ cd packages/better-dsh/better-dsh && ../../node_modules/.bin/tsx scripts/build-c
 - ✅ **iOS focus 放大抑制 zoomGuard**（2026-09-03，change `ios-focus-zoom-suppression`，v0.2.4，commit `59870fc`；纯 host 半，client 零改动）：boot script 增 zoomGuard 段 —— iOS 系 UA（iPhone|iPod|iPad + iPadOS 桌面冒充 Macintosh&&maxTouchPoints>1）∧ 窄视口（`matchMedia('(max-width:'+(breakpoint-0.02)+'px)')`，断点复用 mobile.breakpoint）双门控下 token 级合并 viewport meta `maximum-scale=1, user-scalable=no`（幂等、可还原、resize + MQ change 双通道复评 + **早期载入重评梯子** ~10ms×200tick —— 引擎载入期应用 viewport 不派发 resize 的实测缺口，deferred focus 可先于事件补评）；**mobile 配置面新增 `zoomGuard`**：`'meta'`（默认，**v0.2.5 起自动双形态**：browser=meta 改写 / standalone=字号地板）| `'off'`（逃生门，'off' = 整段不发射），`'font'` 值位预留不进 enum（未实现值 fail-loud）。五个纯函数（`src/mobile/zoom-guard.ts`，ES5 自包含）经 `Function.prototype.toString` 嵌入 boot script = 单测源即发布源。**关键机制发现**：head 注入 splice 在 `<head>` 开标签紧后 = stock viewport meta 后于脚本解析 → provisional meta + MutationObserver reconcile（stock 插入时改写其本体并移除 provisional，单 meta 文档，S7 查表第 8 条盯两查点）。**v0.2.5 display-mode 分流**（2026-09-03，change `zoomguard-standalone-font-floor`，tag `v0.2.5`；真机实证：standalone PWA 态引擎尊重 `user-scalable=no` → pinch 失效）：iOS 门后、meta 机器前一次性判定 standalone（`(display-mode: standalone)` MQ ∨ `navigator.standalone===true`，严格 `=== true` 双源 OR）→ 注入 `<style id="ios-zoom-font-floor" data-plugin="better-dsh" data-plugin-css="better-dsh/zoom-font-floor">`（16px 字号地板，`@media (max-width:{bp-0.02}px)` 与 meta 腿同派生 768→767.98；**注入不设宽度门**，宽度由 CSS media query 表达）后 return —— 零 meta 机器/零监听/零 timer/零窄带 MQ 探针，meta 字节不动；browser 态 v0.2.4 机器原样，'off' 两形态都不发射（web-trust 门不变零改动）。478/478 + tsc 0。466/466 + tsc 0（v0.2.4）；**4999 已验**（CDP 矩阵 9/9 + off 逃生门 live + 桌面 user 复验，报告 §八；v0.2.5 双形态 CDP 待 lead，报告 §九）；真机 PWA 复验待 user（报告 `docs/50_test-reports/v0.2.4-ios-focus-zoom-suppression实测报告.md`，键盘遮蔽自愈判定驱动 follow-up 取舍）。CLI 注：`web` 子命令不认 `--patch`，config 覆盖走 home 层 `cordis.patch.yml`。**发布定格（2026-09-03 user 裁决）**：本地过程版本 0.2.4/0.2.5 的 tag（v0.2.3~v0.2.5）已清，npm/GitHub 发布为 **`0.2.2-b` / tag `v0.2.2b`**（0.2.2 系列顺延；真机全过后 user 以普通用户身份从 npm 装 prod 实测）。
 
 - ✅ **hashline content-locator**（2026-09-08，change `2026-09-08-v0-2-3b-hashline-content-locator`，v0.2.3-b）：served 账本去 session 化（schema v7，**path 主键**，`E_RANGE_UNVERIFIED` 跨会话类消灭）、集中存储 **`$DSH_HOME/storages/dsh-better-edit/`**（`configDir()` 无参化，终结 12 个 workspace 点目录——"到处拉屎"裁决落地）、verifyServedRange 内容快道（账本双界未见→内容放行；STALE/UNSERVED 保留；retryHint 改 read-once-then-resubmit）、write-hook 删除（write 仅上游确认信封，无锚点回放）。单测 `test/hashline-store.spec.ts` 12/12；全量 491/2（2 挂经 stash 基线证实先于本改动）；4999 第一人称实测通过（write 无回放 / 中心库无 session_id 列 / 无点目录 / read-then-edit 落盘）。实测定性：宿主 `dsh-fs-observation-policy` 的 `E_NOT_OBSERVED`（read-before-edit）为跨会话 edit 的**另一道设计内守卫，保留**。报告 `docs/50_test-reports/v0.2.3b-hashline-content-locator实测报告.md`。**新坑**：副本构建必须 `pnpm --filter better-dsh exec tsdown`——裸跑 `node_modules/.bin/tsdown` 产出 `.mjs` 形态，boot 即 `ERR_MODULE_NOT_FOUND lib/index.js`。已发布 **v0.2.3-b**（npm registry 2026-09-08 18:15 UTC+8，dist-tag `latest`）并部署 prod（18:19 装机、18:44 重启上线，中央 v7 库活体——本 3080 实例即运行其上）。
+
+- ✅ **mobile wave：官方寻址 + 状态驱动响应式**（2026-09-11，对齐 0.1.5-rc.2；**已发布 `0.2.3-c` / tag `v0.2.3c`**，npm dist-tag latest，含随批的 0.1.5 对齐移植；prod 3080 未部署——user 未指令，待 user 以普通用户身份自装实测）：①**手势状态输入只认官方面**（红线，起因：旧实现把 readRightOpen 挂在第三方 Better Sidebar 的 body 属性上，插件移除后恒 true 毒死整个状态机——左滑右滑全灭）；左栏 = `ctx.layout.toggleSidebar()` + AppFrame `[data-sidebar-collapsed]`，右栏 = 官方控件 `[data-sidebar-right-expand]`（会话头角落，开）/`[data-sidebar-right-toggle]`（dock chrome，关；store 动作 setExpanded/toggleExpanded 为 slot-store 内部，跨插件硬边界 → 原生按钮即正规入口）+ 状态读双 facet：`[data-rightbar-fullscreen]` 在场即开（手机全屏右栏不占轨道、`data-rightbar-collapsed` 同场在场——单 facet 读法致右滑误开左栏，user 真机诊断后修复）。②**响应式零自设像素阈值**：CSS 键纯 `[data-sidebar-collapsed]`（无 @media）——上游 auto-collapse（今日 1024）为真收 56px rail 时我们压成 0px，上游改阈值自动跟随；手势 band = 粗指针（`pointer: coarse`）∨ 任一面板处于窄态，细指针全静息（桌面文本拖选永不误触）。③**`mobile.breakpoint` 配置删除**（schema+boot payload+client），zoomGuard 自带内部 768 兜底不受影响；所谓"mobile 配置卡"从未存在过（client 半唯一设置行是 failover）——MOBILE_CONFIG 一直是纯配置文件面。425→492 tests + tsc 0（monorepo 0.1.5-rc.2 手术环境）；4988 已部署活体 + user iPhone 真机确认（"没有问题，是成功的"）；0.1.3-alpha.2 prod host 兼容矩阵源码核验通过（stat/open、sendMessage、ptc-dispatch-log 均在；`tool/ptc-dispatch` 事件 vocabulary-growth 容忍 = 降级不破坏，host 升 0.1.5 自愈），报告 `docs/50_test-reports/v0.2.3c-mobile-wave实测报告.md`。
 
 ---
 
@@ -171,6 +186,7 @@ prod npm CLI 当 harness 核，只把插件本体和它的 harness 依赖换成 
 - **官方声明式 patch 线 = `cordis.patch.yml`**：行 schema `{id, name, config, inject, disabled}`；层序 bundles（列序）→ profile → home → `--patch`；后层按 id **整行重述**覆盖前层（非 merge）；`!!js` boot 表达式可读 `process.env` 与 loader 上下文服务。presets/features/settings 全是插件行 config → 全部 patch-线可达。dashr 自己的 bundle patch 已在用（compaction 三行 re-enable、`DASHR_KERNEL_PYTHON`）。
 - **override 的三条硬边界**（勿再凭直觉）：① 浏览器模块表同 id = 双侧硬错（无 last-wins，同名包遮蔽不可行）；② cordis 同 scope 同名 service = 硬错，"closest wins" 仅祖先/isolate 遮蔽（兄弟插件间不存在）；③ 官方 UI 组件遮蔽 = **slot 同 cell 更低 priority 注册（lowest renders）**，同 priority 才报错。整插件替换的正规入口 = patch 行 id 覆盖 + `name` 重指（记录未用）。
 - **`/api` 信任栅栏（alpha.5 起）**：服务端化 + 配置化——`connection` 行 config `trustedHosts`（`--trusted-host` CLI → web-app bundle `webRuntime` 服务 → `!!js ctx.webRuntime.trustedHosts`）；上游注释明示拼接扩展式。alpha.3 的 prod 手改 patch（vendored `isLoopbackHostname` 放宽）在 alpha.5+ 由 patch 线取代（v0.2.1f change `plugin-shipped-ui-patches` 落地中，含 4999 症状复诊与 `isLoopback` 残余评估）。
+- **手势/状态类 client 代码只认官方面（2026-09-11 红线）**：任何"读状态/触发动作"的 DOM 寻址只许指向上游官方表面（layout 服务方法、AppFrame 语义属性、官方控件 data-\*）；第三方插件 DOM **永不做状态输入**（Better Sidebar body 属性毒死手势状态机的先例），第三方至多做可选的增量目标、缺席时静默降级。
 - **client 半 CSS 注入是一等公民**（`claimStyles` 按插件认领 `<style>`）；上游 `ui-layout`：窄视口侧栏折叠为 56px rail 永不为 0、`SIDEBAR_AUTO_COLLAPSE=1024`、视口 <920 details 必关、**无原生滑动手势**（插件手势 = 纯增量）。
 
 ---
@@ -183,3 +199,19 @@ prod npm CLI 当 harness 核，只把插件本体和它的 harness 依赖换成 
 **为什么声明 58 个 peerDeps**: 全是 dev-time 需要 —— `tsc --noEmit` 类型检查、`tsdown` dts、以及 vitest 单测（在 dsh host 之外直接 import harness 包；dev workspace 靠 pnpm `autoInstallPeers` 装上）。部署副本里它们是 `peerDependencies` 且 `peerDependenciesMeta` 全部 `optional: true`，pnpm-lock.yaml 对嵌套路径 0 引用 —— pnpm 从不要求它们在场。真正的 `dependencies` 只有 `@deepseek-ai/schemastery`（非 harness API，是插件自用的 Schema 描述符库；描述符是结构化数据、宿主 cordis 当数据解释，故可以自带副本，与 cordis 必须 peer 的身份要求相反）+ cosmokit（schemastery 的传递依赖）。
 
 **已执行**: 删除 17 条悬空 symlink，保留 `schemastery`+`cosmokit`；清理后 14/14 运行期 import 解析复测通过。曾考虑的 A（重指 z_dsh-alpha，alpha.1 与 alpha.3 host 版本偏斜、「两份 cordis」身份风险）与 B（重指 upstream checkout）均已否决。另: ~~profile package.json 锁 `0.2.1-a` 而部署实为 `0.2.1-c`~~ 漂移已于 2026-09-02 收敛——锁/lockfile/部署位统一 `0.2.1-d`（pnpm add 精确版本线）。
+
+---
+
+## 五、嵌套 AGENTS.md 约定
+
+- **本文件身份**：DASHR（better-dsh）的根 AGENTS.md（总纲，无更上层）。
+- **嵌套（Nesting）**：支持层层嵌套，但每一层并非都必须有——只在有实质内容的子目录放置；中间层级无 AGENTS.md 则跳过，沿用最近上层。
+- **作用范围（Scope）**：每个 AGENTS.md 只管辖其所在目录及所有子目录，不约束兄弟目录、不反向影响上层。
+- **优先级（Precedence）**：对某文件，生效规则 = 从根到该文件路径上所有 AGENTS.md 的叠加；冲突时离文件最近者胜出（nearest wins）；用户显式指令优先级高于一切 AGENTS.md。
+- **子目录模板**：子目录/孙目录若需自己的 AGENTS.md，复制下方模板、填入 `<相对路径>` 即可（"去根目录拿一个"；中间层级无 AGENTS.md 时上层直指根）：
+
+  ```markdown
+  # <相对路径> — AGENTS.md
+
+  本文件是 `<相对路径>` 子目录的 AGENTS.md。上层为 DASHR 根目录 `AGENTS.md`；其规则对本目录仍有效，冲突时以本文件为准。
+  ```

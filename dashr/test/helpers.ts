@@ -114,7 +114,9 @@ export async function setupPresentation(
     id: SessionId('dashr-agent'),
     ...agentRoute === undefined ? {} : { options: agentRoute },
     session: {
-      header: { cwd: process.cwd() },
+      // `parentSession` set so the agent_message(receiver='parent') bridge's
+      // root-guard passes and the sendMessage uplink is exercised (0.1.5 seam).
+      header: { cwd: process.cwd(), parentSession: SessionId('dashr-parent') },
       append: (type: string, data: unknown) => { events.push({ type, data }) },
     },
   } as unknown as Agent
@@ -216,27 +218,27 @@ export function registerFakeDelegationTools(
 
 /** What the fake `ctx.subagents` service recorded, in call order. */
 export interface FakeReportCall {
-  child: Agent
+  sender: Agent
+  targetId: string
   content: { type: string, text?: string }[]
-  delivery: string
   signal: AbortSignal
 }
 
 /**
- * Mount a fake root-realm `ctx.subagents` service whose `reportFrom` records
+ * Mount a fake root-realm `ctx.subagents` service whose `sendMessage` records
  * calls and answers a fixed message id (or throws the given error — e.g. a
  * SubagentError-shaped `{ code: 'UNAUTHORIZED' }` rejection).
  */
 export async function fakeSubagentsService(
   ctx: Context,
-  reportFrom: (call: FakeReportCall) => Promise<string> = () => Promise.resolve('mid-1'),
+  sendMessage: (call: FakeReportCall) => Promise<string> = () => Promise.resolve('mid-1'),
 ): Promise<FakeReportCall[]> {
   const reports: FakeReportCall[] = []
   const fiber = await ctx.plugin({ name: 'fake-subagents', apply(c) {
     c.provide('subagents', {
-      reportFrom: (child: Agent, content: FakeReportCall['content'], options: { delivery: string, signal: AbortSignal }) => {
-        reports.push({ child, content, delivery: options.delivery, signal: options.signal })
-        return reportFrom(reports[reports.length - 1]!)
+      sendMessage: (sender: Agent, targetId: string, content: FakeReportCall['content'], options: { signal: AbortSignal }) => {
+        reports.push({ sender, targetId, content, signal: options.signal })
+        return sendMessage(reports[reports.length - 1]!)
       },
     })
   } })
