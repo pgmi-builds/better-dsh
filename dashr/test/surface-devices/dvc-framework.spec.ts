@@ -18,11 +18,11 @@ import {
   dispatchDvcWrite,
   listDvcDevices,
   registerDvcDevice,
-} from '../../src/url-schema/handlers/dvc.ts'
-import type { DvcDevice } from '../../src/url-schema/handlers/dvc.ts'
-import { UrlResolver } from '../../src/url-schema/resolver.ts'
-import type { ResolverEnv } from '../../src/url-schema/resolver.ts'
-import { UrlSchemaError } from '../../src/url-schema/selector.ts'
+} from '../../src/url-schemes/handlers/dvc.ts'
+import type { DvcDevice } from '../../src/url-schemes/handlers/dvc.ts'
+import { UrlResolver } from '../../src/url-schemes/resolver.ts'
+import type { ResolverEnv } from '../../src/url-schemes/resolver.ts'
+import { UrlSchemesError } from '../../src/url-schemes/selector.ts'
 
 /** Shared resolver env — the dvc handler reads no env fields. */
 const env: ResolverEnv = {}
@@ -46,23 +46,23 @@ async function dvcRead(url: string): Promise<string> {
 }
 
 /** Invoke a sync-throwing dispatch and return its structured error. */
-function thrown(fn: () => unknown): UrlSchemaError {
+function thrown(fn: () => unknown): UrlSchemesError {
   try {
     fn()
   } catch (error) {
-    expect(error).toBeInstanceOf(UrlSchemaError)
-    return error as UrlSchemaError
+    expect(error).toBeInstanceOf(UrlSchemesError)
+    return error as UrlSchemesError
   }
   throw new Error('expected the dispatch to throw synchronously')
 }
 
 /** Await a rejection and return its structured error. */
-async function rejection(promise: Promise<unknown>): Promise<UrlSchemaError> {
+async function rejection(promise: Promise<unknown>): Promise<UrlSchemesError> {
   try {
     await promise
   } catch (error) {
-    expect(error).toBeInstanceOf(UrlSchemaError)
-    return error as UrlSchemaError
+    expect(error).toBeInstanceOf(UrlSchemesError)
+    return error as UrlSchemesError
   }
   throw new Error('expected the dispatch to reject')
 }
@@ -78,28 +78,28 @@ describe('dvc:// with a fresh empty registry', () => {
 
   it('bare read keeps the no-devices placeholder', async () => {
     const resolver = new UrlResolver()
-    resolver.register('dvc', (await import('../../src/url-schema/handlers/dvc.ts')).createDvcHandler())
+    resolver.register('dvc', (await import('../../src/url-schemes/handlers/dvc.ts')).createDvcHandler())
     await expect(resolver.resolve(env, 'dvc://')).resolves.toBe('no devices mounted')
   })
 
   it('a name read keeps the unknown-device placeholder', async () => {
-    const { createDvcHandler: freshHandler } = await import('../../src/url-schema/handlers/dvc.ts')
+    const { createDvcHandler: freshHandler } = await import('../../src/url-schemes/handlers/dvc.ts')
     const resolver = new UrlResolver()
     resolver.register('dvc', freshHandler())
     await expect(resolver.resolve(env, 'dvc://cam1')).resolves.toBe('unknown device: cam1')
   })
 
   it('write dispatch throws the structured DVC_NO_DEVICE error synchronously', async () => {
-    const { dispatchDvcWrite: freshDispatch } = await import('../../src/url-schema/handlers/dvc.ts')
-    // The fresh module also re-instantiates UrlSchemaError, so assert against
+    const { dispatchDvcWrite: freshDispatch } = await import('../../src/url-schemes/handlers/dvc.ts')
+    // The fresh module also re-instantiates UrlSchemesError, so assert against
     // the fresh class — instanceof against the static import would be false.
-    const { UrlSchemaError: FreshUrlSchemaError } = await import('../../src/url-schema/selector.ts')
+    const { UrlSchemesError: FreshUrlSchemesError } = await import('../../src/url-schemes/selector.ts')
     try {
       freshDispatch('dvc://cam1', 'x')
       throw new Error('expected the dispatch to throw')
     } catch (error) {
-      expect(error).toBeInstanceOf(FreshUrlSchemaError)
-      const coded = error as UrlSchemaError
+      expect(error).toBeInstanceOf(FreshUrlSchemesError)
+      const coded = error as UrlSchemesError
       expect(coded.code).toBe('DVC_NO_DEVICE')
       expect(coded.message).toContain('no devices mounted')
     }

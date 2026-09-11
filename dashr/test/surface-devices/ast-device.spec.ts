@@ -20,25 +20,25 @@ import {
   piNativesAddonFilenames,
   piNativesPackageName,
   setPiNativesForTest,
-} from '../../src/url-schema/vendored/devices/ast/natives-loader.ts'
+} from '../../src/url-schemes/vendored/devices/ast/natives-loader.ts'
 import type {
   AstFindResult,
   AstReplaceResult,
-} from '../../src/url-schema/vendored/devices/ast/natives-loader.ts'
+} from '../../src/url-schemes/vendored/devices/ast/natives-loader.ts'
 import {
   registerAstDevices,
   summaries,
-} from '../../src/url-schema/vendored/devices/ast/ast-device.ts'
-import type { DvcRegistry } from '../../src/url-schema/vendored/devices/ast/ast-device.ts'
+} from '../../src/url-schemes/vendored/devices/ast/ast-device.ts'
+import type { DvcRegistry } from '../../src/url-schemes/vendored/devices/ast/ast-device.ts'
 import {
   createDvcHandler,
   dispatchDvcWrite,
   listDvcDevices,
-} from '../../src/url-schema/handlers/dvc.ts'
-import type { DvcDevice } from '../../src/url-schema/handlers/dvc.ts'
-import { UrlResolver } from '../../src/url-schema/resolver.ts'
-import type { ResolverEnv } from '../../src/url-schema/resolver.ts'
-import { UrlSchemaError } from '../../src/url-schema/selector.ts'
+} from '../../src/url-schemes/handlers/dvc.ts'
+import type { DvcDevice } from '../../src/url-schemes/handlers/dvc.ts'
+import { UrlResolver } from '../../src/url-schemes/resolver.ts'
+import type { ResolverEnv } from '../../src/url-schemes/resolver.ts'
+import { UrlSchemesError } from '../../src/url-schemes/selector.ts'
 
 /** The dvc handler reads no env fields. */
 const env: ResolverEnv = {}
@@ -65,12 +65,12 @@ function displayPath(absolute: string): string {
 }
 
 /** Await a dispatch rejection and return its structured error. */
-async function rejection(promise: Promise<unknown>): Promise<UrlSchemaError> {
+async function rejection(promise: Promise<unknown>): Promise<UrlSchemesError> {
   try {
     await promise
   } catch (error) {
-    expect(error).toBeInstanceOf(UrlSchemaError)
-    return error as UrlSchemaError
+    expect(error).toBeInstanceOf(UrlSchemesError)
+    return error as UrlSchemesError
   }
   throw new Error('expected the dispatch to reject')
 }

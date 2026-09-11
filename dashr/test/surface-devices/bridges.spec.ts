@@ -3,7 +3,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import { FakeCellRuntime, fakeRuntime, runCell, setupPresentation } from '../helpers.ts'
-import { captureAllTools } from '../../src/url-schema/native-capture.ts'
+import { captureAllTools } from '../../src/url-schemes/native-capture.ts'
 import type { ReplJsonValue } from '../../src/runtime-surface.ts'
 
 /**

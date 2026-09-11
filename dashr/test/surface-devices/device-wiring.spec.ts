@@ -21,13 +21,13 @@ import { describe, expect, it, vi } from 'vitest'
 
 import type { ToolRunContext } from '@deepseek-ai/dsh-tools'
 
-import { createDvcHandler, registerDvcDevice } from '../../src/url-schema/handlers/dvc.ts'
-import { UrlResolver } from '../../src/url-schema/resolver.ts'
-import type { ResolverEnv } from '../../src/url-schema/resolver.ts'
-import { UrlSchemaError } from '../../src/url-schema/selector.ts'
-import { createWriteTool } from '../../src/url-schema/tools/write.ts'
-import { registerAstDevices } from '../../src/url-schema/vendored/devices/ast/ast-device.ts'
-import { registerBrowserDevice } from '../../src/url-schema/vendored/devices/browser/browser-device.ts'
+import { createDvcHandler, registerDvcDevice } from '../../src/url-schemes/handlers/dvc.ts'
+import { UrlResolver } from '../../src/url-schemes/resolver.ts'
+import type { ResolverEnv } from '../../src/url-schemes/resolver.ts'
+import { UrlSchemesError } from '../../src/url-schemes/selector.ts'
+import { createWriteTool } from '../../src/url-schemes/tools/write.ts'
+import { registerAstDevices } from '../../src/url-schemes/vendored/devices/ast/ast-device.ts'
+import { registerBrowserDevice } from '../../src/url-schemes/vendored/devices/browser/browser-device.ts'
 
 /** Shared resolver env — the dvc handler reads no env fields. */
 const env: ResolverEnv = {}
@@ -45,12 +45,12 @@ async function dvcRead(url: string): Promise<string> {
 }
 
 /** Await a rejection and return its structured error. */
-async function rejection(promise: Promise<unknown>): Promise<UrlSchemaError> {
+async function rejection(promise: Promise<unknown>): Promise<UrlSchemesError> {
   try {
     await promise
   } catch (error) {
-    expect(error).toBeInstanceOf(UrlSchemaError)
-    return error as UrlSchemaError
+    expect(error).toBeInstanceOf(UrlSchemesError)
+    return error as UrlSchemesError
   }
   throw new Error('expected the write to reject')
 }
@@ -113,9 +113,9 @@ describe('write tool with no devices mounted', () => {
   it('keeps the placeholder-wave DVC_NO_DEVICE error', async () => {
     vi.resetModules()
     // Fresh module graph: write.ts's static import of the dvc handler binds
-    // to the fresh module-level registry, which is empty. UrlSchemaError is
+    // to the fresh module-level registry, which is empty. UrlSchemesError is
     // also re-instantiated, so assert on the structured code, not instanceof.
-    const { createWriteTool: freshWriteTool } = await import('../../src/url-schema/tools/write.ts')
+    const { createWriteTool: freshWriteTool } = await import('../../src/url-schemes/tools/write.ts')
     const write = freshWriteTool({})
     await expect(
       write.execute({ file_path: 'dvc://screen', content: 'x' }, fakeExec()),

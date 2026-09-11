@@ -71,7 +71,7 @@ import { Context } from '@deepseek-ai/cordis'
 import { DashrRuntime } from './runtime.ts'
 import { resolveKernelEnv } from './kernel-env.ts'
 import type { Config as RuntimeConfig } from './runtime.ts'
-import DshUrlSchema from './url-schema/index.ts'
+import DshUrlSchemes from './url-schemes/index.ts'
 import z from '@deepseek-ai/schemastery'
 import { defineTool, TOOL_RUNTIME_SCHEDULER } from '@deepseek-ai/dsh-tools'
 import type {
@@ -126,6 +126,10 @@ export const inject = ['tools']
 /** Plugin config. */
 export interface Config extends RuntimeConfig {
   maxParallelSubCalls?: number
+  /** URL scheme resolution (read/write/grep/glob scheme branches + `ctx://`). */
+  urlSchemes?: boolean
+  /** Hashline feature: read anchors + the `edit`/`undo` tool family. */
+  hashline?: boolean
   /** Page hostnames this operator declares their own (web-trust boot script). */
   trustedPageAuthorities?: string[]
   /** Mobile responsiveness knobs (delivered to the client half as a page global). */
@@ -157,6 +161,8 @@ export const Config = z.intersect([
   DashrRuntime.Config,
   z.object({
     maxParallelSubCalls: z.natural().min(1).default(10),
+    urlSchemes: z.boolean().default(true),
+    hashline: z.boolean().default(true),
     // Schema-level default (v0.2.2a): derived from DSH_TRUSTED_HOSTS at module
     // load — per-key defaults survive every patch-overlay layer (a profile/
     // home row with this id whole-row-overrides the bundle row's CONFIG, so
@@ -991,7 +997,7 @@ export function apply(ctx: Context, config: Config): void {
   // presentation inject below resolves. Both halves were separate plugin rows
   // before the merge; one row now owns the whole lifecycle.
   ctx.plugin(DashrRuntime, pickRuntimeConfig(config))
-  ctx.plugin(DshUrlSchema, config)
+  ctx.plugin(DshUrlSchemes, config)
   // General LLM failover (host-plane, per-turn): root-context waterfalls over
   // `agent/request` / `agent/request-error` walk a two-slot fallback chain on
   // AUTH/MISSING_CREDENTIAL/QUOTA/RATE_LIMIT. No cooldown, no primary tracking; settings is a
@@ -1128,7 +1134,7 @@ export function apply(ctx: Context, config: Config): void {
 
     // ①½ The wire mask (design D1): deny the displaced delegation names on
     // the agent's OWN scope layer at session-start. Ordering is the mount
-    // order made explicit: the url-schema row mounted earlier in `apply`
+    // order made explicit: the url-schemes row mounted earlier in `apply`
     // registered its session-start listener FIRST, so for every dispatch
     // this listener runs AFTER the own-layer wrappers registered (they are
     // restriction-exempt — own-layer registrations are never filtered) and

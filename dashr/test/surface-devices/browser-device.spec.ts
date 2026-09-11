@@ -18,9 +18,9 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { dispatchDvcWrite, listDvcDevices } from '../../src/url-schema/handlers/dvc.ts'
-import { UrlSchemaError } from '../../src/url-schema/selector.ts'
-import { registerBrowserDevice } from '../../src/url-schema/vendored/devices/browser/browser-device.ts'
+import { dispatchDvcWrite, listDvcDevices } from '../../src/url-schemes/handlers/dvc.ts'
+import { UrlSchemesError } from '../../src/url-schemes/selector.ts'
+import { registerBrowserDevice } from '../../src/url-schemes/vendored/devices/browser/browser-device.ts'
 
 // Light registration: mounting must not launch anything (zero-cost register).
 registerBrowserDevice()
@@ -30,11 +30,11 @@ const device = listDvcDevices().get('browser')
 const htmlUrl = (html: string): string => `data:text/html,${encodeURIComponent(html)}`
 
 /** Await a rejection and return its structured error. */
-async function rejection(promise: Promise<unknown>): Promise<UrlSchemaError> {
+async function rejection(promise: Promise<unknown>): Promise<UrlSchemesError> {
   try {
     await promise
   } catch (error) {
-    return error as UrlSchemaError
+    return error as UrlSchemesError
   }
   throw new Error('expected the device call to reject')
 }
@@ -54,7 +54,7 @@ afterEach(async () => {
 describe('dvc://browser device', () => {
   it('close with nothing open is a structured BROWSER_NOT_OPEN error', async () => {
     const error = await rejection(execute({ action: 'close' }))
-    expect(error).toBeInstanceOf(UrlSchemaError)
+    expect(error).toBeInstanceOf(UrlSchemesError)
     expect(error.code).toBe('BROWSER_NOT_OPEN')
   })
 

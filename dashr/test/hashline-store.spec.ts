@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
-import { loadHashStore, shutdownHashStore } from '../src/url-schema/vendored/hashline/hash-store.js'
+import { loadHashStore, shutdownHashStore } from '../src/url-schemes/vendored/hashline/hash-store.js'
 import {
   clearDriftReported,
   driftReported,
@@ -11,11 +11,11 @@ import {
   markDriftReported,
   recordServed,
   withWorkspace,
-} from '../src/url-schema/vendored/hashline/session-view.js'
-import { configDir, hashStorePath } from '../src/url-schema/vendored/hashline/paths.js'
-import { verifyServedRange } from '../src/url-schema/vendored/hashline/hashline/anchor-pipeline.js'
-import { initHasher, lineHashesPure } from '../src/url-schema/vendored/hashline/hashline/hash-assign.js'
-import { HASH_STORE_VERSION } from '../src/url-schema/vendored/hashline/constants.js'
+} from '../src/url-schemes/vendored/hashline/session-view.js'
+import { configDir, hashStorePath } from '../src/url-schemes/vendored/hashline/paths.js'
+import { verifyServedRange } from '../src/url-schemes/vendored/hashline/hashline/anchor-pipeline.js'
+import { initHasher, lineHashesPure } from '../src/url-schemes/vendored/hashline/hashline/hash-assign.js'
+import { HASH_STORE_VERSION } from '../src/url-schemes/vendored/hashline/constants.js'
 
 /**
  * v0.2.3b hashline-content-locator contract:

@@ -25,15 +25,15 @@ import { fileURLToPath } from 'node:url'
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { dispatchDvcWrite, listDvcDevices } from '../../src/url-schema/handlers/dvc.ts'
-import type { DvcDevice } from '../../src/url-schema/handlers/dvc.ts'
-import { UrlSchemaError } from '../../src/url-schema/selector.ts'
+import { dispatchDvcWrite, listDvcDevices } from '../../src/url-schemes/handlers/dvc.ts'
+import type { DvcDevice } from '../../src/url-schemes/handlers/dvc.ts'
+import { UrlSchemesError } from '../../src/url-schemes/selector.ts'
 import {
   installLspDevices,
   setLspDeviceIdleTimeout,
   shutdownLspDevice,
-} from '../../src/url-schema/vendored/devices/lsp/lsp-device.ts'
-import { registryNames, resolveCommandPath } from '../../src/url-schema/vendored/devices/lsp/lsp-server-registry.ts'
+} from '../../src/url-schemes/vendored/devices/lsp/lsp-device.ts'
+import { registryNames, resolveCommandPath } from '../../src/url-schemes/vendored/devices/lsp/lsp-server-registry.ts'
 
 const FIXTURES_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures')
 const FAKE_SERVER = path.join(FIXTURES_DIR, 'fake-lsp-server.mjs')
@@ -50,12 +50,12 @@ function mountLocally(): DvcDevice {
 const device = mountLocally()
 
 /** Await a rejection and return its structured error. */
-async function rejection(promise: Promise<unknown>): Promise<UrlSchemaError> {
+async function rejection(promise: Promise<unknown>): Promise<UrlSchemesError> {
   try {
     await promise
   } catch (error) {
-    if (error instanceof UrlSchemaError) return error
-    throw new Error(`expected UrlSchemaError, got: ${String(error)}`)
+    if (error instanceof UrlSchemesError) return error
+    throw new Error(`expected UrlSchemesError, got: ${String(error)}`)
   }
   throw new Error('expected the promise to reject')
 }

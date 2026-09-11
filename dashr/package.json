@@ -25,6 +25,7 @@
     "docs",
     "cordis.patch.yml",
     "eval-description.md",
+    "url-schemes-section.md",
     "scripts/kernel-provision.mjs"
   ],
   "scripts": {

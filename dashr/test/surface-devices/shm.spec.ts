@@ -18,7 +18,7 @@ import { join } from 'node:path'
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import * as materialize from '../../src/url-schema/tools/materialize.ts'
+import * as materialize from '../../src/url-schemes/tools/materialize.ts'
 
 /** The shm and disk prefixes a materialized directory must carry. */
 const SHM_PREFIX = '/dev/shm/dashr-url-'

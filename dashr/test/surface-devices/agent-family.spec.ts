@@ -9,9 +9,9 @@ import { describe, expect, it } from 'vitest'
 import { MessageId, type AssistantMessage } from '@deepseek-ai/dsh-llm'
 import { SESSION_FORMAT_VERSION, Session, SessionId, SessionSeq, type SessionEvent, type SessionHeader } from '@deepseek-ai/dsh-session'
 
-import { createAgentHandler } from '../../src/url-schema/handlers/agent.ts'
-import type { AgentDescendantEntry, PersistedSessionEvent } from '../../src/url-schema/handlers/agent.ts'
-import { UrlSchemaError } from '../../src/url-schema/selector.ts'
+import { createAgentHandler } from '../../src/url-schemes/handlers/agent.ts'
+import type { AgentDescendantEntry, PersistedSessionEvent } from '../../src/url-schemes/handlers/agent.ts'
+import { UrlSchemesError } from '../../src/url-schemes/selector.ts'
 
 /** Deterministic epoch-relative times (ms) for every fixture log. */
 const T = {
@@ -135,13 +135,13 @@ function makeHandler(options: {
   return { handler, env: { agent: { id: callerId } } }
 }
 
-/** Await a rejection and return its structured `UrlSchemaError`. */
-async function rejection(promise: Promise<string>): Promise<UrlSchemaError> {
+/** Await a rejection and return its structured `UrlSchemesError`. */
+async function rejection(promise: Promise<string>): Promise<UrlSchemesError> {
   try {
     await promise
   } catch (error) {
-    expect(error).toBeInstanceOf(UrlSchemaError)
-    return error as UrlSchemaError
+    expect(error).toBeInstanceOf(UrlSchemesError)
+    return error as UrlSchemesError
   }
   throw new Error('expected the call to reject')
 }

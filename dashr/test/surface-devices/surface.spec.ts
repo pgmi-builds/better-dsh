@@ -24,8 +24,8 @@ import { createScope } from '@deepseek-ai/dsh-scope'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import { FakeCellRuntime, fakeRuntime, runCell } from '../helpers.ts'
 import Presentation, { MASKED_TOOL_NAMES } from '../../src/index.ts'
-import { getCapturedTools } from '../../src/url-schema/native-capture.ts'
-import { inject as urlSchemaInject } from '../../src/url-schema/index.ts'
+import { getCapturedTools } from '../../src/url-schemes/native-capture.ts'
+import { inject as urlSchemaInject } from '../../src/url-schemes/index.ts'
 import { isFlatBindableName } from '../../src/py-sdk.ts'
 
 /** Everything the surface tests need: the composition harness plus the started agent's live scoped context. */
@@ -44,7 +44,7 @@ interface Surface {
 /**
  * Boot the full composition with REAL layer semantics: systemPrompt + the
  * real ToolRuntime (global layer), a fake cell runtime, the six host-plane
- * services the url-schema row injects (mount-time closures only here — no
+ * services the url-schemes row injects (mount-time closures only here — no
  * scheme handler is exercised), then the presentation row mounted into a
  * preset standing scope with one agent joined under it. The agent is the
  * structural capture-session fake from the presentation harness, wired to
@@ -59,7 +59,7 @@ async function setupSurface(): Promise<Surface> {
   const servicesFiber = await ctx.plugin({
     name: 'fake-host-services',
     apply(c) {
-      // Whatever the url-schema row injects (minus `tools`, mounted above):
+      // Whatever the url-schemes row injects (minus `tools`, mounted above):
       // this spec never exercises a scheme handler, so opaque stubs satisfy
       // the inject wait — and tracking the live list keeps the harness
       // honest when sibling waves extend it.
