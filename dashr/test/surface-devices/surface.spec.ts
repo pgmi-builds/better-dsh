@@ -26,8 +26,7 @@ import { FakeCellRuntime, fakeRuntime, runCell } from '../helpers.ts'
 import Presentation, { MASKED_TOOL_NAMES } from '../../src/index.ts'
 import { getCapturedTools } from '../../src/url-schema/native-capture.ts'
 import { inject as urlSchemaInject } from '../../src/url-schema/index.ts'
-import { renderReplBridgeInstructions, REPL_BRIDGE_CATALOG_MODE } from '../../src/py-sdk.ts'
-import type { DASHRSdkSchema } from '../../src/py-sdk.ts'
+import { isFlatBindableName } from '../../src/py-sdk.ts'
 
 /** Everything the surface tests need: the composition harness plus the started agent's live scoped context. */
 interface Surface {
@@ -168,13 +167,16 @@ describe('wire mask — session-start restrict over the real layer chain', () =>
     expect(dispatched.isError).toBe(true)
     expect(dispatched.error?.info?.code).toBe('UNKNOWN_TOOL')
 
-    // The catalog section regenerates from the post-mask projection: the
-    // visible tool renders, the masked names do not.
+    // No DASHR-rendered catalog exists: the wire tools array and the eval
+    // description are the only surfaces. The eval description is a constant
+    // Markdown load — it names no per-tool signature, masked or visible.
     const assembly = await surface.ctx.systemPrompt.assemble({ scope: surface.agent })
-    const catalog = String(assembly.sections.find(section => section.name === 'dashr:tool-catalog')?.text)
-    expect(catalog).toContain('tool.keep_me(')
-    expect(catalog).not.toContain('tool.skill(')
-    expect(catalog).not.toContain('tool.subagent(')
+    expect(assembly.sections.some(section => section.name === 'dashr:tool-catalog')).toBe(false)
+    const evalTool = assembly.tools.find(tool => tool.name === 'eval')
+    expect(evalTool).toBeDefined()
+    expect(String(evalTool?.description)).not.toContain('tool.keep_me(')
+    expect(String(evalTool?.description)).not.toContain('tool.skill(')
+    expect(String(evalTool?.description)).not.toContain('tool.subagent(')
   })
 
   it('skips masked names the host never registered (restrict may only name inherited tools)', async () => {
@@ -299,109 +301,16 @@ describe('REPL bindings — single-state auto-map over the post-mask projection'
 })
 
 
-describe('bridge instructions — the repositioned catalog render (design D4/D5)', () => {
-  /** A visible-tool fixture set: nested args, string enums, optional keys, a non-flat name. */
-  const schemas: DASHRSdkSchema[] = [
-    {
-      name: 'echo',
-      description: 'Echo a value.',
-      parameters: {
-        type: 'object',
-        properties: { value: { type: 'string' }, tag: { type: 'string' } },
-        required: ['value'],
-        additionalProperties: false,
-      },
-      output: { type: 'object', properties: { value: { type: 'string' } }, required: ['value'], additionalProperties: false },
-    },
-    {
-      name: 'agent_message',
-      description: 'The A2A bridge.',
-      parameters: {
-        type: 'object',
-        properties: {
-          receiver: { type: 'string', enum: ['child', 'parent', 'interrupt'] },
-          message: { type: 'string' },
-          subagent_id: { type: 'string' },
-          target_session_id: { type: 'string' },
-        },
-        required: ['receiver', 'message'],
-        additionalProperties: false,
-      },
-      output: { type: 'object', properties: {}, additionalProperties: true },
-    },
-    {
-      name: 'hyphen-tool',
-      description: 'A non-flat MCP name.',
-      parameters: { type: 'object', properties: {}, additionalProperties: false },
-      output: { type: 'object', properties: {}, additionalProperties: false },
-    },
-  ]
-
-  it('defaults to the compact-signatures mode and renders deterministically', () => {
-    expect(REPL_BRIDGE_CATALOG_MODE).toBe('signatures')
-    const text = renderReplBridgeInstructions(schemas)
-    expect(renderReplBridgeInstructions([...schemas].reverse())).toBe(text)
+describe('py-sdk — the one binding-name policy (the renderers are gone; the wire catalog is the only catalog)', () => {
+  it('accepts flat names: plain identifiers and __-infixed MCP names alike', () => {
+    for (const name of ['echo', 'read', 'agent_message', 'llm_completion', 'mcp__server__tool']) {
+      expect(isFlatBindableName(name)).toBe(true)
+    }
   })
 
-  it("mode 'signatures': one compact line per flat tool with the output contract kept", () => {
-    const text = renderReplBridgeInstructions(schemas)
-    expect(text).toContain('## Calling tools from the scripting pad')
-    // Required vs optional keys, string enums, and the output shape inline.
-    expect(text).toContain("tool.agent_message(args: {'receiver': 'child' | 'parent' | 'interrupt', 'message': str, 'subagent_id'?: str, 'target_session_id'?: str}) -> dict")
-    // Lexicographic emission; the non-flat name gets NO declaration line
-    // (the exception sentence covers it), and no TypedDict classes remain.
-    expect(text.indexOf('tool.agent_message(')).toBeLessThan(text.indexOf('tool.echo('))
-    expect(text).not.toContain('tool.hyphen-tool(')
-    expect(text).not.toContain('class ')
-    expect(text).not.toContain('TypedDict')
-  })
-
-  it('abbreviates structure deeper than two levels', () => {
-    const text = renderReplBridgeInstructions([{
-      name: 'deep',
-      description: 'Deep nesting.',
-      parameters: {
-        type: 'object',
-        properties: {
-          outer: {
-            type: 'object',
-            properties: {
-              inner: {
-                type: 'object',
-                properties: { leaf: { type: 'string' } },
-                required: ['leaf'],
-                additionalProperties: false,
-              },
-            },
-            required: ['inner'],
-            additionalProperties: false,
-          },
-        },
-        required: ['outer'],
-        additionalProperties: false,
-      },
-      output: { type: 'object', properties: {}, additionalProperties: false },
-    }])
-    // Depth semantics mirror omp's tsType cap: root, child, and grandchild
-    // render (depth 0–2); a value three levels deep degrades to `Any` —
-    // here `leaf`, the great-grandchild.
-    expect(text).toContain("tool.deep(args: {'outer': {'inner': {'leaf': Any}}}) -> dict")
-  })
-
-  it("mode 'convention': the one-sentence convention alone, no declaration block", () => {
-    const text = renderReplBridgeInstructions(schemas, 'convention')
-    expect(text).toContain('## Calling tools from the scripting pad')
-    expect(text).toContain('await tool.<name>(args)')
-    expect(text).toContain('ToolCallError')
-    expect(text).toContain('not plain identifiers')
-    expect(text).toContain('live callable surface')
-    expect(text).not.toContain('```python')
-    expect(text).not.toContain('tool.echo(')
-  })
-
-  it('never uses the word "kernel" in either mode (design D5 wording)', () => {
-    for (const mode of ['signatures', 'convention'] as const) {
-      expect(renderReplBridgeInstructions(schemas, mode).toLowerCase()).not.toContain('kernel')
+  it('rejects non-flat or non-bindable names: hyphens, underscore-leading, reserved words, seam globals', () => {
+    for (const name of ['hyphen-tool', 'mcp__srv__tool-name', '_private', 'for', 'type', 'match', 'console', '__dashr_injected__']) {
+      expect(isFlatBindableName(name)).toBe(false)
     }
   })
 })

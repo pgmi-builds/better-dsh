@@ -1,6 +1,6 @@
 {
   "name": "better-dsh",
-  "version": "0.2.3-c",
+  "version": "0.2.3-d",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -24,7 +24,7 @@
     "lib",
     "docs",
     "cordis.patch.yml",
-    "control-prompt.md",
+    "eval-description.md",
     "scripts/kernel-provision.mjs"
   ],
   "scripts": {

@@ -3,6 +3,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import { toolCallId } from '../src/tool-call-id.ts'
 import type { Agent } from '@deepseek-ai/dsh-agent'
+import { readFileSync } from 'node:fs'
 import { FakeCellRuntime, fakeRuntime, registerFakeDelegationTools, runCell, setupPresentation } from './helpers.ts'
 import { ESCALATION_GUIDANCE_ORDER, MASKED_TOOL_NAMES, resolveMaxParallelSubCalls } from '../src/index.ts'
 
@@ -37,58 +38,42 @@ async function modelDirect(ctx: Context, name: string, agent: Agent, arguments_:
 }
 
 describe('assembly — the DASHR row collapses its scope, and only its scope', () => {
-  it('a preset-scope mount leaves eval the only contributed tool and ships the Tool Catalog', async () => {
+  it('a preset-scope mount leaves eval the only contributed tool and ships NO DASHR prompt sections', async () => {
     const { ctx, agent } = await setupPresentation(fakeRuntime)
     registerEcho(ctx)
     const assembly = await ctx.systemPrompt.assemble({ scope: agent.agent })
     expect(assembly.tools.map(tool => tool.name)).toEqual(['agent', 'agent_message', 'agent_workflow', 'echo', 'eval', 'llm_completion'])
-    const catalog = assembly.sections.find(section => section.name === 'dashr:tool-catalog')
-    expect(catalog).toBeDefined()
-    // v0.1.8e: the catalog is REPL bridge instructions for the scripting
-    // pad — one compact signature line per tool, no kernel wording.
-    expect(catalog?.text).toContain('## Calling tools from the scripting pad')
-    expect(catalog?.text).not.toContain('kernel')
-    // FLAT shape: the tool is a top-level function, no Tools protocol, no
-    // tools singleton — and the bridge tools render in the same section.
-    expect(catalog?.text).toContain('tool.echo(')
-    expect(catalog?.text).not.toContain('class Tools(Protocol)')
-    expect(catalog?.text).not.toContain('tools: Tools')
-    expect(catalog?.text).toContain('tool.agent_message(')
-    expect(catalog?.text).not.toContain('eval(')
+    // The wire tools array is the only tool catalog; the eval description is
+    // the only REPL guidance. No DASHR-rendered prompt section exists at all.
+    expect(assembly.sections.some(section => section.name.startsWith('dashr:'))).toBe(false)
+    const evalTool = assembly.tools.find(tool => tool.name === 'eval')
+    expect(String(evalTool?.description)).toContain('## Calling tools from a cell')
   })
 
-  it('ships the Control Prompt section BEFORE the Tool Catalog, teaching the single-entry contract and flat bindings', async () => {
+  it('carries ALL REPL guidance in the eval description (cell paradigm, decision rule, alias note)', async () => {
     const { ctx, agent } = await setupPresentation(fakeRuntime)
     registerEcho(ctx)
     const assembly = await ctx.systemPrompt.assemble({ scope: agent.agent })
-    const names = assembly.sections.map(section => section.name)
-    const control = assembly.sections.find(section => section.name === 'dashr:control-prompt')
-    expect(control).toBeDefined()
-    expect(names.indexOf('dashr:control-prompt')).toBeGreaterThanOrEqual(0)
-    expect(names.indexOf('dashr:control-prompt')).toBeLessThan(names.indexOf('dashr:tool-catalog'))
-    const text = String(control?.text)
-    // The guard contract, taught up front rather than learned by failing.
-    expect(text).toContain('TWO ways to act')
+    const evalTool = assembly.tools.find(tool => tool.name === 'eval')
+    const text = String(evalTool?.description)
+    // The decision rule and the flat-binding paradigm, taught once.
+    expect(text).toContain('Payload-shaped work')
     expect(text).toContain('Logic-shaped work')
+    expect(text).toContain('## Calling tools from a cell')
     // Flat everywhere: no namespaced promise survives into the prose.
     expect(text).not.toContain('await tools.')
-    expect(text).not.toContain('tools.')
-    // The renamed file glob and the bridge tools get flat guidance.
+    // The renamed-file glob and the bridge tools get flat guidance.
     expect(text).toContain('tool.glob')
     // The masked report uplink is never taught: agent_message('parent', ...)
     // is the single child->parent channel, and a root has no parent.
     expect(text).not.toContain('await report(')
     expect(text).not.toContain('report tool')
-    // The catalog renders the bridge tools as ordinary async-def
-    // declarations — one flat surface, no separate bridge-tools block.
-    // v0.1.8e: the three delegation bridges (agent / agent_message /
-    // agent_workflow) replace the old single send_message bridge.
-    const catalog = String(assembly.sections.find(section => section.name === 'dashr:tool-catalog')?.text)
-    expect(catalog).not.toContain('tool.refine(')
-    expect(catalog).not.toContain('tool.compact(')
-    expect(catalog).toContain('tool.agent_message(')
+    // No prompt section re-teaches any of it (single source).
+    for (const section of assembly.sections) {
+      expect(String(section.text)).not.toContain('TWO ways to act')
+      expect(String(section.text)).not.toContain('## Calling tools from a cell')
+    }
   })
-
   it('a neighbor scope WITHOUT the row keeps its full native schema set (PTC coexistence, part one)', async () => {
     const { ctx, agent, other } = await setupPresentation(fakeRuntime)
     registerEcho(ctx)
@@ -109,7 +94,7 @@ describe('assembly — the DASHR row collapses its scope, and only its scope', (
     expect(assembly.sections.some(section => section.name === 'dashr:tool-catalog')).toBe(false)
   })
 
-  it('the SDK section regenerates from the calling scope: a restricted agent loses the tool from its SDK', async () => {
+  it('the eval description is scope-independent: restricting a tool never changes it', async () => {
     const { ctx, agent } = await setupPresentation(fakeRuntime)
     registerEcho(ctx)
     ctx.tools.register(defineTool({
@@ -119,15 +104,17 @@ describe('assembly — the DASHR row collapses its scope, and only its scope', (
       output: { schema: { type: 'string' }, render: (_args, value) => [{ type: 'text', text: String(value) }] },
       execute: args => Promise.resolve(`secret:${String((args as { value: string }).value)}`),
     }))
+    const before = String((await ctx.systemPrompt.assemble({ scope: agent.agent })).tools.find(tool => tool.name === 'eval')?.description)
     // The joined agent restricts the GLOBAL `secret` tool away for itself.
     agent.scope.ctx.tools.restrict({ deny: ['secret'] })
-    const assembly = await ctx.systemPrompt.assemble({ scope: agent.agent })
-    const catalog = assembly.sections.find(section => section.name === 'dashr:tool-catalog')
-    expect(catalog?.text).toContain('tool.echo(')
-    expect(catalog?.text).not.toContain('secret')
+    const after = String((await ctx.systemPrompt.assemble({ scope: agent.agent })).tools.find(tool => tool.name === 'eval')?.description)
+    // The description is a constant Markdown load — no per-tool enumeration,
+    // so the calling scope's visible tool set cannot leak into it.
+    expect(after).toBe(before)
+    expect(after).not.toContain('secret')
   })
 
-  it('the catalog renderer applies no masking of its own — it renders every schema it is handed (masking is session-start restrict, covered by surface.spec)', async () => {
+  it('the eval description enumerates no per-tool signatures — no double filter (masking is session-start restrict, covered by surface.spec)', async () => {
     const { ctx, agent } = await setupPresentation(fakeRuntime)
     registerEcho(ctx)
     registerFakeDelegationTools(ctx)
@@ -139,13 +126,10 @@ describe('assembly — the DASHR row collapses its scope, and only its scope', (
       execute: args => Promise.resolve(`reported:${String((args as { output: string }).output)}`),
     }))
     const assembly = await ctx.systemPrompt.assemble({ scope: agent.agent })
-    const catalog = String(assembly.sections.find(section => section.name === 'dashr:tool-catalog')?.text)
-    // The renderer is mask-agnostic: every registered flat name renders as a
-    // one-line signature. Restriction (which removes the replaced-presentation
-    // names from `schemas(agent)`) happens at agent/session-start and is the
-    // surface.spec responsibility — this layer must not double-filter.
-    for (const name of ['send_message', 'report', 'subagent', 'subagent_fork', 'list_agents', 'interrupt_agent', 'workflow', 'ralph']) {
-      expect(catalog).toContain(`tool.${name}(`)
+    const description = String(assembly.tools.find(tool => tool.name === 'eval')?.description)
+    // No per-tool signature lines at all — registered, masked, or bridged.
+    for (const name of ['send_message', 'report', 'subagent', 'subagent_fork', 'list_agents', 'interrupt_agent', 'workflow', 'ralph', 'echo']) {
+      expect(description).not.toContain(`tool.${name}(`)
     }
     // The registry itself is untouched: every registered name is still there.
     const registered = ctx.tools.schemas(agent.agent).map(schema => schema.name)
@@ -221,29 +205,60 @@ describe('v0.2.1b — model-surface contracts (eval description, mask list, esca
     const { ctx, agent } = await setupPresentation(fakeRuntime)
     const assembly = await ctx.systemPrompt.assemble({ scope: agent.agent })
     const evalTool = assembly.tools.find(tool => tool.name === 'eval')
-    expect(evalTool?.description).toContain('top-level `await` works')
+    expect(evalTool?.description).toContain('Top-level `await` works')
     expect(evalTool?.description).toContain('top-level `return` is a SyntaxError')
     expect(evalTool?.description).not.toContain('top-level `await` and `return` work')
-    const control = assembly.sections.find(section => section.name === 'dashr:control-prompt')
-    expect(control?.text).toContain('top-level `await` works')
-    expect(control?.text).toContain('top-level `return` is a SyntaxError')
-    expect(control?.text).not.toContain('top-level `await` and `return` work')
+    // No control-prompt section exists to restate it (single source).
+    expect(assembly.sections.some(section => section.name === 'dashr:control-prompt')).toBe(false)
   })
 
-  it('control prompt states the non-flat exception and the subagent alias', async () => {
+  it('eval description states the non-flat exception and the subagent alias', async () => {
     const { ctx, agent } = await setupPresentation(fakeRuntime)
     const assembly = await ctx.systemPrompt.assemble({ scope: agent.agent })
-    const control = assembly.sections.find(section => section.name === 'dashr:control-prompt')
-    expect(control?.text).toContain('Tool names that are not plain identifiers')
-    expect(control?.text).toContain('`subagent` is its native alias')
+    const evalTool = assembly.tools.find(tool => tool.name === 'eval')
+    const text = String(evalTool?.description)
+    expect(text).toContain('not plain identifiers')
+    expect(text).toContain('`subagent` is its native alias')
   })
 
-  it('catalog non-flat wording names non-identifier characters, not __ infixes', async () => {
+  it('non-flat wording names non-identifier characters, not __ infixes', async () => {
     const { ctx, agent } = await setupPresentation(fakeRuntime)
     const assembly = await ctx.systemPrompt.assemble({ scope: agent.agent })
-    const catalog = assembly.sections.find(section => section.name === 'dashr:tool-catalog')
-    expect(catalog?.text).toContain('non-identifier characters')
-    expect(catalog?.text).not.toContain('`__` infixes')
+    const evalTool = assembly.tools.find(tool => tool.name === 'eval')
+    expect(evalTool?.description).toContain('not plain identifiers')
+    expect(evalTool?.description).not.toContain('`__` infixes')
+  })
+
+  it('eval description equals the packaged markdown, and its example keys exist on the referenced tools\' wire schemas', async () => {
+    const { ctx, agent } = await setupPresentation(fakeRuntime)
+    // The real wire parameter names of the tools the description exemplifies.
+    const wireParams: Record<string, string[]> = {
+      read: ['path', 'offset', 'limit'],
+      bash: ['command', 'description', 'timeoutMs', 'workdir', 'run_in_background', 'sandbox_permissions', 'justification'],
+      grep: ['pattern', 'path', 'include'],
+      glob: ['pattern', 'path'],
+    }
+    for (const [name, properties] of Object.entries(wireParams)) {
+      ctx.tools.register(defineTool({
+        name,
+        description: `Fake ${name} (wire-shape fixture).`,
+        parameters: Object.fromEntries(properties.map(key => [key, { type: 'string' }])),
+        output: { schema: { type: 'string' }, render: (_args, value) => [{ type: 'text', text: String(value) }] },
+        execute: () => Promise.resolve('ok'),
+      }))
+    }
+    const assembly = await ctx.systemPrompt.assemble({ scope: agent.agent })
+    const evalTool = assembly.tools.find(tool => tool.name === 'eval')
+    const description = String(evalTool?.description)
+    // Byte fidelity with the packaged user-editable markdown.
+    const packaged = readFileSync(new URL('../eval-description.md', import.meta.url), 'utf8')
+    expect(description).toBe(packaged)
+    // D1-drift guard: every quoted key the description writes must exist on
+    // some referenced tool's wire schema (or eval's own parameters).
+    const allowed = new Set([...Object.values(wireParams).flat(), 'cell', 'description', 'timeout', 'reset'])
+    for (const match of description.matchAll(/"([A-Za-z_][A-Za-z0-9_]*)":/g)) {
+      expect(allowed.has(match[1]!)).toBe(true)
+    }
   })
 
   it('mask list keeps the eight masked names and excludes subagent (v0.2.1b alias)', () => {

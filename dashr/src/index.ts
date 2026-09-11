@@ -75,7 +75,6 @@ import DshUrlSchema from './url-schema/index.ts'
 import z from '@deepseek-ai/schemastery'
 import { defineTool, TOOL_RUNTIME_SCHEDULER } from '@deepseek-ai/dsh-tools'
 import type {
-  JsonSchemaNode,
   ToolDefinition,
   ToolExecutionInput,
   ToolExecutionResult,
@@ -101,8 +100,7 @@ import type {
   ReplRunResult,
   ReplRuntimeSurface,
 } from './runtime-surface.ts'
-import { isFlatBindableName, renderReplBridgeInstructions } from './py-sdk.ts'
-import type { DASHRSdkSchema } from './py-sdk.ts'
+import { isFlatBindableName } from './py-sdk.ts'
 import { snapshotJsonValue } from './snapshot-json.ts'
 import type { JsonValue } from './snapshot-json.ts'
 import type { Agent } from '@deepseek-ai/dsh-agent'
@@ -113,8 +111,6 @@ import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { installFailover } from './failover/index.ts'
 import { installWebTrust, deriveDefaultPageAuthorities, type WebTrustConfig } from './web-trust.ts'
-/** The control prompt text, loaded at module time from the sibling markdown file (editable without touching TS). */
-const CONTROL_PROMPT_TEXT = readFileSync(new URL('../control-prompt.md', import.meta.url), 'utf8')
 
 
 
@@ -230,12 +226,6 @@ export const WIRE_MASKED_NAMES: ReadonlySet<string> = MASKED_TOOL_NAMES
  */
 const TOOL_CALL_ERROR_CLASS: ReplBindingErrorClass = { name: 'ToolCallError', memberNameProperty: 'toolName' }
 
-/** The `dashr:control-prompt` section order: the FIRST section in the 100–199 tool-guidance band, so the cell paradigm is taught before the Tool Catalog renders its signatures. */
-export const CONTROL_SECTION_ORDER = 100
-
-/** The `dashr:tool-catalog` section order: the 100–199 tool-guidance band's SDK position, matching upstream `tools:sdk`. */
-export const SDK_SECTION_ORDER = 150
-
 /**
  * The `dashr:escalation-guidance` CONTEXT order: sits inside the runtime-context snapshot
  * band between upstream `approval:policy` (115) and `subagent:delegation` (120) — the
@@ -245,18 +235,12 @@ export const SDK_SECTION_ORDER = 150
 export const ESCALATION_GUIDANCE_ORDER = 116
 
 /**
- * The `eval` tool description the model sees: cell semantics — the
- * persistent kernel — stated up front, unlike upstream's one-shot
- * `PYTHON_FLAVOR` (blueprint §1.1: DASHR is channel ② state codification,
- * and the model's Code-Interpreter prior matches THIS contract).
+ * The `eval` tool's whole model-facing description, loaded at module time
+ * from the sibling markdown file (editable without touching TS). It carries
+ * ALL REPL guidance — cell semantics, the direct-vs-cell decision rule, the
+ * delegation alias note, and the one-form bridge at the end.
  */
-const EVAL_DESCRIPTION
-  = 'Execute one Python cell on a session-persistent scripting pad. Takes two required '
-    + 'arguments: `cell`, one Python program body (top-level `await` works; top-level `return` is a SyntaxError — the cell runs in module scope; variables, '
-    + 'imports, and definitions from earlier cells are still alive), and `description`, '
-    + 'a short summary of what the cell does; optional `timeout` (seconds) bounds the wall-clock and optional `reset` restarts the pad empty. Call tools as `await tool.name(args)` '
-    + 'functions per the declarations in the system prompt. Only what you print or '
-    + 'return comes back — curate it.'
+const EVAL_DESCRIPTION = readFileSync(new URL('../eval-description.md', import.meta.url), 'utf8')
 
 /** The `cell` parameter's model-facing description. */
 const EVAL_CELL_PARAM_DESCRIPTION
@@ -975,33 +959,10 @@ export function createRunCellTool(registry: ToolRuntime, options: RunCellBridgeO
   })
 }
 
-/**
- * Collect one calling scope's bridge-declaration schemas through the
- * registry's public projection APIs: `schemas(scope)` for the model-facing
- * view (scoped tools join, restrictions apply — the wire mask is a
- * registry-level restriction installed at session-start, so every masked
- * name is ALREADY absent from this projection; no second name filter
- * exists to drift), `get(name, scope)` for the canonical output schema,
- * snapshotted so a live definition cannot mutate under the render. `eval`
- * itself is excluded — it is the transport, not a binding.
- */
-export function collectSdkSchemas(registry: ToolRuntime, scope?: ScopeKey): DASHRSdkSchema[] {
-  const collected: DASHRSdkSchema[] = []
-  for (const schema of registry.schemas(scope)) {
-    if (schema.name === EVAL_NAME) continue
-    const definition = registry.get(schema.name, scope)
-    if (definition === undefined) continue
-    const output = snapshotJsonValue(definition.output.schema) as JsonSchemaNode | undefined
-    if (output === undefined) continue
-    collected.push({ name: schema.name, description: schema.description, parameters: schema.parameters, output })
-  }
-  return collected
-}
 
 /**
  * Declare the DASHR cell presentation for every agent this composition
- * covers: the `eval` transport tool, the `dashr:tool-catalog` prompt
- * section, the model-direct collapse guard, and the assembly filter that
+ * covers: the `eval` transport tool, the model-direct collapse guard, and the assembly filter that
  * leaves `eval` the only contributed tool schema.
  *
  * Mount through a preset's standing scope (`agent.cordis.yml` include row);
@@ -1210,33 +1171,6 @@ export function apply(ctx: Context, config: Config): void {
       }
     })
 
-    // ①′ The Control Prompt section (plan Q3): static, scope-independent
-    // text teaching the cell paradigm BEFORE the Tool Catalog renders its
-    // signatures (order 100 < 150) — the single entry + guard contract, the
-    // flat-binding paradigm, the delegation foreground/background
-    // semantics, and flat examples. The same text serves the root and every
-    // child (children inherit this composition), so it renders as a constant.
-    systemPrompt.section({
-      name: 'dashr:control-prompt',
-      order: CONTROL_SECTION_ORDER,
-      text: CONTROL_PROMPT_TEXT,
-    })
-
-    // ② The REPL bridge instructions prompt section (the pre-0.1.5 name was
-    // `tools:dashr-sdk`, then `dashr:tool-catalog`; the id stays
-    // `dashr:tool-catalog` so existing session prefixes keep their cache
-    // shape), regenerated from the CALLING scope's post-mask visible tools
-    // at assembly time (the same scope-aware shape as upstream's
-    // sdkSection: an assembly for a different scope renders its own view,
-    // never ours). The bridge tools are fed into the SAME renderer as
-    // registry tools (AGENT_BRIDGE_SCHEMAS), so the surface is one flat
-    // convention: every tool — registry tool or bridge tool — is
-    // `await tool.name(args)`.
-    systemPrompt.section({
-      name: 'dashr:tool-catalog',
-      order: SDK_SECTION_ORDER,
-      text: context => renderReplBridgeInstructions(collectSdkSchemas(registry, context.scope)),
-    })
 
     // ①″ The sandbox escalation guidance context (v0.2.1b): under
     // workspace-write the model sees the sandbox policy but never the
