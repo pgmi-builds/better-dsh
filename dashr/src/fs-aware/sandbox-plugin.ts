@@ -1,0 +1,147 @@
+/**
+ * `better-dsh/fs-aware-sandbox` — the MOUNTED module for change
+ * `2026-09-12-fs-scheme-resolution`: the scheme-aware filesystem backend that
+ * replaces the stock `fs-sandbox` row via a same-id home-layer patch row
+ * (`name` re-point = whole-plugin replacement, `Entry.update` replace branch
+ * with automatic rollback).
+ *
+ * Unlike the phase-2 spike (`fs-backend.ts`, dynamic-import fail-soft for the
+ * unmounted state), this module is loaded ONLY as the row's implementation —
+ * `@deepseek-ai/dsh-fs-sandbox` is definitionally present, so the inheritance
+ * is a plain static import and the class exports directly (the patch loader
+ * instantiates the default export; the `fs` service name is baked into the
+ * `FileSystem` base via `super(ctx, 'fs')`).
+ *
+ * Gate: `config.urlSchemes` (default true). When off, EVERY override
+ * short-circuits to `super` — the deployment behaves bit-for-bit like the
+ * stock `fs-sandbox` row (config passes through verbatim; fs-local's Config
+ * is a plain interface, no static schema — same as the stock row).
+ *
+ * Session-layer schemes (`ctx://`, `agent://`) are deliberately NOT resolved
+ * here: they need live-agent resolver semantics that a filesystem consumer
+ * does not carry. They answer with a structured session-layer boundary error;
+ * the wrapped read tool's scheme branch keeps serving them with the calling
+ * agent's context (design D2).
+ */
+
+import { Context } from '@deepseek-ai/cordis'
+import { SandboxedFileSystem } from '@deepseek-ai/dsh-fs-sandbox'
+import type { Config as LocalConfig } from '@deepseek-ai/dsh-fs-local'
+
+import { UrlResolver } from '../url-schemes/resolver.ts'
+import { UrlSchemesError } from '../url-schemes/selector.ts'
+import { createSkillHandler } from '../url-schemes/handlers/skill.ts'
+import { createDshHandler } from '../url-schemes/handlers/dsh.ts'
+import { createDvcHandler } from '../url-schemes/handlers/dvc.ts'
+import { createHttpHandler } from '../url-schemes/handlers/http.ts'
+import { resolveDocsDir } from '../url-schemes/docs-dir.ts'
+
+/** Module config: the stock LocalConfig fields plus the scheme gate. */
+export interface FsAwareConfig extends LocalConfig {
+  /** Master gate for scheme interception at the FS layer (default on). */
+  urlSchemes?: boolean
+}
+
+/** Scheme prefix test — mirrors the resolver's own grammar. */
+function isSchemePath(path: string): boolean {
+  return /^[a-z][a-z0-9]*:\/\//.test(path)
+}
+
+/** Session-layer schemes are excluded from FS-layer resolution (design D2). */
+function isSessionLayerScheme(path: string): boolean {
+  return path.startsWith('ctx://') || path.startsWith('agent://')
+}
+
+function sessionLayerError(url: string): UrlSchemesError {
+  return new UrlSchemesError(
+    'CTX_SESSION_LAYER',
+    `${url}: session-layer scheme — read it through the read tool (the session-layer resolver environment carries the live agent this filesystem layer does not have)`,
+  )
+}
+
+/** Structural view of the inherited backend (loose, like the spike's Base). */
+interface BaseView {
+  resolve(path: string, opts?: { cwd?: string; signal?: AbortSignal }): Promise<{ targetKey: string; displayPath: string }>
+  stat(target: { targetKey: string }, signal?: AbortSignal): Promise<unknown>
+  readText(target: { targetKey: string }, signal?: AbortSignal): Promise<string>
+  writeText(target: { targetKey: string }, ...rest: unknown[]): Promise<unknown>
+  editText(target: { targetKey: string }, ...rest: unknown[]): Promise<unknown>
+}
+
+const Base = SandboxedFileSystem as unknown as abstract new (ctx: Context, config: FsAwareConfig) => BaseView
+
+export default class FsAwareSandboxFileSystem extends Base {
+  static inject = ['sandboxPolicy', 'skills', 'settings', 'agents']
+
+  private readonly resolver: UrlResolver
+  private readonly schemeResolution: boolean
+
+  constructor(ctx: Context, config: FsAwareConfig) {
+    super(ctx, config)
+    this.schemeResolution = config?.urlSchemes !== false
+    this.resolver = this.buildResolver(ctx)
+  }
+
+  /** FS-layer resolver: the file-type schemes only (design D2). */
+  private buildResolver(ctx: Context): UrlResolver {
+    const resolver = new UrlResolver()
+    const services = ctx as unknown as { skills?: never; settings?: never }
+    resolver.register('skill', createSkillHandler({
+      skills: services.skills as never,
+      fs: this as never,
+    }))
+    resolver.register('dsh', createDshHandler({
+      settings: services.settings,
+      docsDir: resolveDocsDir(),
+    }))
+    resolver.register('dvc', createDvcHandler())
+    resolver.register('http', createHttpHandler())
+    return resolver
+  }
+
+  /** FS-layer resolver env: no live agent — session-layer schemes are excluded upstream. */
+  private envFor(url: string): Record<string, unknown> {
+    return { fs: this, rawUrl: url }
+  }
+
+  override async resolve(path: string, opts?: { cwd?: string; signal?: AbortSignal }) {
+    if (!this.schemeResolution || !isSchemePath(path)) return super.resolve(path, opts)
+    if (isSessionLayerScheme(path)) throw sessionLayerError(path)
+    await this.resolver.resolve(this.envFor(path), path)
+    // Virtual target: the URL itself is the stable key.
+    return { targetKey: path, displayPath: path }
+  }
+
+  override async stat(target: { targetKey: string }, signal?: AbortSignal) {
+    if (!this.schemeResolution || !isSchemePath(target.targetKey)) return super.stat(target, signal)
+    if (isSessionLayerScheme(target.targetKey)) throw sessionLayerError(target.targetKey)
+    const text = await this.resolver.resolve(this.envFor(target.targetKey), target.targetKey)
+    return { type: 'file' as const, size: text.length }
+  }
+
+  override async readText(target: { targetKey: string }, signal?: AbortSignal) {
+    if (!this.schemeResolution || !isSchemePath(target.targetKey)) return super.readText(target, signal)
+    if (isSessionLayerScheme(target.targetKey)) throw sessionLayerError(target.targetKey)
+    return this.resolver.resolve(this.envFor(target.targetKey), target.targetKey)
+  }
+
+  override async writeText(target: { targetKey: string }, ...rest: unknown[]) {
+    if (this.schemeResolution && isSchemePath(target.targetKey)) {
+      throw new UrlSchemesError(
+        'FS_VIRTUAL_READONLY',
+        `cannot write "${target.targetKey}": scheme resources are read-only at the filesystem layer`,
+      )
+    }
+    return super.writeText(target, ...rest)
+  }
+
+  override async editText(target: { targetKey: string }, ...rest: unknown[]) {
+    if (this.schemeResolution && isSchemePath(target.targetKey)) {
+      throw new UrlSchemesError(
+        'FS_VIRTUAL_READONLY',
+        `cannot edit "${target.targetKey}": scheme resources are read-only at the filesystem layer`,
+      )
+    }
+    return super.editText(target, ...rest)
+  }
+}

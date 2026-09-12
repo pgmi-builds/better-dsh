@@ -13,6 +13,10 @@
       "types": "./lib/py-sdk.d.ts",
       "default": "./lib/py-sdk.js"
     },
+    "./fs-aware-sandbox": {
+      "types": "./lib/fs-aware/sandbox-plugin.d.ts",
+      "default": "./lib/fs-aware/sandbox-plugin.js"
+    },
     "./cordis.patch.yml": "./cordis.patch.yml",
     "./package.json": "./package.json",
     "./client": {
