@@ -1,7 +1,7 @@
 /**
  * URL scheme parsing + unified selector application for `dsh-url-schemes`.
  *
- * All five schemes (`skill://`, `agent://`, `dsh://`, `ctx://`, `dvc://`)
+ * All six schemes (`skill://`, `agent://`, `dsh://`, `ctx://`, `dvc://`, `http(s)://`)
  * share one URL grammar and one selector syntax (aligned with OMP):
  *
  *     scheme "://" path [ selector ]

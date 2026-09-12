@@ -1,6 +1,6 @@
 # URL Schemes 可回溯上下文 — 实测报告（change 2026-09-11-url-schemes-recallable-context）
 
-> 状态：**三层验证全部完成**（单测 + 真实日志矩阵 13/13 + in-agent 第一人称实测 10/10 自驱 ALL PASS）；剩余 = user 发布确认（AGENTS §〇 单次确认）。详见 §3.2。
+> 状态：**五层验证全部完成**（单测 + 真实日志矩阵 13/13 + 三轮自驱实测 ALL PASS：10/10、13/13、9 调用 8 ok+1 预期错误）；剩余 = user 发布确认（AGENTS §〇 单次确认；npm can wait 已裁定）。详见 §3.2 / §3.2.1 / §3.2.2。
 
 ## 1. 被测运行时与环境
 
@@ -69,14 +69,18 @@
 
 ### 3.2.1 二轮回归（✅ ALL PASS，2026-09-12 晚；五点对齐 + 工具/披露段重塑后）
 
-§3.2 首轮实测抓到 `:raw:1-10` 被拒的 spec gap（§15 原始裁定第 2/3 条）后，user 批示重塑：组合 selector 放行、`/original` 子路径删除（≡ `:raw`，超尺守卫移至无窗 `:raw`）、`transcript` 保留为别名、新增 `thinking`/`system` 两个集合面、四工具 description 抹平为原生原文（read 保留 hashline 锚点条款、不再提及 scheme）、披露段改为包根 `url-schemes-section.md` 独立文件（6 schemes + 语法与 `:raw:N-M` ≡ `:N-M` + variance/只读双免责 + 一级资源覆盖 + bare-root 即 help；walk-up 加载 + `package.json files` 补录；dvc devices 实测 ids `ast_edit/ast_grep/browser/lsp`；catalog 保留为错误消息单一源）。双 sub-agent 并行实现、本人统一验收：tsc 13 基线、vitest 473 passed / 14 failed（基线同族；ctx.spec 19/19、general-section 6/6）、openspec validate 2/2。
+§3.2 首轮实测抓到 `:raw:1-10` 被拒的 spec gap（§15 原始裁定第 2/3 条）后，user 批示重塑：组合 selector 放行、`/original` 子路径删除（≡ `:raw`，超尺守卫移至无窗 `:raw`）、`transcript` 保留为别名、新增 `thinking`/`system` 两个集合面、四工具 description 抹平为原生原文（read 保留 hashline 锚点条款、不再提及 scheme）、披露段改为包根 `url-schemes-section.md` 独立文件（6 schemes + 语法与 `:raw:N-M` ≡ `:N-M` + variance/只读双免责 + 一级资源覆盖 + bare-root 即 help；walk-up 加载 + `package.json files` 补录；dvc devices 实测 ids `ast_edit/ast_grep/browser/lsp`；catalog 保留为错误消息单一源）。双 sub-agent 并行实现、本人统一验收：tsc 13 基线、vitest 473 passed / 14 failed（基线同族；ctx.spec 19/19、general-section 2/2——设计核查 F9 更正原稿「6/6」为两文件合计数）、openspec validate 2/2。
 
 **二轮自驱实测**（会话 `session-1f5a930b`，驱动器 `.scratch/url-schemes-live-driver3.sh`）：13 次工具调用 **13/13 判定过**——roster 9 行含 `thinking`/`system` 无 `/original`；**`compactions[56]:raw:1-10` 与 `compactions[56]:1-10` 逐字节相同**（spec gap 修复实证）；`compactions[56]/original` → `CTX_BAD_PATH`（错误回显注明被 `:raw / :raw:N-M` 取代）；`thinking` 索引与 `[0]` 单块全文、`system` 索引与 `:raw` 9,786 chars 全过；压缩链正常（label 56，17 items / 18,706 tok）。**新披露段实证落进真实 system prompt**（`system/message` 事件含 `Internal URLs (dsh-url-schemes)` 全文，`:raw:N-M`/`ast_edit`/只读免责等 6 处命中）；`request/header` 不携带 tools schema，description 抹平由单测层证明。
+### 3.2.2 设计核查处置回归（✅ ALL PASS，2026-09-12 深夜；三轮自驱）
+
+design 验证报告（4999 实例自检，F1–F12）处置落地：**F1** 快照新增 `segments`（per-compaction 段 + `live` 尾段，spec 契约补齐）；**F3** bracket 元素路径接入 `applyFace`（行窗恒可用）；**F5** 两处 `CTX_UNKNOWN_KEY` 均带 bare-root 指针；**F7** `system_prompt` 显式空卡恒在；**F6** section bare-root 句修正（skill://、dsh:// 需首段）；**F8/F9** 文档数字修正（tasks.md/本报告）；**F10** 新增 gates.spec 5/5（resolveGates 矩阵 + read 三分支路由）；**F12** 过时注释修正；**F4/F11** design.md 对齐块 + spike 不挂载结论；**F2 user 裁定 no goal**（不做，FS 层接替）；新增 `ctx://session/injections` 集合（user 指令）。验证：ctx.spec **23/23**、gates.spec 5/5、tsc 13 基线、openspec 2/2、全量 **482 passed / 14 failed**（基线族）。
+
+**三轮自驱实测**（会话 `session-798157fc`，驱动器 `.scratch/url-schemes-live-driver4.sh`）：9 次工具调用 8 ok / 1 次预期错误——roster 10 行；快照 `segments` live 段实测在场（压缩前单 live 段 {start:0,end:22,items:23}）、`system_prompt` 空卡恒在、`injected_user_messages: 2`；`injections` 索引（2 条）/`:raw` 54,581 chars/**agent 自发 `injections:raw:1-6` 组合分页**（大注入纪律性行为自证）；`user_prompts[0]:1-1` → 单行 `[0000008] USER`（F3 实证）；`ctx://bogus` 错误带 `bare ctx:// lists the full roster` 指针（F5 实证）；压缩后 `compactions[46]:raw:1-5` 组合正常（label 46，13 items / 7,889 tok）。
 
 ## 3.5 结论
-
-实现（P0/P1/P2 + 五点对齐重塑）与四层验证全部完成且零回归：单测（ctx 19/19、general-section 6/6、fs-backend 5/5、wiring 4/4）；真实日志矩阵 13/13（§3.1）；in-agent 第一人称实测两轮（§3.2 一轮 10/10、§3.2.1 二轮 13/13，均自驱）。tsc 13/13 基线；vitest 14 failed | 473 passed = 基线同族。change 状态：**代码 + 验收完成，等 user 发布确认**（AGENTS §〇 单次确认红线）。fs backend spike（5.x）代码就绪未挂载（FS 层挂载 + 工具解绑已裁定为下一 change）；`ctx://session/injections` 集合待 user 后续裁决。
-
+实现（P0/P1/P2 + 五点对齐重塑 + 设计核查处置）与五层验证全部完成且零回归：单测（ctx 23/23、general-section 2/2、gates 5/5、fs-backend 5/5、wiring 4/4）；真实日志矩阵 13/13（§3.1）；in-agent 第一人称实测三轮（§3.2 一轮 10/10、§3.2.1 二轮 13/13、§3.2.2 三轮 9 次调用 8 ok + 1 预期错误，均自驱）。tsc 13/13 基线；vitest 14 failed | 482 passed = 基线同族。change 状态：**代码 + 验收完成，等 user 发布确认**（AGENTS §〇 单次确认红线；npm can wait 已裁定）。fs backend spike（5.x）**维持不挂载结论**（F11；FS 层挂载 + 工具解绑为下一 change）；F2 transform 链 user 裁定 no goal（不落地，由 FS 层接替）。
+（2026-09-12 22:0x 修订：上段为三轮前的旧结论，已由上方五层验证版取代；保留一行删除记录以防引用漂移。）
 ## 4. 事故与边界记录
 
 - 4988 端口为 superd multi-context PoC 占用（AGENTS §二 勿杀）——首次启动误撞即 EADDRINUSE loud fail，已清理本单元改 4986；2026-09-12 按 user 指令下线 omp-web-4999-test / omp-web-lan-4999-relay 后迁入 4999（单元 `dsh-4999-test`，日志 `.scratch/dsh-4999.log`），4986 时代完成的验证记录不受端口迁移影响。

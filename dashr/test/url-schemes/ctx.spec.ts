@@ -303,4 +303,36 @@ describe('ctx:// recallable context', () => {
     expect(await resolver.resolve(env, 'ctx://session/user_prompts[0]')).toBe('[0000005] USER\nreal prompt')
     expect(await errorCode(resolver.resolve(env, 'ctx://session/injections[99]'))).toBe('CTX_NO_SUCH_ELEMENT')
   })
+
+  it('snapshot segments: one per compaction plus a live tail', async () => {
+    const closed = { value: false }
+    const resolver = ctxResolver(closed)
+    const env: CtxEnv = { agent: fakeAgent() }
+    const snap = JSON.parse(await resolver.resolve(env, 'ctx://session'))
+    expect(snap.segments).toHaveLength(3)
+    expect(snap.segments[0].segment).toBe('compaction:20')
+    expect(snap.segments[0].items).toBe(snap.compacted[0].shadowed_items)
+    expect(snap.segments.at(-1)!.segment).toBe('live')
+    expect(snap.segments.at(-1)!.start).toBe(snap.compacted[1].shadowed_range.end + 1)
+  })
+
+  it('line windows compose onto bracket element paths', async () => {
+    const closed = { value: false }
+    const resolver = ctxResolver(closed)
+    const env: CtxEnv = { agent: fakeAgent() }
+    expect(await resolver.resolve(env, 'ctx://session/user_prompts[0]:1-1')).toBe('[0000005] USER')
+    expect(await resolver.resolve(env, 'ctx://session/user_prompts[0]')).toBe('[0000005] USER\nhello world')
+    expect(await resolver.resolve(env, 'ctx://session/thinking[0]:1-1')).toBe('think about the thing')
+    expect(await resolver.resolve(env, 'ctx://session/thinking[0]:raw')).toBe('think about the thing')
+  })
+
+  it('unknown key echoes the bare-roster pointer; system_prompt card always present', async () => {
+    const closed = { value: false }
+    const resolver = ctxResolver(closed)
+    const env: CtxEnv = { agent: fakeAgent() }
+    const message = await resolver.resolve(env, 'ctx://bogus').catch(e => String((e as UrlSchemesError).message))
+    expect(message).toContain('bare ctx:// lists the full roster')
+    const snap = JSON.parse(await resolver.resolve(env, 'ctx://session'))
+    expect(snap.system_prompt).toEqual({ chars: 0, preview: '' })
+  })
 })

@@ -14,7 +14,8 @@
  * the same pattern as `dsh-better-edit`. `write`/`grep`/`glob` are delegation
  * shells over the NATIVE definitions, captured before the wrappers register
  * ({@link captureNativeTools}); `read` keeps its vendored hashline file branch
- * and captures nothing. Host-plane services (`fs`, `skills`, `sessions`,
+ * and is itself captured (`NATIVE_TOOL_NAMES` includes it) — the captured native
+ * serves as the terminal delegate when a gate disables the owning branch. Host-plane services (`fs`, `skills`, `sessions`,
  * `settings`, `subagents`, `agents`) are read from the plugin's own context,
  */
 

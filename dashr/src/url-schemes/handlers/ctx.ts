@@ -314,7 +314,7 @@ export function createCtxHandler(deps: CtxHandlerDeps): SchemeHandler {
       if (key !== 'session') {
         throw new UrlSchemesError(
           'CTX_UNKNOWN_KEY',
-          `ctx://${raw}: unknown key (known: session — model/cwd folded into the session info card)`,
+          `ctx://${raw}: unknown key (known: session — model/cwd folded into the session info card; bare ctx:// lists the full roster)`,
         )
       }
 
@@ -449,7 +449,7 @@ export function createCtxHandler(deps: CtxHandlerDeps): SchemeHandler {
           )
         }
         const bySeq = items.find(it => it.seq === Number(seg0.bracket))
-        if (bySeq !== undefined) return bySeq.text
+        if (bySeq !== undefined) return applyFace(bySeq.text, bySeq.text, sel, 'prepared')
         const ordinal = Number(seg0.bracket)
         if (!Number.isInteger(ordinal) || ordinal < 0 || ordinal >= items.length) {
           throw new UrlSchemesError(
@@ -457,7 +457,7 @@ export function createCtxHandler(deps: CtxHandlerDeps): SchemeHandler {
             `ctx://…[${seg0.bracket}]: no such element (collection "${seg0.name}" has ${items.length} items, 0-based; labels are event seqs)`,
           )
         }
-        return items[ordinal]!.text
+        return applyFace(items[ordinal]!.text, items[ordinal]!.text, sel, 'prepared')
       }
 
       // ── element collections ──
@@ -487,7 +487,7 @@ export function createCtxHandler(deps: CtxHandlerDeps): SchemeHandler {
         const items = collection(seg0.name)
         const bracket = seg0.bracket ?? ''
         const bySeq = items.find(it => it.seq === Number(bracket))
-        if (bySeq !== undefined) return bySeq.text
+        if (bySeq !== undefined) return applyFace(bySeq.text, bySeq.text, sel, 'prepared')
         const ordinal = Number(bracket)
         if (bracket === '' || !Number.isInteger(ordinal) || ordinal < 0 || ordinal >= items.length) {
           throw new UrlSchemesError(
@@ -495,12 +495,12 @@ export function createCtxHandler(deps: CtxHandlerDeps): SchemeHandler {
             `ctx://…[${bracket}]: no such element (collection "${seg0.name}" has ${items.length} items, 0-based; labels are event seqs)`,
           )
         }
-        return items[ordinal]!.text
+        return applyFace(items[ordinal]!.text, items[ordinal]!.text, sel, 'prepared')
       }
 
       throw new UrlSchemesError(
         'CTX_UNKNOWN_KEY',
-        `ctx://${raw}: unknown path (known: session, session/transcript, session/compactions[...], session/user_prompts[...], session/tool_calls[...], session/agent_responses[...], session/thinking[...], session/system[...], session/injections[...])`,
+        `ctx://${raw}: unknown path (known: session, session/transcript, session/compactions[...], session/user_prompts[...], session/tool_calls[...], session/agent_responses[...], session/thinking[...], session/system[...], session/injections[...]; bare ctx:// lists the full roster)`,
       )
 
       // ── local helpers ──
@@ -546,7 +546,15 @@ export function createCtxHandler(deps: CtxHandlerDeps): SchemeHandler {
           },
           storage: { format: 'session.jsonl.zstd (read via sessionPersistence)' },
           totals: counts,
-          system_prompt: system === undefined ? undefined : { chars: system.length, preview: system.slice(0, 200) },
+          segments: [
+            ...list.map(e => ({ segment: `compaction:${e.label}`, start: e.shadowedRange?.start ?? null, end: e.shadowedRange?.end ?? null, items: e.shadowedSeqs.length })),
+            (() => {
+              const lastSeq = all.reduce((m, e) => Math.max(m, e.seq as number), 0)
+              const start = (list.at(-1)?.shadowedRange?.end ?? -1) + 1
+              return { segment: 'live', start, end: lastSeq, items: all.filter(e => (e.seq as number) >= start).length }
+            })(),
+          ],
+          system_prompt: { chars: system?.length ?? 0, preview: system === undefined ? '' : system.slice(0, 200) },
           compacted: list.map(e => ({
             label: e.label, checkpoint_seq: e.checkpointSeq, compactionId: e.compactionId, at: e.at,
             shadowed_range: e.shadowedRange, shadowed_items: e.shadowedSeqs.length,

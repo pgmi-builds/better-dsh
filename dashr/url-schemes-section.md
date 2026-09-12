@@ -1,6 +1,6 @@
 # Internal URLs (dsh-url-schemes)
 
-read/write/grep/glob accept a `scheme://` URL anywhere a filesystem path is expected: `scheme://<path>[:selector]`. Reading a bare root (`ctx://`, `agent://`, `dvc://`, `skill://`) lists that scheme's surface — treat it as the scheme's help.
+read/write/grep/glob accept a `scheme://` URL anywhere a filesystem path is expected: `scheme://<path>[:selector]`. Reading a bare root (`ctx://`, `agent://`, `dvc://`) lists that scheme's surface — treat it as the scheme's help. `skill://` and `dsh://` need a first path segment (`skill://<name>`, `dsh://docs`, `dsh://config`).
 
 Selectors: `:raw` (full underlying content) | `:N-M[,N2-M2]` (1-based inclusive lines; `N-` = open tail) | `:path/<a.b>` (JSON dot-path) | `?q=<q>` (dot-path, else line filter). `ctx://*:raw` always returns the full underlying content; a bare URL returns the prepared face when the facility prepares one (summaries, snapshots). Line windows always index the canonical full content, so `:raw:N-M` ≡ `:N-M`.
 

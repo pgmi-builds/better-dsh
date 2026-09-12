@@ -1,8 +1,8 @@
 /**
  * `UrlResolver`: the scheme→handler registry + dispatch for `dsh-url-schemes`.
  *
- * One registry owns the five scheme handlers (`skill://`, `agent://`,
- * `dsh://`, `ctx://`, `dvc://`) and resolves a URL end-to-end:
+ * One registry owns the six scheme handlers (`skill://`, `agent://`,
+ * `dsh://`, `ctx://`, `dvc://`, `http(s)://`) and resolves a URL end-to-end:
  * `parseUrl` → dispatch to the registered handler → `applySelector`.
  * Handlers return the FULL text of the resource; the selector is applied
  * uniformly by this layer, so every scheme shares one selector syntax.

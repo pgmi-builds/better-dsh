@@ -1,5 +1,8 @@
 # Design — URL Schemes 服务化与 ctx:// 可回溯上下文
 
+> **2026-09-12 对齐修订（reshape 后，design 验证报告 F4/F11）**：本文写于 reshape 之前，以下事实已按 user 批示演化，以 spec delta 与实现为准——① `/original` 子路径裁撤（`:raw` / 组合 `:raw:N-M` ≡ `:N-M` 取代；超尺守卫移至无窗 `:raw`）；② `/transcript` 保留为 canonical 别名（未裁撤）；③ 新增 `thinking`/`system`/`injections` 三个 index-faced 集合面；④ 快照携带 `segments`（per-compaction 段 + live 尾段）；⑤ D4 的「有序 transform 链」不落地（user 裁定 no goal）：保持「单一注册权 + capture-delegate 终端」形态，transforms.ts 保留为类型/死代码，由 Phase-2 FS 层挂载接替；⑥ D7 fs backend spike 维持**不挂载**结论（代码+单测就绪，收益待下一 change 兑现）。
+
+
 研究底稿：`docs/60_exploration-and-research/04-session-storage/alpha5-compaction-jsonl-mapping.md` §9–§15.11（2026-09-04 ~ 09-11 六轮源码取证 + 实测测绘），本文件只记决策与理由。
 
 ## D1 文法（定稿）
