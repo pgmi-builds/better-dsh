@@ -10,6 +10,8 @@
 
 ## 0. 结论
 
+> **gates 标签（2026-09-13 补）**：本报告实测于 `urlSchemes: true + hashline: true`（DASHR read 包装在场）。「六 scheme read 全可达 6/6」仅在该组合下成立；`hashline: false` 下的可达性矩阵见《2026-09-13-hashline-off下scheme可达性工具面不对称-实测报告.md》。
+
 | 判定项 | 结果 |
 |---|---|
 | 六类 scheme 在 `read` 上全部可达 | ✅ 6/6 |
