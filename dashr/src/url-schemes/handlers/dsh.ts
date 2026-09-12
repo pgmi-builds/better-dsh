@@ -131,7 +131,9 @@ async function readDoc(dir: string, docPath: string): Promise<string> {
 }
 
 /** Create the `dsh://` scheme handler, capturing `deps` by closure. */
-export function createDshHandler(deps: DshHandlerDeps): SchemeHandler {
+export function createDshHandler(deps: DshHandlerDeps): SchemeHandler & {
+  resolvePath(env: ResolverEnv, path: string): Promise<string | undefined>
+} {
   const { settings, docsDir } = deps
 
   // Cached discovery so repeated `dsh://docs` resolves stat once.
@@ -156,7 +158,29 @@ export function createDshHandler(deps: DshHandlerDeps): SchemeHandler {
     return docsDirPromise
   }
 
+  /**
+   * Path-backed view: `docs` and `docs/<sub>` map into the real docs tree, so
+   * the URL-aware `grep`/`glob` can hand the native tools a disk path instead
+   * of materializing the listing text. `config` is content-backed (resolved
+   * settings JSON) — never path-backed.
+   */
+  async function resolvePathDisk(path: string): Promise<string | undefined> {
+    if (path !== 'docs' && !path.startsWith('docs/')) return undefined
+    const dir = await findDocsDir()
+    if (dir === undefined) return undefined
+    const abs = path === 'docs' ? dir : join(dir, path.slice('docs/'.length))
+    try {
+      await fsp.stat(abs)
+      return abs
+    } catch {
+      return undefined
+    }
+  }
+
   return {
+    async resolvePath(_env: ResolverEnv, path: string): Promise<string | undefined> {
+      return resolvePathDisk(path)
+    },
     async resolve(_env: ResolverEnv, path: string): Promise<string> {
       const [root, ...rest] = path.split('/')
       const restPath = rest.join('/')

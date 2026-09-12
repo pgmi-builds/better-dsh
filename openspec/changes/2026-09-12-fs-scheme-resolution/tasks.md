@@ -13,7 +13,7 @@
 - [x] 2.1 **真实路径回归**：4999 活体——session persistence、workspace 文件读写、lsp/present 冒烟（全部真实路径，逐位不变）。
 - [x] 2.2 **FS 层直达证据**：gates `{urlSchemes: true, hashline: false}` + 重启 → 自驱实测「原生 captured read 读 `dsh://docs/<doc>` 与 `skill://<name>/…` 成功」（零工具层参与）。
 - [x] 2.3 **边界与写面**：`ctx://` 经原生 read → 结构化会话层边界错误；`write` 对 virtual → `FS_VIRTUAL_READONLY`；`write dvc://<device>` 设备执行回归。
-- [ ] 2.4 **stock 退化**：`urlSchemes: false` 变体重启 → scheme 原生失败（行为逐位等同 stock fs-sandbox）。——单测已覆盖（gate off 全 super 矩阵 5/5 中的 gate off 用例）；活体变体并入下次批量验证。
+- [ ] 2.4 **stock 退化**：`urlSchemes: false` 变体——单测矩阵已覆盖（gate off 全 super）；活体变体启动并入下次批量验证。——单测已覆盖（gate off 全 super 矩阵 5/5 中的 gate off 用例）；活体变体并入下次批量验证。
 
 ## 3. 收口
 

@@ -38,6 +38,10 @@
 
 压缩链（`/compact`，13 items / 7,889 tok）与 session persistence 全程正常（FS 替换未扰动会话存储——其自持 fs 不经 ctx.fs，设计如此）。
 
+## 4b. 挂载机制的证伪与改道（重要工程记录）
+
+「home/profile 层同 id 行重述 fs-sandbox + name 重指」在 0.1.5-rc.2 上**不可用**：三种 name 形态（bare 子路径 / 带引号 bare / 相对路径）全部**静默回滚**为 stock（dump 与活体行为双证）。根因：boot 期行导入走 `loader.internal.import`（编译期 bun-registry，仅 @deepseek-ai/* 在册），非在册名替换导入失败 → `Entry.update` 回滚；upstream 根 symlink 亦不达（import 不走 Node 分支）。**采纳改道 = 实例级方法包装**（`src/fs-aware/wrap.ts`，doc §5.3 最后手段）：包装活体 ctx.fs 的 5 个公开方法，urlSchemes 总闸 + symbol 幂等 + 随重启还原；子路径模块/exports 实验回退（D1b 详录 design.md）。已知代价：上游改这 5 个方法签名即碎（公开面，可控）。
+
 ## 5. 边界与遗留
 
 - `urlSchemes:false` 活体变体：单测已覆盖（gate off 全 super 矩阵），活体变体启动一轮并入下次批量验证（tasks 2.4 部分完成）。

@@ -36,6 +36,7 @@ import type {} from '@deepseek-ai/dsh-subagent'
 import type {} from '@deepseek-ai/dsh-tools'
 
 import { resolveDocsDir } from './docs-dir.ts'
+import { wrapFsWithSchemes } from '../fs-aware/wrap.ts'
 import { createAgentHandler } from './handlers/agent.ts'
 import { createCtxHandler } from './handlers/ctx.ts'
 import { generalSection } from './general-section.ts'
@@ -150,13 +151,13 @@ export function buildLspWriteFeedback(): { preWriteFormat: import('./tools/write
 }
 
 function installAgentTools(rootCtx: Context, agent: Agent, resolver: UrlResolver, gates: UrlSchemesGates): void {
-  // P0 gate granularity (change 2026-09-11-url-schemes-recallable-context):
-  // - `urlSchemes: false` → write/grep/glob wrappers and the read URL branch
-  //   are not installed (native read/write/grep/glob stand alone).
-  // - `hashline: false` → the edit/undo family is not installed.
-  // The read file branch keeps the vendored pipeline until P1 lands the
-  // captured-read delegate (tasks 2.1/2.2) — hashline-off then removes the
-  // anchor transform instead.
+  // Gate granularity (reshape 后，2026-09-12):
+  // - `urlSchemes: false` → write/grep/glob wrappers 不安装，FS 后端不拦截
+  //   scheme（挂载行 gate），一切路径走原生语义。
+  // - `hashline: false` → read wrapper 不安装（captured 原生 read 独立站立，
+  //   scheme 解析由挂载的 FS 后端承担），edit/undo 家族亦不安装。
+  // - `urlSchemes: true && hashline: true` → read wrapper 双分支：scheme 走
+  //   URL 呈现分支（无锚点），真实文件走 hashline 锚点管线。
   agent.ctx.effect(async () => {
     // Capture the agent's FULL inherited surface BEFORE any wrapper
     // registers on the agent's own scope layer — after registration the
@@ -179,7 +180,11 @@ function installAgentTools(rootCtx: Context, agent: Agent, resolver: UrlResolver
     // for the agent's lifetime (read anchors + edit family share it).
     const hashlineIo = ctxFsIO(rootCtx.fs, rootCtx)
 
-    if (gates.urlSchemes || gates.hashline) {
+    // The read wrapper exists FOR the hashline anchor pipeline — register it
+    // only when `hashline` is on. With `hashline: false` the captured native
+    // read stands alone and scheme resolution belongs to the mounted FS
+    // backend (`urlSchemes` gate), not to any tool-layer code.
+    if (gates.hashline) {
       disposers.push(agent.ctx.tools.register(createReadTool({
         resolver,
         fs: rootCtx.fs,
@@ -275,6 +280,17 @@ export function apply(ctx: Context, config: Config | undefined): void {
   void initHasher().catch(() => {})
   void ensurePresetGuidance(configDir()).catch(() => {})
   const resolver = new UrlResolver()
+
+  // FS-gate scheme resolution (change 2026-09-12-fs-scheme-resolution): wrap
+  // the live ctx.fs instance so EVERY ctx.fs consumer — the platform's native
+  // read/write/edit tools included — resolves file-type scheme URLs without
+  // any tool-layer participation. Session-layer schemes (ctx://, agent://)
+  // answer the structured boundary error here; the read tool's scheme branch
+  // keeps serving them with the calling agent's context. Idempotent; every
+  // added behavior sits behind the `urlSchemes` gate.
+  if (resolveGates(config).urlSchemes && ctx.fs) {
+    wrapFsWithSchemes(ctx.fs as never, { skills: ctx.skills, settings: ctx.settings })
+  }
 
   resolver.register('skill', createSkillHandler({ skills: ctx.skills, fs: ctx.fs }))
   resolver.register('agent', createAgentHandler({

@@ -197,7 +197,10 @@ function applyQuery(text: string, q: string): string {
   const parsed = tryParseJson(text)
   if (parsed !== undefined) {
     const node = navigate(parsed, q)
-    return node === undefined ? text : stringifyNode(node)
+    // Dot-path miss falls back to the line filter: a JSON array listing has
+    // no meaningful dot-path, and `?q=` must not silently no-op on it
+    // (six-scheme audit §3.3).
+    return node === undefined ? text.split('\n').filter((line) => line.includes(q)).join('\n') : stringifyNode(node)
   }
   return text.split('\n').filter((line) => line.includes(q)).join('\n')
 }

@@ -183,9 +183,14 @@ export function createWriteTool(deps: WriteToolDeps): ToolDefinition {
         // F4 hot-fix (v0.1.9-b): the diagnostics summary rides the RESULT TEXT
         // too — the wire face renders text, and the feedback loop must reach
         // the model on a direct call, not only inside a cell's raw JSON.
-        const text = value.diagnostics === undefined
+        let text = value.diagnostics === undefined
           ? `${verb} ${value.path}`
           : `${verb} ${value.path}\n${value.diagnostics}`
+        // Device executions (dvc://) carry their result payload ONLY in the
+        // structured `after` field — the wire face must surface it too, or
+        // ast_grep/lsp/browser results are invisible to the model on a direct
+        // call (six-scheme audit §3.1).
+        if (value.operation === 'execute' && value.after !== undefined) text += `\n${value.after}`
         return [{ type: 'text', text }]
       },
     },

@@ -471,6 +471,17 @@ describe('write tool — lsp feedback loop (native-tools Wave3)', () => {
     expect(withoutDiagnostics[0]!.text).toBe('Created src/b.rs')
   })
 
+  it('renders the device payload into the result text (six-scheme audit §3.1: dvc results must be visible)', async () => {
+    const { tool: nativeWrite } = fakeNative()
+    const write = createWriteTool({ nativeWrite })
+    const render = (write as unknown as { output: { render: (args: unknown, value: unknown) => Array<{ type: string, text: string }> } }).output.render
+    const payload = JSON.stringify({ totalMatches: 143, filesWithMatches: 28 })
+    const executed = render({}, { path: 'dvc://ast_grep', operation: 'execute', before: null, after: payload })
+    expect(executed[0]!.text).toBe(`Executed dvc://ast_grep\n${payload}`)
+    const updated = render({}, { path: 'src/a.rs', operation: 'update', before: 'old', after: 'new' })
+    expect(updated[0]!.text).toBe('Updated src/a.rs')
+  })
+
   it('drops diagnostics whose line lies beyond the written content (F2-d span guard)', async () => {
     const originalLsp = listDvcDevices().get('lsp')
     registerDvcDevice('lsp', {

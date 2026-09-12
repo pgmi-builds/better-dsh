@@ -1,6 +1,12 @@
 # Design: fs-scheme-resolution
 
-## D1 挂载机制（源码锚定）
+## D1b 挂载机制（2026-09-12 深夜实证修订——D1 的行重指被证伪）
+
+D1 原设计（home/profile 层同 id 行 `name` 重指）在 0.1.5-rc.2 上**被证伪**：三种 name 形态（bare 子路径 / 带引号 bare / 相对路径）重述 `fs-sandbox` 行全部**静默回滚**为 stock（dump 与活体行为双证）。根因（源码级）：boot 期行导入走 `loader.internal.import`（`vendor/loader/src/config/tree.ts:150+` 分支 1），按**编译期 bun-registry** 解析——`better-dsh/*` 不在册，替换导入失败 → `Entry.update` 回滚；upstream 根加 symlink 亦不达（import 不走 Node 解析分支）。
+
+**D1b（采纳）**：doc §5.3「最后手段」的实例级方法包装——better-dsh apply 时对活体 `ctx.fs` 实例原位包装 5 个公开方法（resolve/stat/readText 拦 scheme 解引用；writeText/editText 对 virtual 抛 `FS_VIRTUAL_READONLY`；其余原样），`urlSchemes` gate 总闸，symbol 幂等，随重启还原。已实证：hashline:false（原生 read 直通）下 `dsh://docs` 经包装层返回 251 条文档清单。已知代价（doc 明示）：上游改动这 5 个方法签名即碎（公开面，风险可控）；无跨重启记账。原 D1（行重指）保留如下供考古。
+
+## D1 挂载机制（源码锚定；已证伪，见 D1b）
 
 - base bundle 行（`packages/bundle/base/cordis.patch.yml:479`）：`- id: fs-sandbox` / `name: '@deepseek-ai/dsh-fs-sandbox'`（无 config）。
 - 行 `name` 重指 = 整插件替换：`EntryTree.import` 对 bare 包名走标准 node_modules 解析（部署拓扑四层，better-dsh 在 profile 树上）；`Entry.update` 对 name 变更走 replace 分支（dispose 旧 + import 新 + 失败回滚）。

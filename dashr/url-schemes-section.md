@@ -9,8 +9,8 @@ Variance: `dvc://` addresses a device by its first path segment only; `ctx://` c
 Writes: only `dvc://<device>` is writable (JSON args payload executes the device). Every static/system resource — everything under `ctx://`, `skill://`, `agent://`, `dsh://`, `http(s)://` — is read-only.
 
 Schemes:
-- `skill://<name>[/<file>]` — a registered skill's files; first level = skill names.
-- `agent://[<id>[/transcript]]` — agent roster / a LIVE agent's transcript.
+- `skill://<name>[/<file>]` — a registered skill's files; `<name>` is the skill's frontmatter `name` (not its directory name).
+- `agent://[<id>[/transcript]]` — agent roster / a LIVE agent's transcript; labels containing `:` are not addressable — use the raw session id.
 - `dsh://docs[/<doc>]` and `dsh://config` — harness docs / live resolved config.
 - `ctx://session/<face>` — THIS session's own log; faces: `transcript`, `compactions`, `compactions[<label|n>]`, `thinking`, `system`, `user_prompts[n]`, `tool_calls[n]`, `agent_responses[n]`.
 - `dvc://<device>` — device registry; devices: `ast_edit`, `ast_grep`, `browser`, `lsp`; `write` executes.
