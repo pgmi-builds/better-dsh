@@ -110,6 +110,7 @@ import { createLlmCompletionTool } from './llm-completion.ts'
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { installFailover } from './failover/index.ts'
+import { installCompactionTuning } from './compaction/index.ts'
 import { installWebTrust, deriveDefaultPageAuthorities, type WebTrustConfig } from './web-trust.ts'
 
 
@@ -1007,6 +1008,12 @@ export function apply(ctx: Context, config: Config): void {
   // AUTH/MISSING_CREDENTIAL/QUOTA/RATE_LIMIT. No cooldown, no primary tracking; settings is a
   // conditional inject, so it degrades to a no-op without a settings service.
   installFailover(ctx)
+  // Automatic-compaction threshold (host-plane): installs the
+  // `compaction-tuning` settings namespace and re-applies the resolved value
+  // onto the mounted compaction engine on every change — the engine re-reads
+  // its policy per event, so a new threshold needs no restart. Both `settings`
+  // and `compaction` are conditional injects here.
+  installCompactionTuning(ctx)
   // Web-trust boot script (v0.2.1f): trusted page authorities flip the
   // connection client's loopback verdict on operator-declared devices
   // (restores settings/Models remotely); mobile thresholds reach the client

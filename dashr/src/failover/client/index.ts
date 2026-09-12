@@ -20,6 +20,7 @@ import { FAILOVER_SETTINGS_NS } from '../config.ts'
 import { en, NS, zh } from './locales.ts'
 import { FailoverRow, type FailoverRowInjected, type FailoverRowProps } from './FailoverRow.tsx'
 import { setupMobileLayout } from '../../mobile/client/index.ts'
+import { setupCompactionRow } from '../../compaction/client/index.ts'
 
 export type { FailoverRowInjected, FailoverRowProps }
 export { FailoverRow }
@@ -38,6 +39,10 @@ export function apply(ctx: ClientContext): void {
   // the host half's boot script (`window.__DASHR_MOBILE__`); inert when the
   // host did not opt the page in.
   setupMobileLayout(ctx)
+
+  // Automatic-compaction threshold row (its host half is
+  // `src/compaction/index.ts`, installed by the plugin's host apply).
+  setupCompactionRow(ctx)
 
   ctx.slots.inject('settings.general.item', function* () {
     yield ctx.slots.register({

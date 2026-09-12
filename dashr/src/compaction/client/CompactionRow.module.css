@@ -1,0 +1,128 @@
+/*
+ * Compaction-threshold row, drawn to match the shipped Font-size row
+ * (`@deepseek-ai/dsh-client-ui-theme`'s `FontSizeRow`): same cell rhythm, same
+ * title + description column, same stepper pill with the hover-revealed arrow
+ * column and a unit label after the pill — `%` where Font-size shows `px`.
+ *
+ * Every class is prefixed because the bundle's CSS-module hash is computed over
+ * the LOCAL name alone, so two modules that both declare `.row` would emit one
+ * shared selector and silently overwrite each other in the document.
+ */
+
+/* Two columns: the text block on the left, the stepper on the right. The
+   section column strips this hairline on its last child. */
+.thresholdRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 0;
+  border-bottom: 0.5px solid var(--dsw-alias-border-l2);
+}
+
+.thresholdText {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-right: 48px;
+}
+
+.thresholdTitle {
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 22px;
+  color: var(--dsw-alias-label-primary);
+}
+
+.thresholdDesc {
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 18px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.thresholdError {
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 18px;
+  color: var(--dsw-alias-danger, #c0392b);
+}
+
+/* Stepper pill + unit label. The pill reuses the selector-pill geometry
+   (h36 r18, module fill) holding the value and an arrow column; the unit sits
+   outside the pill. */
+.thresholdControl {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.thresholdStepper {
+  position: relative; /* the arrow column anchors to the pill's right edge */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 72px;
+  height: 36px;
+  border-radius: 18px;
+  background: var(--dsw-alias-bg-module-platform);
+}
+
+.thresholdValue {
+  min-width: 18px;
+  text-align: center;
+  font-size: 14px;
+  line-height: 22px;
+  font-variant-numeric: tabular-nums;
+  color: var(--dsw-alias-label-primary);
+}
+
+.thresholdUnit {
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+/* Arrow column: anchored right so the value stays pill-centered whether or not
+   the arrows are showing; revealed on hover/focus-within. Hidden with opacity,
+   not visibility, so the buttons stay in tab order and in the accessibility
+   tree — keyboard focus itself triggers the reveal. */
+.thresholdArrows {
+  position: absolute;
+  right: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  opacity: 0;
+}
+
+.thresholdStepper:hover .thresholdArrows,
+.thresholdStepper:focus-within .thresholdArrows {
+  opacity: 1;
+}
+
+/* Arrow buttons: small chips carrying a translucent wash of the layer-1
+   surface over the module fill; hover raises the full layer-1 chip. */
+.thresholdArrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 12px;
+  padding: 0;
+  border: none;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--dsw-alias-bg-layer-1) 75%, transparent);
+  color: var(--dsw-alias-label-primary);
+  cursor: pointer;
+}
+
+.thresholdArrow:hover:not(:disabled) {
+  background: var(--dsw-alias-bg-layer-1);
+}
+
+.thresholdArrow:disabled {
+  color: var(--dsw-alias-label-caption);
+  cursor: default;
+}
