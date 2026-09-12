@@ -84,7 +84,8 @@ Node 从 better-dsh 的 `lib/index.js` 出发向上走：
 
 1. `packages/client/tsdown.client.ts`: `REPOSITORY_ROOT` 由 `resolveRepositoryRoot()` 推导（`pnpm-workspace.yaml` 锚定，`process.cwd()` 兜底）。原因: 本机 Node 22.22.1 `process.features.typescript=false` → tsdown auto loader 选 unrun，unrun 的 bundle 级 define 把内联 preset 的 `import.meta.url` 改写成各包入口 config 的 URL，`packages/*/*` 深度下 `../..` 落到 `<repo>/packages/`，manifest glob 全空 → `no packages/*/*/package.json declares the name …`。upstream CI 的新 Node 走 native loader，看不到此问题。
 2. `pnpm-workspace.yaml`: `storeDir: /home/u1/workspaces/dashr/.scratch/pnpm-store` + `verifyDepsBeforeRun: false` + allowBuilds `zeromq: true`（better-dsh 自 0.2.2-a 起零 lifecycle script，无自身 allowBuilds 条目）。原因: pnpm 11 不读 `.npmrc`；默认 deps-check 会 spawn `pnpm install`，向只读的用户级 store 注册 project → EROFS；strictDepBuilds 下未列 build script = install 硬错。
-
+   （**另记 2026-09-13**：`pnpm add` 之后 `npx vite` 会从根解析到 vite 8/rolldown——web 构建一律走 `pnpm run build:web`（workspace 内 vite 6.4.3），勿用 npx 直呼。）
+3. **（2026-09-13，change `2026-09-13-preact-ui-shell`）** `apps/web/vite.config.ts`: `resolve.alias` 增 react 家族五条 → `preact/compat`（regex 锚定）+ `resolve.dedupe` 增 `'preact'`（dedupe 条目从本包 node_modules 解析——缺它则 `packages/client/web/lib` 的 seed 解析不到 apps/web 里的 preact）；`apps/web` devDeps 加 `preact@10.29.8` 精确 pin。效果：shell 平台种子物化 preact 实例，全部 ui-* 插件 bundle 的 `require("react")` 零改动获得 Preact；shell index chunk 555,959 → 434,173 B（−21.9%），A/B 实测挂载面一致、console 零错。**同一 patch 顺带根除了 `vendor/CLAUDE.md` ENOTDIR/exit 236 老坑**：`vendor/` 根下的三个文档文件（AGENTS/CLAUDE/README.md）撞 `vendor/*` workspace glob，任何枚举器读 `<文件>/package.json` 即 ENOTDIR——已移入 `vendor/docs/`（换 tag 重放时记得：`mkdir -p vendor/docs && mv vendor/*.md docs/`）。
 ### 构建（setup 或 harness 变更后）
 
 ```bash
