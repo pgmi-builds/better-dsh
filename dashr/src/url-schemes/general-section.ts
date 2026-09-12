@@ -26,7 +26,7 @@ export const GENERAL_SECTION_NAME = 'url-schema:general'
 export const GENERAL_SECTION_ORDER = 129
 
 /** The section file's name, resolved against the nearest ancestor directory. */
-const SECTION_FILE = 'url-schemes-section.md'
+const SECTION_FILE = 'url-schemes-instruction.md'
 
 /**
  * Load the section text at module load, walking up to the nearest copy.

@@ -29,7 +29,7 @@
     "docs",
     "cordis.patch.yml",
     "eval-description.md",
-    "url-schemes-section.md",
+    "url-schemes-instruction.md",
     "scripts/kernel-provision.mjs"
   ],
   "scripts": {
