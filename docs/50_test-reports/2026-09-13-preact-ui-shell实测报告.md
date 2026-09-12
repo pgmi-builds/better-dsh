@@ -34,7 +34,7 @@ AGENTS.md §二 harness 本地 patch 已记档（换 tag 需重放）。
 | shell 内 react-dom 痕迹 | **`version:"18.3.1", rendererPackageName:"react-dom"` banner 在 shell** | **无**（唯一 `react-dom` 字串 = 平台模块种子表键 `{react:Y3, "react-dom":Y3, ...}`——同一个 preact 实例登记两个平台词，设计终态） |
 | pageerror | slot 重复注册 ×1 | slot 重复注册 ×1 |
 
-**pageerror 定责（A/B）**：`settings.general.item` slot id `compaction-tuning` 重复注册在 **stock 上同样存在**（factory id `Ba` vs `f5` 仅 minified 差异）→ **存量问题**，属 `.dsh-test` profile 的 compaction-tuning 本地插件，与渲染引擎无关，挂账另修。`better-dsh/client.js` 内的 `react-dom` 匹配为 pnpm 依赖路径字符串（`@tanstack+react-virtual@…_react-dom@18.3.1…`），stock/preact 两面同在，非本体。
+**pageerror 定责（A/B + 发布前验尸修正）**：`settings.general.item` slot id `compaction-tuning` 重复注册在 **stock 上同样存在**（factory id `Ba` vs `f5` 仅 minified 差异）→ 与渲染引擎无关。**根因（publish 前验尸确认）**：canonical 树里有一份**未提交的半成品 compaction-tuning 吸收工作**（`src/compaction/` + `installCompactionTuning` 接线，随 rsync 进入 4999 副本），与 `.dsh-test` profile 仍挂着的 local-plugin 版 compaction-tuning **同 id 注册两次**——两因叠加。该半成品已 `git stash`（带说明消息）移出 0.2.3-e 发布内容，续作时须先摘除 profile 的 local-plugin 行再合入。`better-dsh/client.js` 内的 `react-dom` 匹配为 pnpm 依赖路径字符串（`@tanstack+react-virtual@…_react-dom@18.3.1…`），stock/preact 两面同在，非本体。
 
 **user 未亲自引爆项声明**：深交互面（聊天流式渲染、shiki 高亮、markdown 管线）未逐项人工过——零 console.error 为强信号非穷尽证明（PoC 同款边界声明）。
 
