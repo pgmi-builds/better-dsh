@@ -14,15 +14,21 @@
  *
  * Behavior (identical to the inheritance spike's matrix):
  * - resolve/stat/readText on scheme paths → resolver-dereferenced virtual
- *   content (file-type schemes only; ctx:///agent:// answer the structured
- *   `CTX_SESSION_LAYER` boundary error — they need live-agent semantics);
+ *   content (file-type schemes only; ctx:///agent:///skill:// answer the
+ *   structured `CTX_SESSION_LAYER` boundary error — they need live-agent
+ *   semantics: ctx:///agent:// read session state, and skill:// must consult
+ *   the host skill registry's LAYERED catalog (project/user/preset roots,
+ *   scan depth, rank merge — business logic owned by `dsh-skill-filesystem`),
+ *   which resolves only against a calling agent's scope. The web profile
+ *   disables the host-level `skill-filesystem` row entirely (dsh-web-app
+ *   bundle patch), so a global-layer lookup answers a misleading "unknown"
+ *   for every skill — the boundary error names the native `skill` tool as
+ *   the invocation path instead);
  * - writeText/editText on scheme paths → `FS_VIRTUAL_READONLY`;
- * - real paths and every other method → the original service, untouched.
  */
 
 import { UrlResolver } from '../url-schemes/resolver.ts'
 import { UrlSchemesError } from '../url-schemes/selector.ts'
-import { createSkillHandler } from '../url-schemes/handlers/skill.ts'
 import { createDshHandler } from '../url-schemes/handlers/dsh.ts'
 import { createDvcHandler } from '../url-schemes/handlers/dvc.ts'
 import { createHttpHandler, HTTP_SCHEMES } from '../url-schemes/handlers/http.ts'
@@ -35,10 +41,16 @@ function isSchemePath(path: string): boolean {
 }
 
 function isSessionLayerScheme(path: string): boolean {
-  return path.startsWith('ctx://') || path.startsWith('agent://')
+  return path.startsWith('ctx://') || path.startsWith('agent://') || path.startsWith('skill://')
 }
 
 function sessionLayerError(url: string): UrlSchemesError {
+  if (url.startsWith('skill://')) {
+    return new UrlSchemesError(
+      'CTX_SESSION_LAYER',
+      `${url}: session-layer scheme — skill discovery (which roots load, scan depth, layered scope merge) is the host skill provider's business logic and resolves only against a calling agent, which the filesystem layer does not have. Load skills with the native \`skill\` tool; grep/glob with path=skill://… keep working through the tool layer`,
+    )
+  }
   return new UrlSchemesError(
     'CTX_SESSION_LAYER',
     `${url}: session-layer scheme — read it through the read tool (the session-layer resolver environment carries the live agent this filesystem layer does not have)`,
@@ -47,37 +59,10 @@ function sessionLayerError(url: string): UrlSchemesError {
 
 /** Build the FS-layer resolver: file-type schemes only (design D2). */
 export function buildFsLayerResolver(
-  services: { skills?: unknown; settings?: unknown; sessionCwd?: string },
+  services: { settings?: unknown },
   fsSelf: unknown,
 ): UrlResolver {
   const resolver = new UrlResolver()
-  // skill lookupOptions reads env.cwd — the deployment-declared session
-  // workspace makes WORKSPACE-scoped skills resolvable at the FS layer too
-  // (without it only global skills resolve; scoped ones answer a precise
-  // scope error from the handler itself).
-  // skills service wrapper: when a cwd-scoped GET fails but the LIST knows
-  // the name, the skill is workspace-scoped (agent-scope lookup is
-  // structurally unavailable at the FS layer) — answer with a precise
-  // boundary error instead of a misleading "unknown".
-  const skillsSvc = services.skills as {
-    get?: (name: string, opts?: unknown) => Promise<unknown>
-    list?: (opts?: unknown) => Promise<Array<{ name: string }>>
-  } | undefined
-  const scopedAwareSkills = skillsSvc === undefined ? undefined : {
-    get: async (name: string, opts?: unknown): Promise<unknown> => {
-      const got = await skillsSvc.get?.(name, opts)
-      if (got !== undefined) return got
-      const list = await skillsSvc.list?.({ cwd: services.sessionCwd })
-      if ((list ?? []).some(s => s.name === name)) {
-        throw new UrlSchemesError(
-          'URL_SKILL_NOT_INVOCABLE_SCOPE',
-          `skill "${name}" is a workspace-scoped skill — the filesystem layer cannot see it (no agent scope). Read the file directly (e.g. .agents/skills/${name}/SKILL.md) or use grep with path=skill://${name}`,
-        )
-      }
-      return undefined
-    },
-  }
-  resolver.register('skill', createSkillHandler({ skills: scopedAwareSkills as never, fs: fsSelf as never }))
   resolver.register('dsh', createDshHandler({
     settings: services.settings as never,
     docsDir: resolveDocsDir(),
@@ -86,12 +71,12 @@ export function buildFsLayerResolver(
   for (const scheme of HTTP_SCHEMES) resolver.register(scheme, createHttpHandler())
   resolver.register('ctx', {
     async resolve(_env: unknown, path: string): Promise<string> {
-      throw new UrlSchemesError('CTX_SESSION_LAYER', `ctx://${path}: session-layer scheme — read it through the read tool (the session-layer resolver environment carries the live agent this filesystem layer does not have)`)
+      throw sessionLayerError(`ctx://${path}`)
     },
   })
   resolver.register('agent', {
     async resolve(_env: unknown, path: string): Promise<string> {
-      throw new UrlSchemesError('CTX_SESSION_LAYER', `agent://${path}: session-layer scheme — read it through the read tool (the session-layer resolver environment carries the live agent this filesystem layer does not have)`)
+      throw sessionLayerError(`agent://${path}`)
     },
   })
   return resolver
@@ -111,13 +96,13 @@ export interface FsWrapTarget {
  */
 export function wrapFsWithSchemes(
   fs: FsWrapTarget,
-  services: { skills?: unknown; settings?: unknown; sessionCwd?: string },
+  services: { settings?: unknown },
 ): UrlResolver {
   const holder = fs as unknown as Record<symbol, unknown>
   if (holder[WRAPPED] !== undefined) return holder[WRAPPED] as UrlResolver
 
   const resolver = buildFsLayerResolver(services, fs)
-  const envFor = (url: string): Record<string, unknown> => ({ fs, rawUrl: url, cwd: services.sessionCwd })
+  const envFor = (url: string): Record<string, unknown> => ({ fs, rawUrl: url })
 
   // Defensive binds: test harnesses (and exotic deployments) may mount an fs
   // service stub without every method — the wrap must never be the thing that

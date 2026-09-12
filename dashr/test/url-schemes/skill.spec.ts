@@ -101,15 +101,8 @@ describe('skill handler: cwd passthrough', () => {
     expect(skills.calls).toEqual([{ name: 'demo', options: { cwd: '/ws/project', scope: env.agent } }])
   })
 
-  it('prefers an explicit env cwd over the agent session cwd', async () => {
-    const skills = fakeSkills(() => def('demo'))
-    const h = makeHandler(skills, fakeFs({}))
-    const env = { ...agentEnv('/ws/a'), cwd: '/ws/b' }
-    await h.resolve(env, 'demo')
-    expect(skills.calls).toEqual([{ name: 'demo', options: { cwd: '/ws/b', scope: env.agent } }])
-  })
 
-  it('calls get without options when the env has no agent and no cwd', async () => {
+  it('calls get without options when the env has no agent (cwd-less global view)', async () => {
     const skills = fakeSkills(() => def('demo'))
     const h = makeHandler(skills, fakeFs({}))
     await h.resolve({}, 'demo')

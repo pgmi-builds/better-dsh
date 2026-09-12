@@ -163,7 +163,6 @@ export const Config = z.intersect([
     maxParallelSubCalls: z.natural().min(1).default(10),
     urlSchemes: z.boolean().default(true),
     hashline: z.boolean().default(true),
-    sessionCwd: z.string().default(''),
     // Schema-level default (v0.2.2a): derived from DSH_TRUSTED_HOSTS at module
     // load — per-key defaults survive every patch-overlay layer (a profile/
     // home row with this id whole-row-overrides the bundle row's CONFIG, so

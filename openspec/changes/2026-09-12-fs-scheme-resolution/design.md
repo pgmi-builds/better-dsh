@@ -61,3 +61,14 @@ virtual 判定复用尖兵 `isSchemePath`（`^[a-z][a-z0-9]*:\/\//`）。virtual
 
 1. 单测：模块类矩阵（virtual resolve/stat/readText、写拒绝、gate off 全 super、真实路径透传）。
 2. 4999 活体（自驱）：`hashline:false` + 挂载 → **原生 captured read 读文件型 scheme（`dsh://docs/<doc>`、`skill://<name>/…`）成功**（零工具层参与的直达证据）；`ctx://` 经原生 read 返回结构化「会话层 scheme」边界错误（D2 裁决：ctx 需要 live agent 语义，留工具层呈现分支）；真实文件读取回归；`write dvc://` 设备执行回归；`write` 对 virtual → `FS_VIRTUAL_READONLY`；`urlSchemes:false` 变体 → scheme 原生失败（stock 退化）。
+
+## D6 skill:// 重分类为会话层 scheme（2026-09-13 user 裁决）
+
+**裁决**：技能加载路径解析（CWD / user-level global / app 运行时根、扫描深度如 `skills/*/SKILL.md` 只扫一层 vs OMP 的任意深度 `**/skills/*/SKILL.md`）全部是宿主 `dsh-skill-filesystem` 的**业务逻辑**，插件不得自写一套。FS 层任何近似（部署声明 cwd、list 成员性猜测 scope、错误信息里建议 `.agents/skills/<name>/SKILL.md` 直读路径）都在替宿主做业务决策——全部拆除。
+
+**实证链**（2026-09-13）：
+1. dump-config（.dsh-test 活体）：**dsh-web-app bundle patch 在宿主层 disable 了 `skill-filesystem` 与 `tool-skill` 行**（`- id: skill-filesystem … disabled: true`，注释「patched by @deepseek-ai/dsh-web-app」）→ web profile 的全局层**没有任何 skill provider**；技能只在各 agent preset 的 scope 层可见。
+2. 离线 probe（monorepo，同 `skill`+`skill-filesystem` 默认组合）：全局层 `list({cwd})` 11 个、`get('book-to-skill',{cwd})` OK——registry 本身无恙，既往「agent-scope 结构性不可见」的归因**错在层面**：不是 registry 限制，是部署组合（provider 只在 preset 层）。
+3. 4999 活体 A/B probe（session 8b6dcf85）：FS 层读 user-global 技能（`skill://markitdown`，无需 cwd 即应可见）**与** project 技能（`skill://book-to-skill`）**双双 `unknown`** → 既有 sessionCwd 通道与 scopedAware 启发式在真实部署下**从未生效**（全局层无 provider，list 同样为空），此前一轮「P1-b 已修复」的活体结论**被推翻**。
+
+**重分类**：`skill://` 与 `ctx://`/`agent://` 同族——FS 层一律 `CTX_SESSION_LAYER` 边界错误（指名原生 `skill` 工具为调用通道；`grep/glob path=skill://` 经工具层 agent env 继续可用）。工具层 skill handler 保留，lookup 收敛为 tool-skill 的精确镜像（cwd 只取 `agent.session.header.cwd`，scope = agent；删除独立 `cwd` env 通道）。配置面 `sessionCwd` 整体移除（schema + wrap 线 + profile patch 行）。

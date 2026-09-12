@@ -155,14 +155,17 @@ write dvc://browser  {"action":"open"|"close"} → ✅ {"ok":true,"url":"about:b
 
 ## 4. 发现清单
 
-### P1 — `https://` 在 FS 层未登记（一行修复）
+### P1 — `https://` 在 FS 层未登记（一行修复，✅ 2026-09-13 复验存活）
 
-`fs-aware/wrap.ts:57` 写死 `resolver.register('http', createHttpHandler())`，而工具层正确循环 `HTTP_SCHEMES = ['http','https']`（`handlers/http.ts:45`）。`hashline:false` 时 FS 层是 `read` 的唯一路径 → `read https://…` 恒失败。修法：`buildFsLayerResolver` 同样 `for (const s of HTTP_SCHEMES) resolver.register(s, handler)`。
+`fs-aware/wrap.ts:57` 写死 `resolver.register('http', createHttpHandler())`，而工具层正确循环 `HTTP_SCHEMES = ['http','https']`（`handlers/http.ts:45`）。`hashline:false` 时 FS 层是 `read` 的唯一路径 → `read https://…` 恒失败。修法：`buildFsLayerResolver` 同样 `for (const s of HTTP_SCHEMES) resolver.register(s, handler)`。skill:// 重分类重构后复验：`read https://example.com` 正常抓取（session 60418790）。遗留小项（与本次无关，记录在案）：`read https://example.com:1-3` 这类**把行选择器写进 URL** 的形态会整串进 `new URL()` 报 invalid URL——http handler 不剥选择器后缀，dsh handler 剥（`dsh://docs:1-3` 正常）；属探针写法与既有限制，非本次回归。
 
 ### P1 — `skill://` 在 FS 层丢失 agent/cwd（workspace 技能全不可见）
 
 `wrap.ts:81` 只给 `{ fs, rawUrl }`；`handlers/skill.ts:106-113` 的 `lookupOptions` 需要 `cwd` + `scope`，两者皆缺时 workspace 作用域技能层读作 absent → 全部 `unknown`。FS 层结构性拿不到 agent，所以要么把 skill 解析留在工具层、要么在 `hashline:false` 下补一条 scheme 呈现通道。
 
+> **处置（2026-09-13 user 裁决后重定方向，推翻本报告早前的"补通道"方案）**：第一版补通道（sessionCwd 配置 + scopedAware list 启发式）经活体证伪——dump-config 实证 **dsh-web-app bundle patch 在宿主层 disable 了 `skill-filesystem`/`tool-skill`**，web profile 全局层没有任何 skill provider，list 与 get 同空，启发式从未命中（A/B 活体：user-global 的 `skill://markitdown` 与 project 的 `skill://book-to-skill` 双双 `unknown`，session 8b6dcf85）。根因不是"缺 cwd"，而是**技能加载路径解析（CWD/user-global/app 运行时根、扫描深度）是宿主 `dsh-skill-filesystem` 的业务逻辑**，FS 层不得自写近似版。最终处置：`skill://` 重分类为会话层 scheme，FS 层一律答 `CTX_SESSION_LAYER` 边界错误（指名原生 `skill` 工具）；`sessionCwd` 配置整体移除；工具层 handler lookup 收敛为 `dsh-tool-skill` 的精确镜像。详见 `2026-09-12-fs-scheme-resolution-实测报告.md` §4d 与 change design.md §D6。
+>
+> **活体复验（session 37899b26 / bfa99754 / f12a206e / 60418790 / 029aa5bb，2026-09-13）**：`read skill://book-to-skill` → 结构化边界错误（指名原生 skill 工具）；`read skill://markitdown:1-5` → 同（与技能名无关）；**原生 `skill` 工具加载 `book-to-skill` 成功**（完整 `<skill_content>` + resourceBase）；`grep path=skill://book-to-skill pattern=^#` → 560 matches（工具层通道完好）；`read https://example.com` → 正常抓取（P1-a 存活）。
 ### P2 — `hashline:false` 下会话型 scheme 无 `read` 通道，且注释与事实不符
 
 `index.ts:288-290` 声称 *"Session-layer schemes (ctx://, agent://) answer the structured boundary error here; **the read tool's scheme branch keeps serving them with the calling agent's context**"* —— 该 "read tool's scheme branch" 只在 `hashline:true` 时存在。`hashline:false` 下 `ctx://`/`agent://` 在 `read` 上无任何通道（`grep`/`glob` 可用，但那是另一个工具面的补偿，不等于 read 通道）。注释与 `index.ts:158-159` 的 gate 说明应统一。

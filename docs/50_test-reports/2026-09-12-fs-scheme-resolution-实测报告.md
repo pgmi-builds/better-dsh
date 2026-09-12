@@ -50,6 +50,30 @@
 - **LSP 成功路径（task 2.5 ✅）**：安装 typescript-language-server 6.0.0 + typescript@5.9（**坑**：TS 7.x 无 JS tsserver，t-ls 6.x 需 5.x；且 t-ls 6.0 无 `--tsserver-path` 选项，靠 workspace 根的 node_modules 发现——已装 `/home/u1/workspaces/dashr/node_modules/typescript`）。`write dvc://lsp {action:diagnostics, file:.scratch/lsp-probe.ts}` → server 拉起 → 结构化诊断**精准命中夹具故意埋的 TS2322 type error（line 8）**；同一探针的 wire 渲染含完整 payload JSON（§3.1 修复活体证实）。definition/references/hover/format 共享同一 LSP client，按需补测。
 - 六 scheme 修复（§3.1/§3.3/§3.4）已随后续轮次活体证实：`?q=` 行过滤、glob path-backed 翻译、dvc payload 上 wire。
 
+## 4d. skill:// 重分类为会话层 scheme（✅ 2026-09-13 user 裁决 + 活体复验）
+
+**裁决**：技能加载路径解析（CWD / user-level global / app 运行时根如 `.claw/skills`、`.hermes/skills`；扫描深度——DSH 只扫 `skills/` 下一层（`dir/SKILL.md` 或 `*.md`），superpowers/openspec 的二层嵌套扫不到，而 OMP 式 `**/skills/*/SKILL.md` 任意深度命中）**全部是宿主 `dsh-skill-filesystem` 的业务逻辑，插件不得自写一套近似版**。第一版补通道（`sessionCwd` 配置 + scopedAware list 启发式 + 错误信息建议 `.agents/skills/<name>/SKILL.md` 直读）整体拆除。
+
+**证伪链**（推翻上一轮「P1-b 已修复」的活体结论）：
+1. **dump-config（.dsh-test 活体）**：`dsh-web-app` bundle patch 在宿主层 **disable** 了 `skill-filesystem` 与 `tool-skill` 行 → web profile 的 **全局层没有任何 skill provider**，技能只在各 agent preset 的 scope 层可见（会话 catalog 可见书签级技能即是 preset 层工具的产物）。
+2. **离线 probe**（monorepo 同组合）：全局层 `list({cwd})` 11 项、`get('book-to-skill',{cwd})` OK——registry 本身无恙；4999 活体失败是部署组合（provider 只在 preset 层）所致，非「agent-scope 结构性不可见」。
+3. **4999 活体 A/B**（session 8b6dcf85）：FS 层读 user-global 技能（`skill://markitdown`，**无需 cwd** 即应可见）与 project 技能（`skill://book-to-skill`）**双双 `unknown`** → sessionCwd 通道与启发式在真实部署下从未生效（全局层 list 同空）。
+
+**最终形态**：`skill://` 与 `ctx://`/`agent://` 同族，FS 层一律 `CTX_SESSION_LAYER` 边界错误（指名原生 `skill` 工具为调用通道）；`sessionCwd` 从 schema、wrap 线、profile patch 行整体移除；工具层 handler lookup 收敛为 `dsh-tool-skill` 精确镜像（cwd 只取 `agent.session.header.cwd`，scope = agent）；原生 `skill` 工具解禁态即为全功能调用路径。
+
+**活体复验（5+1 探针全过，2026-09-13）**：
+
+| 探针 | 结果 |
+|---|---|
+| `read skill://book-to-skill`（FS 层） | ✅ 结构化边界错误，指名原生 skill 工具（session 37899b26） |
+| `read skill://markitdown:1-5`（FS 层，user-global 名） | ✅ 同上，与技能名无关（session bfa99754） |
+| 原生 `skill` 工具 `name=book-to-skill` | ✅ 完整 `<skill_content>` + resourceBase（session f12a206e） |
+| `read https://example.com` | ✅ 正常抓取，P1-a 存活（session 60418790） |
+| `read dsh://docs:1-3` | ✅ 选择器正常（session c742a81f） |
+| `grep path=skill://book-to-skill pattern=^#` | ✅ 560 matches，工具层通道完好（session 029aa5bb） |
+
+回归：vitest 489 passed / 14 failed（agent-family 12 + url-schemes.spec 2，host-drift 基线族，零新增；总测试数 505→504 系删除一条已失效的 cwd-passthrough 测试）；tsc 13（基线）；openspec valid。构建：rsync → tsdown → build-client，`sessionCwd`/`URL_SKILL_NOT_INVOCABLE_SCOPE` 在 lib 双 chunk 0 命中。
+
 ## 5. 边界与遗留
 
 - `urlSchemes:false` 活体变体：单测已覆盖（gate off 全 super 矩阵），活体变体启动一轮并入下次批量验证（tasks 2.4 部分完成）。

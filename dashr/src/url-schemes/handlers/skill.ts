@@ -43,14 +43,13 @@ interface SkillEnvAgent {
 
 /**
  * Environment fields the skill handler reads on top of {@link ResolverEnv}.
- * Both are optional: without them discovery degrades to the registry's
- * default workspace (the pre-cwd behavior) with identical error surface.
+ * Without the agent the lookup degrades to the registry's cwd-less global
+ * view (the exact call shape of `ctx.skills.get(name)`), which is the
+ * caller's honest view — the handler never invents a workspace.
  */
 export interface SkillEnv extends ResolverEnv {
   /** Calling agent; its session header carries the workspace cwd. */
   readonly agent?: SkillEnvAgent
-  /** Explicit cwd when the tool layer already resolved one; wins over `agent`. */
-  readonly cwd?: string
 }
 
 /** The subset of `ctx.skills` this handler calls (structural, test-friendly). */
@@ -97,18 +96,20 @@ function resolveResourcePath(baseDir: string, subpath: string): string {
 }
 
 /**
- * Registry lookup options for one env, mirroring `dsh-tool-skill`'s lookup:
- * the workspace cwd (explicit `cwd`, else the agent session's) plus the
- * calling agent as the viewing `scope` — without it a scoped skill layer
- * reads as absent. Both absent → `undefined`, the exact call shape of the
- * cwd-less era.
+ * Registry lookup options for one env — the exact call shape of
+ * `dsh-tool-skill`: the calling agent is the viewing `scope` (the agent is
+ * its own scope key, so the layered registry resolves precisely as this
+ * agent's composition sees it) and the workspace cwd comes from the agent's
+ * session header. No agent in the env → `undefined` (the cwd-less global
+ * view); the handler then reports the registry's own verdict.
  */
 function lookupOptions(env: SkillEnv): SkillViewOptions | undefined {
-  const cwd = env.cwd ?? env.agent?.session.header.cwd
-  if (cwd === undefined && env.agent === undefined) return undefined
+  const agent = env.agent
+  if (agent === undefined) return undefined
+  const cwd = agent.session.header.cwd
   return {
     ...cwd === undefined ? {} : { cwd },
-    ...env.agent === undefined ? {} : { scope: env.agent },
+    scope: agent,
   }
 }
 

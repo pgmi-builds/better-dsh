@@ -93,45 +93,26 @@ describe('fs-aware sandbox module', () => {
     expect(await fs.readText(target)).toBe(marker)
   })
 
-  it('wrap: https registered + skill cwd resolution + ctx boundary', async () => {
-    const { wrapFsWithSchemes } = await import('../../src/fs-aware/wrap.ts')
-    const skills = {
-      get: async (name: string) =>
-        name === 'book-to-skill' && cwdMarker === '/w/probe'
-          ? { name, provider: 'test', content: 'SKILL BODY' }
-          : undefined,
-      list: async (opts?: { cwd?: string }) =>
-        opts?.cwd === '/w/probe' ? [{ name: 'book-to-skill' }] : [],
-    }
-    const target: Record<string, unknown> = {}
-    const cwdMarker = '/w/probe'
-    const resolver = wrapFsWithSchemes(target as never, {
-      skills,
-      settings: undefined,
-      sessionCwd: cwdMarker,
-    }) as unknown as { resolve(env: unknown, p: string): Promise<string> }
+  it('wrap: https registered + skill:// reclassified to the session-layer boundary', async () => {
+    const { fs } = makeFs({ urlSchemes: true })
 
-    const resolveVia = (url: string) =>
-      resolver.resolve({ fs: target, rawUrl: url, cwd: '/w/probe' }, url)
+    // P1-a (kept): https IS registered at the FS layer (fails as a fetch
+    // attempt, never as "no handler registered")
+    const httpsOutcome = await errorCode(fs.resolve('https://example.com'))
+    expect(httpsOutcome).not.toBe('(no throw)')
+    expect(httpsOutcome).not.toContain('no handler')
 
-    // P1-a: https IS registered at the FS layer (fails as a fetch attempt,
-    // never as "no handler registered")
-    const httpsOutcome = await resolveVia('https://example.com').then(
-      () => 'resolved', (e: Error) => `rejected: ${e.message}`,
-    )
-    expect(httpsOutcome).not.toContain('no handler registered')
+    // Skill-delegation ruling (2026-09-13): skill discovery is the host
+    // provider's business logic and resolves only against a calling agent —
+    // the FS layer answers the session-layer boundary for EVERY skill name,
+    // never a registry verdict guessed from a config cwd.
+    expect(await errorCode(fs.resolve('skill://book-to-skill'))).toBe('CTX_SESSION_LAYER')
+    expect(await errorCode(fs.readText({ targetKey: 'skill://nope' }))).toBe('CTX_SESSION_LAYER')
 
-    // P1-b: workspace-scoped skill resolves via the session cwd
-    expect(await resolveVia('skill://book-to-skill')).toBe('SKILL BODY')
-    const scoped = await resolveVia('skill://nope').catch((e: Error) => e.message)
-    expect(scoped).toContain('unknown or no longer available')
-
-    // session-layer boundary intact
-    expect(await errorCode(resolveVia('ctx://session'))).toBe('CTX_SESSION_LAYER')
-    void target
-    void httpsOutcome
+    // session-layer boundary intact for the original family
+    expect(await errorCode(fs.resolve('ctx://session'))).toBe('CTX_SESSION_LAYER')
+    expect(await errorCode(fs.resolve('agent://x'))).toBe('CTX_SESSION_LAYER')
   })
-
   async function errorCode(p: Promise<unknown>): Promise<string> {
     try { await p; return '(no throw)' } catch (e) { return e instanceof UrlSchemesError ? e.code : `(other) ${String(e)}` }
   }

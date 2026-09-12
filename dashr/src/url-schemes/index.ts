@@ -79,12 +79,10 @@ export interface Config {
   hashline?: boolean
 }
 
-/** Plugin config: gates plus the FS-wrap session workspace hint. */
+/** Plugin config: the scheme gates. */
 export interface Config {
   urlSchemes?: boolean
   hashline?: boolean
-  /** Session workspace passed to the FS-layer skill resolution (deployment-declared). */
-  sessionCwd?: string
 }
 
 /** Resolved gate pair. */
@@ -292,8 +290,10 @@ export function apply(ctx: Context, config: Config | undefined): void {
   // FS-gate scheme resolution (change 2026-09-12-fs-scheme-resolution): wrap
   // the live ctx.fs instance so EVERY ctx.fs consumer — the platform's native
   // read/write/edit tools included — resolves file-type scheme URLs without
-  // any tool-layer participation. Session-layer schemes (ctx://, agent://)
-  // answer the structured boundary error here; the read tool's scheme branch
+  // any tool-layer participation. Session-layer schemes (ctx://, agent://,
+  // skill:// — the latter because the host skill registry's layered catalog
+  // resolves only against a calling agent) answer the structured boundary
+  // error here; the read tool's scheme branch
   // keeps serving them with the calling agent's context WHEN the hashline
   // gate enables the read wrapper; with `hashline: false` session-layer
   // schemes have no read channel (the tool-layer grep/glob wrappers still
@@ -303,7 +303,7 @@ export function apply(ctx: Context, config: Config | undefined): void {
   // degrades to the stock fs service (log warn), never a failed boot.
   if (resolveGates(config).urlSchemes && ctx.fs) {
     try {
-      wrapFsWithSchemes(ctx.fs as never, { skills: ctx.skills, settings: ctx.settings, sessionCwd: config?.sessionCwd || undefined })
+      wrapFsWithSchemes(ctx.fs as never, { settings: ctx.settings })
     } catch (error) {
       ctx.logger('dsh-url-schemes').warn(
         `fs scheme wrap failed; running on the stock filesystem service: ${error instanceof Error ? error.message : String(error)}`,

@@ -17,11 +17,14 @@
  * stock `fs-sandbox` row (config passes through verbatim; fs-local's Config
  * is a plain interface, no static schema — same as the stock row).
  *
- * Session-layer schemes (`ctx://`, `agent://`) are deliberately NOT resolved
- * here: they need live-agent resolver semantics that a filesystem consumer
- * does not carry. They answer with a structured session-layer boundary error;
- * the wrapped read tool's scheme branch keeps serving them with the calling
- * agent's context (design D2).
+ * Session-layer schemes (`ctx://`, `agent://`, `skill://`) are deliberately NOT
+ * resolved here: they need live-agent resolver semantics that a filesystem
+ * consumer does not carry — ctx:///agent:// read session state, and skill://
+ * must consult the host skill registry's layered catalog (the skill-loading
+ * business logic of `dsh-skill-filesystem`: which roots load, scan depth,
+ * scope merge), which resolves only against a calling agent. They answer with
+ * a structured session-layer boundary error naming the sanctioned channel
+ * (the native `skill` tool); the tool layer keeps full resolution.
  */
 
 import { Context } from '@deepseek-ai/cordis'
@@ -30,7 +33,6 @@ import type { Config as LocalConfig } from '@deepseek-ai/dsh-fs-local'
 
 import { UrlResolver } from '../url-schemes/resolver.ts'
 import { UrlSchemesError } from '../url-schemes/selector.ts'
-import { createSkillHandler } from '../url-schemes/handlers/skill.ts'
 import { createDshHandler } from '../url-schemes/handlers/dsh.ts'
 import { createDvcHandler } from '../url-schemes/handlers/dvc.ts'
 import { createHttpHandler } from '../url-schemes/handlers/http.ts'
@@ -49,10 +51,16 @@ function isSchemePath(path: string): boolean {
 
 /** Session-layer schemes are excluded from FS-layer resolution (design D2). */
 function isSessionLayerScheme(path: string): boolean {
-  return path.startsWith('ctx://') || path.startsWith('agent://')
+  return path.startsWith('ctx://') || path.startsWith('agent://') || path.startsWith('skill://')
 }
 
 function sessionLayerError(url: string): UrlSchemesError {
+  if (url.startsWith('skill://')) {
+    return new UrlSchemesError(
+      'CTX_SESSION_LAYER',
+      `${url}: session-layer scheme — skill discovery (which roots load, scan depth, layered scope merge) is the host skill provider's business logic and resolves only against a calling agent, which the filesystem layer does not have. Load skills with the native \`skill\` tool; grep/glob with path=skill://… keep working through the tool layer`,
+    )
+  }
   return new UrlSchemesError(
     'CTX_SESSION_LAYER',
     `${url}: session-layer scheme — read it through the read tool (the session-layer resolver environment carries the live agent this filesystem layer does not have)`,
@@ -71,7 +79,7 @@ interface BaseView {
 const Base = SandboxedFileSystem as unknown as abstract new (ctx: Context, config: FsAwareConfig) => BaseView
 
 export default class FsAwareSandboxFileSystem extends Base {
-  static inject = ['sandboxPolicy', 'skills', 'settings', 'agents']
+  static inject = ['sandboxPolicy', 'settings', 'agents']
 
   private readonly resolver: UrlResolver
   private readonly schemeResolution: boolean
@@ -85,10 +93,10 @@ export default class FsAwareSandboxFileSystem extends Base {
   /** FS-layer resolver: the file-type schemes only (design D2). */
   private buildResolver(ctx: Context): UrlResolver {
     const resolver = new UrlResolver()
-    const services = ctx as unknown as { skills?: never; settings?: never }
-    resolver.register('skill', createSkillHandler({
-      skills: services.skills as never,
-      fs: this as never,
+    const services = ctx as unknown as { settings?: never }
+    resolver.register('dsh', createDshHandler({
+      settings: services.settings,
+      docsDir: resolveDocsDir(),
     }))
     resolver.register('dsh', createDshHandler({
       settings: services.settings,
