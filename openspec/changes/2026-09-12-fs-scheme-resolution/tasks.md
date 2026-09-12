@@ -19,3 +19,4 @@
 
 - [x] 3.1 实测报告落 `docs/50_test-reports/`；git commit。
 - [ ] 3.2 prod 采用路径文档化（用户侧 patch 行模板）；npm publish 走 AGENTS §〇（独立闸门）。
+- [x] 2.5 **LSP 成功路径（✅ 2026-09-12 活体）**：安装 typescript-language-server 6.0.0 + typescript@5.9（TS7 无 JS tsserver，t-ls 6.x 需 5.x；workspace 根装 typescript 供 t-ls 发现）；`write dvc://lsp {action:diagnostics}` 活体返回结构化诊断（精准命中夹具 TS2322 type error, line 8）——同探针顺带活体证实 dvc payload 渲染修复（wire 面含完整 JSON）。definition/references/hover/format 共享同一 client，按需补测。

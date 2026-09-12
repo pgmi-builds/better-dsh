@@ -42,6 +42,12 @@
 
 「home/profile 层同 id 行重述 fs-sandbox + name 重指」在 0.1.5-rc.2 上**不可用**：三种 name 形态（bare 子路径 / 带引号 bare / 相对路径）全部**静默回滚**为 stock（dump 与活体行为双证）。根因：boot 期行导入走 `loader.internal.import`（编译期 bun-registry，仅 @deepseek-ai/* 在册），非在册名替换导入失败 → `Entry.update` 回滚；upstream 根 symlink 亦不达（import 不走 Node 分支）。**采纳改道 = 实例级方法包装**（`src/fs-aware/wrap.ts`，doc §5.3 最后手段）：包装活体 ctx.fs 的 5 个公开方法，urlSchemes 总闸 + symbol 幂等 + 随重启还原；子路径模块/exports 实验回退（D1b 详录 design.md）。已知代价：上游改这 5 个方法签名即碎（公开面，可控）。
 
+## 4c. Gate on/off 变体 + LSP 成功路径（✅ 2026-09-12 深夜补测）
+
+- **gate OFF 活体变体（task 2.4 ✅）**：双闸关闭（better-dsh `urlSchemes:false` + fs 行 false）重启后自驱实测——原生 read 把 `dsh://docs` 按相对路径折叠（`/home/u1/workspaces/dashr/dsh:/docs not found`，测试 agent 原话「只有常规的 not found…没有虚拟文件系统，也没有 scheme 解析失败之类的专门报错」），真实文件读取不受影响——**逐位等同 stock**，unit+live 双证。
+- **LSP 成功路径（task 2.5 ✅）**：安装 typescript-language-server 6.0.0 + typescript@5.9（**坑**：TS 7.x 无 JS tsserver，t-ls 6.x 需 5.x；且 t-ls 6.0 无 `--tsserver-path` 选项，靠 workspace 根的 node_modules 发现——已装 `/home/u1/workspaces/dashr/node_modules/typescript`）。`write dvc://lsp {action:diagnostics, file:.scratch/lsp-probe.ts}` → server 拉起 → 结构化诊断**精准命中夹具故意埋的 TS2322 type error（line 8）**；同一探针的 wire 渲染含完整 payload JSON（§3.1 修复活体证实）。definition/references/hover/format 共享同一 LSP client，按需补测。
+- 六 scheme 修复（§3.1/§3.3/§3.4）已随后续轮次活体证实：`?q=` 行过滤、glob path-backed 翻译、dvc payload 上 wire。
+
 ## 5. 边界与遗留
 
 - `urlSchemes:false` 活体变体：单测已覆盖（gate off 全 super 矩阵），活体变体启动一轮并入下次批量验证（tasks 2.4 部分完成）。
