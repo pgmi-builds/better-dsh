@@ -33,10 +33,7 @@ import type { Config as LocalConfig } from '@deepseek-ai/dsh-fs-local'
 
 import { UrlResolver } from '../url-schemes/resolver.ts'
 import { UrlSchemesError } from '../url-schemes/selector.ts'
-import { createDshHandler } from '../url-schemes/handlers/dsh.ts'
-import { createDvcHandler } from '../url-schemes/handlers/dvc.ts'
-import { createHttpHandler } from '../url-schemes/handlers/http.ts'
-import { resolveDocsDir } from '../url-schemes/docs-dir.ts'
+import { buildFsLayerResolver } from './wrap.ts'
 
 /** Module config: the stock LocalConfig fields plus the scheme gate. */
 export interface FsAwareConfig extends LocalConfig {
@@ -90,21 +87,17 @@ export default class FsAwareSandboxFileSystem extends Base {
     this.resolver = this.buildResolver(ctx)
   }
 
-  /** FS-layer resolver: the file-type schemes only (design D2). */
+  /**
+   * FS-layer resolver — the SHARED builder from `wrap.ts` (design D2). One
+   * registration source for both FS consumers: this backend and the instance
+   * wrap. (A private duplicate here once drifted — a doubled `dsh` register
+   * and a literal `'http'` that would silently drop `https` if this backend
+   * were ever the outermost layer.) The `ctx`/`agent` handlers it registers
+   * are unreachable here: session-layer schemes are guarded before resolve.
+   */
   private buildResolver(ctx: Context): UrlResolver {
-    const resolver = new UrlResolver()
-    const services = ctx as unknown as { settings?: never }
-    resolver.register('dsh', createDshHandler({
-      settings: services.settings,
-      docsDir: resolveDocsDir(),
-    }))
-    resolver.register('dsh', createDshHandler({
-      settings: services.settings,
-      docsDir: resolveDocsDir(),
-    }))
-    resolver.register('dvc', createDvcHandler())
-    resolver.register('http', createHttpHandler())
-    return resolver
+    const services = ctx as unknown as { settings?: unknown }
+    return buildFsLayerResolver({ settings: services.settings }, this)
   }
 
   /** FS-layer resolver env: no live agent — session-layer schemes are excluded upstream. */

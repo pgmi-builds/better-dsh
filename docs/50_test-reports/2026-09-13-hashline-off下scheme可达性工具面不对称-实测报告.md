@@ -14,14 +14,14 @@
 | 判定项 | 结果 |
 |---|---|
 | `dsh://` / `dvc://` / `http://` 在 `read` 上可达 | ✅ |
-| `ctx://` / `agent://` 在 `read` 上可达 | ❌ 结构化 `CTX_SESSION_LAYER` 边界错误 |
-| `skill://` 在 `read` 上可达 | ❌ 全部 `"is unknown or no longer available"` |
-| `https://` 在 `read` 上可达 | ❌ `no handler registered for scheme "https"` |
+| `skill://` 在 `read` 上 | ✅ **已收口（2026-09-13 user 裁决后返工）**：不再查 registry——`isSessionLayerScheme` 在 `wrap.ts` 与 `sandbox-plugin.ts` 双处纳入 `skill://`，直接抛结构化 `CTX_SESSION_LAYER` 边界错误，文案可执行（指 `skill` 工具 / `grep`,`glob path=skill://…`）；活的假 "unknown" 消失，`sessionCwd`/`scopedAwareSkills`/`URL_SKILL_NOT_INVOCABLE_SCOPE` 死代码在 src/副本/活体 bundle 全 0 命中（user 第二轮亲自复验） |
+| `https://` 在 `read` 上可达 | ✅ 已修（`HTTP_SCHEMES` 循环登记）并两轮复验存活 |
 | 同一批 scheme 在 `grep`/`glob` 上可达 | ✅ `ctx://`、`agent://`、`skill://`、`https://` 全部可达（§2、§3） |
 | 根因 | **`hashline:false` 使 DASHR 的 `read` 包装不安装 → `read` 退化为平台原生工具 → 只剩 FS 层 resolver；`grep`/`glob`/`write` 包装仅由 `urlSchemes` 门控，仍在场 → 走工具层 resolver** |
 
-**一句话**：不是 scheme 坏了，是**同一实例里 `read` 与 `grep`/`glob`/`write` 分属两套 resolver**。`hashline:false` 配置下，会话型（`ctx://`/`agent://`）与需 workspace 作用域的 `skill://` 只能经 `grep`/`glob` 抵达，`read` 是死的；`https://` 更因 FS 层只登记了 `http` 而整条断掉。
+**一句话**：不是 scheme 坏了，是**同一实例里 `read` 与 `grep`/`glob`/`write` 分属两套 resolver**。`hashline:false` 配置下，会话型（`ctx://`/`agent://`）只经 `grep`/`glob` 抵达，`read` 是死的；`https://` 更因 FS 层只登记了 `http` 而整条断掉。
 
+> **2026-09-13 收口更新（user 第二轮复验确认）**：`https://` 已修（两轮活体存活）；`skill://` 按业务逻辑归属裁决重分类为会话型边界（§4 P1-skill 处置块），行为收窄（全局技能亦不在 FS 层解析）但文案已指替代路径，`grep`/`glob` 回退复验通过。
 ---
 
 ## 1. 环境与配置锚定
@@ -166,6 +166,11 @@ write dvc://browser  {"action":"open"|"close"} → ✅ {"ok":true,"url":"about:b
 > **处置（2026-09-13 user 裁决后重定方向，推翻本报告早前的"补通道"方案）**：第一版补通道（sessionCwd 配置 + scopedAware list 启发式）经活体证伪——dump-config 实证 **dsh-web-app bundle patch 在宿主层 disable 了 `skill-filesystem`/`tool-skill`**，web profile 全局层没有任何 skill provider，list 与 get 同空，启发式从未命中（A/B 活体：user-global 的 `skill://markitdown` 与 project 的 `skill://book-to-skill` 双双 `unknown`，session 8b6dcf85）。根因不是"缺 cwd"，而是**技能加载路径解析（CWD/user-global/app 运行时根、扫描深度）是宿主 `dsh-skill-filesystem` 的业务逻辑**，FS 层不得自写近似版。最终处置：`skill://` 重分类为会话层 scheme，FS 层一律答 `CTX_SESSION_LAYER` 边界错误（指名原生 `skill` 工具）；`sessionCwd` 配置整体移除；工具层 handler lookup 收敛为 `dsh-tool-skill` 的精确镜像。详见 `2026-09-12-fs-scheme-resolution-实测报告.md` §4d 与 change design.md §D6。
 >
 > **活体复验（session 37899b26 / bfa99754 / f12a206e / 60418790 / 029aa5bb，2026-09-13）**：`read skill://book-to-skill` → 结构化边界错误（指名原生 skill 工具）；`read skill://markitdown:1-5` → 同（与技能名无关）；**原生 `skill` 工具加载 `book-to-skill` 成功**（完整 `<skill_content>` + resourceBase）；`grep path=skill://book-to-skill pattern=^#` → 560 matches（工具层通道完好）；`read https://example.com` → 正常抓取（P1-a 存活）。
+>
+> **user 第二轮复验（2026-09-13，第一人称）**：lib 02:32 重建 → 02:33 重启；规范源与副本三文件逐字节一致；`https://` / DEBUG-INSTALL / gate 注释 / `skill://` 收口四项全过；`sessionCwd`、`scopedAwareSkills`、`URL_SKILL_NOT_INVOCABLE_SCOPE` 在 src/副本/**活体 bundle** 三面 **0 命中**；`grep path=skill://` 回退复验通过。user 点评：**"以承认边界替代假装能查"是对的**——上轮 `list({cwd})` 无 scope 读不到 workspace 技能（宿主 `SkillViewOptions` 明写 "omitted reads the global layer alone"）本是不可达探针；定性为会话型比修探针干净。行为收窄代价（全局技能亦不在 FS 层解析）已被可执行文案覆盖。user 唯一未亲自引爆文案指向的原生 `skill` 工具（agent probe session f12a206e 已验加载成功）。
+>
+> **user 复验带出两处小瑕疵，本轮已修**：① `sandbox-plugin.ts` 的 `buildResolver` 有**重复的 `register('dsh', …)` 块**（改 skill 块时拼接失误；`register` 是 `handlers.set`，覆盖不抛错，纯死代码）且 `'http'` 仍是字面量未跟 `HTTP_SCHEMES` 对齐（当前非最外层故潜伏，挂载顺序一翻 https 即静默回归）→ **删除私有登记面，`buildResolver` 改为复用 `wrap.ts` 的共享 `buildFsLayerResolver`**（登记单源，双消费方永不再漂移；其 `ctx`/`agent` handler 在本类不可达——前置守卫先拦）；② `url-schemes/index.ts` 两个同名 `export interface Config`（sessionCwd 增删残留）→ 并回一个。单测断言同步：https 注册性检查改为网络无关（成功/取数失败皆证登记，唯 "no handler" 才是回归）。收口烟测（session 0335526e，重启后）：`skill://` 边界 / `https://` 抓取 / `dsh://docs:1-3` 三连全过；回归 vitest 489/14 基线族、tsc 13、openspec valid。
+
 ### P2 — `hashline:false` 下会话型 scheme 无 `read` 通道，且注释与事实不符
 
 `index.ts:288-290` 声称 *"Session-layer schemes (ctx://, agent://) answer the structured boundary error here; **the read tool's scheme branch keeps serving them with the calling agent's context**"* —— 该 "read tool's scheme branch" 只在 `hashline:true` 时存在。`hashline:false` 下 `ctx://`/`agent://` 在 `read` 上无任何通道（`grep`/`glob` 可用，但那是另一个工具面的补偿，不等于 read 通道）。注释与 `index.ts:158-159` 的 gate 说明应统一。
@@ -182,6 +187,9 @@ write dvc://browser  {"action":"open"|"close"} → ✅ {"ok":true,"url":"about:b
 
 易误伤脚本化调用（相对路径静默落到别的树）。建议设备文档写明"相对路径以服务端 cwd 为根"，或与 `ctxFsIO` 的 workspace 对齐。
 
+### P3 — 会话指引把 `read` 描述为 `HASH│content` 锚点读，`hashline:false` 下实为行号读
+
+`url-schemes-instruction.md`（owner 维护）对 read 输出的描述按 hashline 锚点语义书写；`hashline:false` 活体下 read 实际返回行号形式。建议按 gates 加一句条件说明（2026-09-13 复核：三项 P3 均无变化、未复测，挂账）。
 ---
 
 ## 5. 与既有报告的差异（待对齐）
@@ -191,7 +199,8 @@ write dvc://browser  {"action":"open"|"close"} → ✅ {"ok":true,"url":"about:b
 | `read` 上六 scheme 全可达 | `2026-09-12-url-schemes-六scheme冒烟与边界实测报告.md` §0：**✅ 6/6** | `read` 上 `ctx`/`agent`/`skill`/`https` **全 ❌** | **两次实测的 `gates` 不同**：该报告应以 `hashline:true`（DASHR read 包装在场）跑出；本轮为 `hashline:false`。二者不矛盾，但结论必须带配置标签——"六 scheme 可达"仅在 `hashline:true` 成立 |
 | `glob` 的 URL-in-`path` 分支在 `dsh://docs` 失效 | 同上 §0：⚠️ 失效 | ✅ 正常（`glob path=dsh://docs/subsystems` → 116 文件） | 疑似已修或与 `hashline` 门控相关，建议复测后销项 |
 | `dvc://` 设备 payload 在渲染面丢失 | 同上 §0：❌ 缺口（只输出 `Executed dvc://<device>`） | ✅ payload 完整渲染（§3.3） | **该缺口在当前构建已不复现**，建议销项 |
-| FS 层 = skill/dsh/dvc/http，会话型走边界错误 | `2026-09-12-fs-scheme-resolution-实测报告.md` §1/§2（D2） | 一致 | ✅ 与本轮 §1.4 完全吻合；本轮增量是**定位到"read 独有"**并给出 `https`/`skill` 两个具体缺口 |
+| FS 层 = dsh/dvc/http(s)，会话型（含 `skill://`）走边界错误 | `2026-09-12-fs-scheme-resolution-实测报告.md` §1/§2（D2） | 一致（skill 已并入会话型族） | ✅ 与本轮 §1.4 吻合；**2026-09-13 起 FS 层登记面 = dsh/dvc/http/https（`HTTP_SCHEMES` 共享 builder），`skill://` 归入会话型边界** |
+| `skill://` 假 "unknown"（本报告 §1.4/探针清单） | —（本报告当时的活体事实） | **✅ 已消灭**：user 第二轮复验（2026-09-13）——规范源/副本/活体 bundle 三面逐字节核验，`sessionCwd`/`scopedAwareSkills`/`URL_SKILL_NOT_INVOCABLE_SCOPE` 全 0 命中；活体 `read skill://…` 恒答可执行边界文案 | **按业务逻辑归属裁决返工**（`4c21c94` + 本轮清理）：技能路径解析/扫描深度属宿主 `skill-filesystem`，插件不再自写近似版；user 唯一未亲自引爆的是文案指向的原生 `skill` 工具本身（agent 前序 probe session f12a206e 已验：完整 `<skill_content>` 加载成功） |
 
 **建议**：两份 09-12 报告在标题或结论处补注其 `gates.urlSchemes/hashline` 取值，否则后来者会据"6/6"误判 `read` 可用性。
 

@@ -79,12 +79,6 @@ export interface Config {
   hashline?: boolean
 }
 
-/** Plugin config: the scheme gates. */
-export interface Config {
-  urlSchemes?: boolean
-  hashline?: boolean
-}
-
 /** Resolved gate pair. */
 export interface UrlSchemesGates {
   readonly urlSchemes: boolean

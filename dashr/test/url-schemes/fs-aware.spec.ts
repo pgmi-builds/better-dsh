@@ -96,10 +96,10 @@ describe('fs-aware sandbox module', () => {
   it('wrap: https registered + skill:// reclassified to the session-layer boundary', async () => {
     const { fs } = makeFs({ urlSchemes: true })
 
-    // P1-a (kept): https IS registered at the FS layer (fails as a fetch
-    // attempt, never as "no handler registered")
+    // P1-a (kept): https IS registered at the FS layer. Either outcome
+    // proves registration — a successful dereference (network reachable)
+    // or a fetch failure — but NEVER the resolver's "no handler registered".
     const httpsOutcome = await errorCode(fs.resolve('https://example.com'))
-    expect(httpsOutcome).not.toBe('(no throw)')
     expect(httpsOutcome).not.toContain('no handler')
 
     // Skill-delegation ruling (2026-09-13): skill discovery is the host
