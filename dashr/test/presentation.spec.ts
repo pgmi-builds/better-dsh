@@ -261,10 +261,11 @@ describe('v0.2.1b — model-surface contracts (eval description, mask list, esca
     }
   })
 
-  it('mask list keeps the eight masked names and excludes subagent (v0.2.1b alias)', () => {
+  it('mask list keeps the seven masked names and excludes subagent (alias) and skill (2026-09-12 unmask)', () => {
     const masked = [...MASKED_TOOL_NAMES]
     expect(masked).not.toContain('subagent')
-    for (const name of ['skill', 'send_message', 'report', 'list_agents', 'subagent_fork', 'interrupt_agent', 'workflow', 'ralph']) {
+    expect(masked).not.toContain('skill')
+    for (const name of ['send_message', 'report', 'list_agents', 'subagent_fork', 'interrupt_agent', 'workflow', 'ralph']) {
       expect(masked).toContain(name)
     }
   })

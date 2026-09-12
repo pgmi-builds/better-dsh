@@ -161,9 +161,10 @@ describe('wire mask — session-start restrict over the real layer chain', () =>
     // The URL wrappers registered on the agent's own layer join the surface.
     expect(visible).toContain('read')
 
-    // Lookup and by-name dispatch agree (five-sided disappearance).
-    expect(surface.ctx.tools.get('skill', surface.agent)).toBeUndefined()
-    const dispatched = await modelDirect(surface, 'skill', { placeholder: 'x' })
+    // Lookup and by-name dispatch agree (five-sided disappearance) — probed
+    // on a still-masked name (`skill` was unmasked 2026-09-12).
+    expect(surface.ctx.tools.get('send_message', surface.agent)).toBeUndefined()
+    const dispatched = await modelDirect(surface, 'send_message', { placeholder: 'x' })
     expect(dispatched.isError).toBe(true)
     expect(dispatched.error?.info?.code).toBe('UNKNOWN_TOOL')
 
@@ -175,13 +176,13 @@ describe('wire mask — session-start restrict over the real layer chain', () =>
     const evalTool = assembly.tools.find(tool => tool.name === 'eval')
     expect(evalTool).toBeDefined()
     expect(String(evalTool?.description)).not.toContain('tool.keep_me(')
-    expect(String(evalTool?.description)).not.toContain('tool.skill(')
     expect(String(evalTool?.description)).not.toContain('tool.subagent(')
   })
 
   it('skips masked names the host never registered (restrict may only name inherited tools)', async () => {
     const surface = await setupSurface()
-    registerGlobalFake(surface.ctx, 'skill')
+    // `skill` is no longer masked (2026-09-12) and nothing here provides it —
+    // it stays absent for the ordinary not-registered reason.
     registerGlobalFake(surface.ctx, 'keep_me')
     // send_message & co. stay unregistered: the wiring must filter them out
     // rather than let the batch restrict throw and drop the whole mask.
@@ -193,6 +194,7 @@ describe('wire mask — session-start restrict over the real layer chain', () =>
 
   it('leaves own-layer registrations exempt (the child-scoped native report shape) and still masks the inherited names', async () => {
     const surface = await setupSurface()
+    // `skill` is unmasked (2026-09-12): a global fake skill stays visible.
     registerGlobalFake(surface.ctx, 'skill')
     registerGlobalFake(surface.ctx, 'subagent')
     // The production continuable-child shape: `report` is registered on the
@@ -210,10 +212,10 @@ describe('wire mask — session-start restrict over the real layer chain', () =>
     }))
     surface.startSession()
     const visible = surface.ctx.tools.schemas(surface.agent).map(schema => schema.name)
-    expect(visible).not.toContain('skill')
+    expect(visible).toContain('skill')
     // v0.2.1b: `subagent` is deliberately NOT in the mask list (annotated as
     // an alias of `agent` in the control prompt), so a global subagent stays
-    // visible; only the eight masked names are restricted.
+    // visible; only the seven remaining masked names are restricted.
     expect(visible).toContain('subagent')
     expect(visible).toContain('report')
     // The own-layer exemption held through capture too: the definition is in
@@ -223,24 +225,24 @@ describe('wire mask — session-start restrict over the real layer chain', () =>
 
   it('masks only the started agent — a neighbor scope keeps the inherited names', async () => {
     const surface = await setupSurface()
-    registerGlobalFake(surface.ctx, 'skill')
+    registerGlobalFake(surface.ctx, 'send_message')
     surface.startSession()
     // The neighbor agent (no presentation row, never started) still sees
     // the global tool: the restriction lives on the started agent's own
-    // layer, never on the registry or the global layer.
-    expect(surface.ctx.tools.schemas(surface.neighbor).map(schema => schema.name)).toContain('skill')
-    expect(surface.ctx.tools.schemas(surface.agent).map(schema => schema.name)).not.toContain('skill')
+    // layer, never on the registry or the global layer. (`skill` no longer
+    // discriminates — it was unmasked 2026-09-12 — so a still-masked name
+    // carries the assertion.)
+    expect(surface.ctx.tools.schemas(surface.neighbor).map(schema => schema.name)).toContain('send_message')
+    expect(surface.ctx.tools.schemas(surface.agent).map(schema => schema.name)).not.toContain('send_message')
   })
 })
 
 describe('session-start capture — before wrappers, before the mask', () => {
   it('holds the masked definitions while the registry hides them', async () => {
     const surface = await setupSurface()
-    registerGlobalFake(surface.ctx, 'skill')
     registerGlobalFake(surface.ctx, 'send_message')
     surface.startSession()
-    expect(surface.ctx.tools.get('skill', surface.agent)).toBeUndefined()
-    expect(getCapturedTools(surface.agent)?.get('skill')).toBeDefined()
+    expect(surface.ctx.tools.get('send_message', surface.agent)).toBeUndefined()
     expect(getCapturedTools(surface.agent)?.get('send_message')).toBeDefined()
   })
 

@@ -198,12 +198,16 @@ export const EVAL_NAME = 'eval'
  * (`modelSelectionSettings: true`) lands on the agent's OWN layer, outside
  * registry restriction reach, so it stays visible on every surface and the
  * control prompt annotates it as an alias of the `agent` delegation tool.
+ * `skill` was REMOVED from this list (2026-09-12, user ruling): the native
+ * skill tool stays visible and self-surfaces its session catalog
+ * (`<available_skills>` is gated on the tool's registry visibility — masking
+ * the tool silenced the catalog). dashr's dual pipeline keeps `read
+ * skill://<name>` as the addressing form alongside native invocation.
  * own URL wrappers) is exempt from restrictions by construction — the
  * capability it carries stays reachable through the captured-definition
  * bridges below, never through the masked name.
  */
 export const MASKED_TOOL_NAMES: ReadonlySet<string> = new Set([
-  'skill',
   'send_message',
   'report',
   'list_agents',

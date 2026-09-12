@@ -80,26 +80,36 @@ export function wrapFsWithSchemes(
   const resolver = buildFsLayerResolver(services, fs)
   const envFor = (url: string): Record<string, unknown> => ({ fs, rawUrl: url })
 
-  const origResolve = fs.resolve.bind(fs)
-  const origStat = fs.stat.bind(fs)
-  const origReadText = fs.readText.bind(fs)
-  const origWriteText = fs.writeText.bind(fs)
-  const origEditText = fs.editText.bind(fs)
+  // Defensive binds: test harnesses (and exotic deployments) may mount an fs
+  // service stub without every method — the wrap must never be the thing that
+  // kills plugin load. A missing base method only matters when a REAL path
+  // reaches the corresponding override (it fails with a clear error then).
+  const bind = <F>(fn: F | undefined): (F extends (...a: infer A) => infer R ? (...a: A) => R : undefined) | undefined =>
+    typeof fn === 'function' ? (fn.bind(fs) as never) : undefined
+  const origResolve = bind(fs.resolve)
+  const origStat = bind(fs.stat)
+  const origReadText = bind(fs.readText)
+  const origWriteText = bind(fs.writeText)
+  const origEditText = bind(fs.editText)
+  const requireOrig = <F>(orig: F | undefined, method: string): F => {
+    if (orig === undefined) throw new UrlSchemesError('FS_BASE_UNSUPPORTED', `the mounted filesystem service exposes no "${method}" — scheme wrap is active but the base backend cannot serve real paths`)
+    return orig
+  }
 
   fs.resolve = async (path: string, opts?: { cwd?: string; signal?: AbortSignal }) => {
-    if (!isSchemePath(path)) return origResolve(path, opts)
+    if (!isSchemePath(path)) return requireOrig(origResolve, 'resolve')(path, opts)
     if (isSessionLayerScheme(path)) throw sessionLayerError(path)
     await resolver.resolve(envFor(path), path)
     return { targetKey: path, displayPath: path }
   }
   fs.stat = async (target: { targetKey: string }, signal?: AbortSignal) => {
-    if (!isSchemePath(target.targetKey)) return origStat(target, signal)
+    if (!isSchemePath(target.targetKey)) return requireOrig(origStat, 'stat')(target, signal)
     if (isSessionLayerScheme(target.targetKey)) throw sessionLayerError(target.targetKey)
     const text = await resolver.resolve(envFor(target.targetKey), target.targetKey)
     return { type: 'file' as const, size: text.length }
   }
   fs.readText = async (target: { targetKey: string }, signal?: AbortSignal) => {
-    if (!isSchemePath(target.targetKey)) return origReadText(target, signal)
+    if (!isSchemePath(target.targetKey)) return requireOrig(origReadText, 'readText')(target, signal)
     if (isSessionLayerScheme(target.targetKey)) throw sessionLayerError(target.targetKey)
     return resolver.resolve(envFor(target.targetKey), target.targetKey)
   }
@@ -110,7 +120,7 @@ export function wrapFsWithSchemes(
         `cannot write "${target.targetKey}": scheme resources are read-only at the filesystem layer`,
       )
     }
-    return origWriteText(target, ...rest)
+    return requireOrig(origWriteText, 'writeText')(target, ...rest)
   }
   fs.editText = async (target: { targetKey: string }, ...rest: unknown[]) => {
     if (isSchemePath(target.targetKey)) {
@@ -119,7 +129,7 @@ export function wrapFsWithSchemes(
         `cannot edit "${target.targetKey}": scheme resources are read-only at the filesystem layer`,
       )
     }
-    return origEditText(target, ...rest)
+    return requireOrig(origEditText, 'editText')(target, ...rest)
   }
 
   holder[WRAPPED] = resolver
