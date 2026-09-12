@@ -1,8 +1,19 @@
+/* Two columns: the title block on the left, the selector stack on the right.
+   The stack is two rows tall, so `align-items: center` puts the single-line
+   title on the row's vertical middle. */
 .row {
   display: flex;
-  flex-direction: column;
+  align-items: center;
   gap: 8px;
   padding: 12px 0;
+}
+
+.rowText {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .title {
@@ -10,28 +21,18 @@
   font-size: 14px;
 }
 
+/* The two fallback selects stack against the row's trailing edge as one
+   right-aligned control column; neither carries a caption. */
 .slots {
   display: flex;
   flex-direction: column;
+  align-items: flex-end;
   gap: 6px;
 }
 
-.slot {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.slotLabel {
-  min-width: 88px;
-  flex-shrink: 0;
-  font-size: 13px;
-  color: var(--dsw-alias-text-secondary, #666);
-}
-
 .select {
-  flex: 1;
-  max-width: 280px;
+  width: 280px;
+  max-width: 100%;
   min-width: 0;
 }
 

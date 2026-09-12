@@ -73,33 +73,32 @@ export function FailoverRow({ catalog, loadConfig, save, t }: FailoverRowProps):
   }
 
   const routes = loaded?.routes ?? []
-  const renderSelect = (slot: 'fallback1' | 'fallback2', label: string): ReactNode => {
+  const renderSelect = (slot: 'fallback1' | 'fallback2'): ReactNode => {
     const value = loaded?.config[slot] ?? ''
     return (
-      <div className={css.slot}>
-        <span className={css.slotLabel}>{label}</span>
-        <select
-          className={css.select}
-          value={value}
-          disabled={saving || loaded === null}
-          onChange={(event) => { void select(slot, event.target.value) }}
-        >
-          <option value="">{t('not-set')}</option>
-          {routes.map((route) => (
-            <option key={route} value={route}>{route}</option>
-          ))}
-        </select>
-      </div>
+      <select
+        className={css.select}
+        value={value}
+        disabled={saving || loaded === null}
+        onChange={(event) => { void select(slot, event.target.value) }}
+      >
+        <option value="">{t('not-set')}</option>
+        {routes.map((route) => (
+          <option key={route} value={route}>{route}</option>
+        ))}
+      </select>
     )
   }
 
   return (
     <div className={css.row}>
-      <div className={css.title}>{t('title')}</div>
-      {error !== null ? <div className={css.alert} role="alert">{t('error', { message: error })}</div> : null}
+      <div className={css.rowText}>
+        <div className={css.title}>{t('title')}</div>
+        {error !== null ? <div className={css.alert} role="alert">{t('error', { message: error })}</div> : null}
+      </div>
       <div className={css.slots}>
-        {renderSelect('fallback1', t('fallback1'))}
-        {renderSelect('fallback2', t('fallback2'))}
+        {renderSelect('fallback1')}
+        {renderSelect('fallback2')}
       </div>
     </div>
   )
