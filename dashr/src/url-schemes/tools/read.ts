@@ -1,61 +1,36 @@
 /**
- * `createReadTool`: the URL-aware `read` tool doer.
+ * `createSchemeReadTool`: the URL-aware `read` wrapper (scheme branch only).
  *
- * `read` has two branches, forked on the `path` argument:
+ * Orthogonality (2026-09-13): this wrapper knows NOTHING about hashline. It
+ * serves exactly one branch — `path` starting with a `scheme://` prefix
+ * (`skill://name`, `agent://id/transcript`, `dsh://docs`, `dvc://device`,
+ * `ctx://…`) — resolved end-to-end by the {@link UrlResolver}. Every other
+ * path delegates verbatim to the terminal delegate: the read definition
+ * captured before this wrapper registered (the hashline anchored read when
+ * that feature is co-mounted, else the captured native read).
  *
- * - **URL branch** — `path` starts with a `scheme://` prefix (e.g.
- *   `skill://name`, `agent://id/transcript`, `dsh://docs`, `dvc://device`).
- *   The URL is resolved end-to-end by the {@link UrlResolver} (dispatch to the
- *   registered scheme handler, then uniform selector application), and the
- *   resolved text is returned verbatim.
- * - **File branch** — any other `path` is a filesystem path. It flows through
- *   the vendored hashline read pipeline (`readAndServe` over the `ctxFsIO`
- *   bridge), preserving the `HASH│content` anchors + snapshot store that the
- *   vendored `edit` tool depends on. Hashline logic is reused, not re-written.
+ * Chaining contract: exactly ONE definition registers under `read` on the
+ * agent's own scope layer (same-layer same-name is a registry error —
+ * mapping doc §15.9). The composition root (`../index.ts`) builds the chain
+ * hashline-read → scheme-wrapper → native and registers once; standalone
+ * (no hashline) the captured native read is the delegate.
  *
- * Services required from the wiring step (captured in the constructor closure):
- * - `resolver` — {@link UrlResolver} for the URL branch.
- * - `fs` — the deployment's `ctx.fs` (`FileSystem` from `@deepseek-ai/dsh-fs`),
- *   bridged via `ctxFsIO` so hashline reads honor the sandboxed/remote backend.
- * - `ctx` — the Cordis context, for the fs bridge's `fs/write-intent` +
- *   `fs/observed` policy gate.
+ * Service required from the wiring step: `resolver` ({@link UrlResolver}).
  */
 
-import type { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
-import type { FileSystem } from '@deepseek-ai/dsh-fs'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
 
 import { UrlSchemesError } from '../selector.ts'
-
 import type { ResolverEnv, UrlResolver } from '../resolver.ts'
-import {
-  normalizeRequest as normReq,
-  assertReadRequest,
-} from '../../hashline/contract.js'
-import { ctxFsIO } from '../../hashline/fs-bridge.js'
-import { readAndServe } from '../../hashline/read-and-serve.js'
-import { execCwd, withWorkspace } from '../../hashline/session-view.js'
 
-/** Feature gates (patch-line `config:` block; both default on). */
-export interface ReadGates {
-  readonly urlSchemes: boolean
-  readonly hashline: boolean
-}
-
-/** Dependencies for the read tool, supplied by the wiring step. */
-export interface ReadToolDeps {
+/** Dependencies for the scheme read wrapper, supplied by the wiring step. */
+export interface SchemeReadDeps {
   /** URL resolver for the `scheme://` branch. */
   resolver: UrlResolver
-  /** Feature gates: urlSchemes gates the scheme branch; hashline gates anchors. */
-  gates: ReadGates
   /** The read definition captured before this wrapper registered (terminal delegate). */
   capturedRead?: ToolDefinition
-  /** Deployment filesystem, bridged for the hashline (file) branch. */
-  fs: FileSystem
-  /** Cordis context, for the fs bridge's policy/observation events. */
-  ctx: Context
 }
 
 /**
@@ -73,25 +48,22 @@ type ToolResolverEnv = ResolverEnv & {
 const SCHEME_URL_RE = /^[a-z][a-z0-9]*:\/\//
 
 /**
- * Build the URL-aware `read` tool.
- *
- * The URL branch builds the resolver env per call (agent + cwd + rawUrl); the
- * scheme handlers read whichever fields they need off it.
+ * Build the scheme-aware `read` wrapper. The URL branch builds the resolver
+ * env per call (agent + cwd + rawUrl); the scheme handlers read whichever
+ * fields they need off it. File paths delegate to the terminal delegate so
+ * the owning feature (hashline anchors or the native read) surfaces its own
+ * result — never a silent reimplementation here.
  */
-export function createReadTool(deps: ReadToolDeps): ToolDefinition {
-  const { resolver, fs, ctx, gates, capturedRead } = deps
-  // One bridge for the tool's lifetime: closes over `fs` + `ctx` so every
-  // hashline read honors the deployment's filesystem and observation policy.
-  const io = ctxFsIO(fs, ctx)
-
+export function createSchemeReadTool(deps: SchemeReadDeps): ToolDefinition {
+  const { resolver, capturedRead } = deps
   return defineTool({
     name: 'read',
     description:
-      'Read a text file (each line returned as `HASH│content` with a 3-char hash anchor for later edit calls). File reads page with offset/limit.',
+      'Read a text file (each line returned as `HASH│content` with a 3-char hash anchor for later edit calls). File reads page with offset/limit. Also accepts resource URIs (skill://, agent://, dsh://, dvc://, ctx://, http(s)://).',
     parameters: {
       path: {
         type: 'string',
-        description: 'File path (hashline-anchored read).',
+        description: 'File path (hashline-anchored read), or a resource URI.',
       },
       offset: {
         type: 'number',
@@ -107,14 +79,12 @@ export function createReadTool(deps: ReadToolDeps): ToolDefinition {
       render: (_args, value) => [{ type: 'text', text: value }],
     },
     async execute(args, exec) {
-      const canonical = normReq(args)
-      assertReadRequest(canonical)
-      const rawPath = canonical.path
-      const isScheme = SCHEME_URL_RE.test(rawPath)
-
-      // URL branch (gated): resolve end-to-end via the scheme registry,
-      // handing the handlers the calling agent, its cwd, and the raw input URL.
-      if (gates.urlSchemes && isScheme) {
+      const rawPath = typeof args?.path === 'string' ? args.path : ''
+      // URL branch: resolve end-to-end via the scheme registry, handing the
+      // handlers the calling agent, its cwd, and the raw input URL.
+      // Without a resolver the wrapper carries no scheme capability —
+      // delegate instead.
+      if (resolver !== undefined && SCHEME_URL_RE.test(rawPath)) {
         const cwd = exec.agent?.session.header.cwd
         const env: ToolResolverEnv = cwd === undefined
           ? { agent: exec.agent, rawUrl: rawPath }
@@ -122,37 +92,15 @@ export function createReadTool(deps: ReadToolDeps): ToolDefinition {
         return resolver.resolve(env, rawPath)
       }
 
-      // Hashline file branch (gated): vendored hashline read-and-serve,
-      // wrapped in the session workspace so served-row persistence keys by
-      // the right cwd. Scheme paths never anchor (immutable) — with
-      // `urlSchemes: false` they fall through to the terminal delegate so
-      // the native failure surfaces honestly (spec: delegation gates).
-      if (gates.hashline && !isScheme) {
-        return withWorkspace(execCwd(exec), async () => {
-        const cwd = execCwd(exec)
-        const signal = exec.signal
-        const { text, absolutePath } = await readAndServe(io, rawPath, cwd, {
-          signal,
-          offset: canonical.offset,
-          limit: canonical.limit,
-        })
-          // Record the observation with the fs policy gate so later built-in
-          // write/edit calls see this file at the version the model just read.
-          await io.emitObserved(absolutePath, exec, signal)
-          return text
-        })
-      }
-
       // Terminal delegate: the definition registered under `read` before this
-      // wrapper (native or another feature's wrapper — capture anchors on the
-      // semantic name). Reached when: urlSchemes off (scheme paths surface the
-      // native failure honestly) or hashline off (plain native file read).
+      // wrapper (hashline's anchored read, or the native tool — capture
+      // anchors on the semantic name).
       if (capturedRead !== undefined && capturedRead.execute !== undefined) {
         return capturedRead.execute(args, exec) as Promise<string>
       }
       throw new UrlSchemesError(
         'NATIVE_READ_UNAVAILABLE',
-        'no read delegate is available: urlSchemes and hashline gates are both disabled',
+        'no read delegate is available: neither hashline nor the native read is in place',
       )
     },
   })

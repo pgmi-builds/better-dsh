@@ -1,22 +1,34 @@
 /**
- * Gate semantics (task 1.2): `resolveGates` defaults/opt-outs, and the read
- * tool's branch routing under disabled gates — a gated-off branch hands the
- * request to the captured terminal delegate (or fails with the structured
- * `NATIVE_READ_UNAVAILABLE` when no delegate exists), never to a silent
- * reimplementation.
+ * Gate semantics (task 1.2; orthogonality reshape 2026-09-13): `resolveGates`
+ * defaults/opt-outs, and the read CHAIN's routing — the scheme wrapper hands
+ * non-scheme paths to the captured terminal delegate (or fails with the
+ * structured `NATIVE_READ_UNAVAILABLE` when no delegate exists), never to a
+ * silent reimplementation. Gates now decide what the composition root wires
+ * (see `src/url-schemes/index.ts`); the modules themselves are independent
+ * (hashline imports nothing of url-schemes and vice versa).
  */
 
 import { describe, expect, it } from 'vitest'
 import type { ToolDefinition, ToolRunContext } from '@deepseek-ai/dsh-tools'
 
-import { resolveGates } from '../../src/url-schemes/index.ts'
-import { createReadTool } from '../../src/url-schemes/tools/read.ts'
+import { resolveGates } from '../../src/url-schemes/gates.ts'
+import { createSchemeReadTool } from '../../src/url-schemes/tools/read.ts'
+import { createHashlineReadTool } from '../../src/hashline/install.ts'
 import { UrlSchemesError } from '../../src/url-schemes/selector.ts'
+import type { FileIO } from '../../src/hashline/fs-bridge.ts'
 
 const fakeExec = { signal: new AbortController().signal } as unknown as ToolRunContext
 
-function readTool(deps: Record<string, unknown>): ToolDefinition {
-  return createReadTool(deps as unknown as Parameters<typeof createReadTool>[0])
+function schemeReadTool(deps: Record<string, unknown>): ToolDefinition {
+  return createSchemeReadTool(deps as unknown as Parameters<typeof createSchemeReadTool>[0])
+}
+
+const fakeIo = {
+  emitObserved: async () => {},
+} as unknown as FileIO
+
+function hashlineReadTool(): ToolDefinition {
+  return createHashlineReadTool({ io: fakeIo })
 }
 
 describe('resolveGates', () => {
@@ -33,8 +45,8 @@ describe('resolveGates', () => {
 })
 
 describe('read tool gate routing', () => {
-  it('both gates off without a delegate → NATIVE_READ_UNAVAILABLE for scheme and file paths', async () => {
-    const tool = readTool({ gates: { urlSchemes: false, hashline: false } })
+  it('scheme wrapper without a delegate → NATIVE_READ_UNAVAILABLE for scheme and file paths', async () => {
+    const tool = schemeReadTool({})
     await expect(tool.execute({ path: 'ctx://session' }, fakeExec)).rejects.toMatchObject({
       code: 'NATIVE_READ_UNAVAILABLE',
     })
@@ -48,6 +60,14 @@ describe('read tool gate routing', () => {
     }
   })
 
+  it('hashline read doer serves file paths with no scheme knowledge', async () => {
+    const tool = hashlineReadTool()
+    expect(tool.name).toBe('read')
+    // execute() would hit the fs bridge; the contract here is that the doer
+    // is a plain `read` definition whose every path is a filesystem path.
+    expect(typeof tool.execute).toBe('function')
+  })
+
   it('urlSchemes off: scheme paths delegate verbatim to the captured native read', async () => {
     const seen: Array<Record<string, unknown>> = []
     const capturedRead = {
@@ -56,7 +76,7 @@ describe('read tool gate routing', () => {
         return 'native read output'
       },
     } as unknown as ToolDefinition
-    const tool = readTool({ gates: { urlSchemes: false, hashline: true }, capturedRead })
+    const tool = schemeReadTool({ capturedRead })
     expect(await tool.execute({ path: 'ctx://session' }, fakeExec)).toBe('native read output')
     expect(seen).toEqual([{ path: 'ctx://session' }])
   })
@@ -69,7 +89,7 @@ describe('read tool gate routing', () => {
         return 'plain native file read'
       },
     } as unknown as ToolDefinition
-    const tool = readTool({ gates: { urlSchemes: true, hashline: false }, capturedRead })
+    const tool = schemeReadTool({ capturedRead })
     expect(await tool.execute({ path: 'src/some-file.ts' }, fakeExec)).toBe('plain native file read')
     expect(seen).toEqual([{ path: 'src/some-file.ts' }])
   })

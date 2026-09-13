@@ -23,9 +23,9 @@
  */
 
 import type { Context } from '@deepseek-ai/cordis'
-import type { ReadGates } from './transforms.ts'
+import type { ReadGates } from './gates.ts'
 
-/** Scheme-path fork — mirrors transforms.ts (kept textual: spike isolation). */
+/** Scheme-path fork — mirrors the read wrapper fork (kept textual: spike isolation). */
 function isSchemePath(path: string): boolean {
   return /^[a-z][a-z0-9]*:\/\//.test(path)
 }

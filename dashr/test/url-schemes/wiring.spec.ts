@@ -74,6 +74,10 @@ describe('dsh-url-schemes wiring smoke', () => {
       },
     }
     sessionStart!({ agent })
+    // The agent effect is async now (2026-09-13 reshape): installHashline
+    // awaits, so the read/write/grep/glob registrations land a microtask
+    // later — flush before asserting the order.
+    await new Promise((r) => setTimeout(r, 0))
 
     const firstAgentRegIdx = order.findIndex((s) => s === 'agent-register:read')
     const lastCaptureIdx = order.map((s) => s.startsWith('capture:')).lastIndexOf(true)
@@ -86,11 +90,15 @@ describe('dsh-url-schemes wiring smoke', () => {
       'capture:host_extra',
     ])
     expect(lastCaptureIdx).toBeLessThan(firstAgentRegIdx)
+    // Orthogonality reshape (2026-09-13): the hashline install (edit/undo
+    // family) runs first and hands its read doer to the composition, which
+    // registers the chained `read` — so edit/undo precede read here. The
+    // capture-before-register ordering contract is unchanged.
     expect(order.filter((s) => s.startsWith('agent-register:'))).toEqual([
-      'agent-register:read',
-      'agent-register:write',
       'agent-register:edit',
       'agent-register:undo_last_edit',
+      'agent-register:read',
+      'agent-register:write',
       'agent-register:grep',
       'agent-register:glob',
     ])

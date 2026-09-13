@@ -26,7 +26,6 @@ import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
 
 import { SCHEME_NAMES } from '../catalog.ts'
 import { dispatchDvcWrite } from '../handlers/dvc.ts'
-import type { FsSandboxController } from '../../hashline/sandbox.js'
 import type { ResolverEnv } from '../resolver.ts'
 import { parseUrl, UrlSchemesError } from '../selector.ts'
 
@@ -78,7 +77,10 @@ export interface WriteToolDeps {
    * looped on plain denials while the args passthrough itself was intact —
    * the model simply never sent fields the schema never solicited).
    */
-  sandbox?: Pick<FsSandboxController, 'escalationModes' | 'schemaFields'>
+  sandbox?: {
+    readonly escalationModes: readonly string[]
+    schemaFields(): unknown
+  }
 }
 
 /**
@@ -164,7 +166,9 @@ export function createWriteTool(deps: WriteToolDeps): ToolDefinition {
       // the schema never solicited is a field the model never sends (the
       // 09-03 fix covered edit's call-site drop; this closes write's
       // advertisement gap of the same symptom class).
-      ...sandbox !== undefined && sandbox.escalationModes.length > 0 ? sandbox.schemaFields() : {},
+      ...(sandbox !== undefined && sandbox.escalationModes.length > 0
+        ? sandbox.schemaFields() as Record<string, unknown>
+        : {}),
     },
     output: {
       schema: {

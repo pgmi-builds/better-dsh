@@ -20,7 +20,7 @@ import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import type { ReadGates } from './transforms.ts'
+import type { ReadGates } from './gates.ts'
 
 export const GENERAL_SECTION_NAME = 'url-schema:general'
 export const GENERAL_SECTION_ORDER = 129

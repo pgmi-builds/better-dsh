@@ -102,8 +102,12 @@ async function setupSurface(): Promise<Surface> {
     events,
     agentCtx: agentScope.ctx,
     neighbor,
-    startSession: () => {
+    startSession: async () => {
       agentEvents(ctx, agent).emit('agent/session-start', { source: 'startup' })
+      // The agent install effect is async (2026-09-13 orthogonality reshape:
+      // installHashline awaits) — flush so the wrapper registrations land
+      // before assertions.
+      await new Promise((r) => setTimeout(r, 0))
     },
   }
 }
@@ -153,7 +157,7 @@ describe('wire mask — session-start restrict over the real layer chain', () =>
     const masked = [...MASKED_TOOL_NAMES]
     for (const name of masked) registerGlobalFake(surface.ctx, name)
     registerGlobalFake(surface.ctx, 'keep_me')
-    surface.startSession()
+    await surface.startSession()
 
     const visible = surface.ctx.tools.schemas(surface.agent).map(schema => schema.name)
     for (const name of masked) expect(visible, `${name} should be masked`).not.toContain(name)
@@ -186,7 +190,7 @@ describe('wire mask — session-start restrict over the real layer chain', () =>
     registerGlobalFake(surface.ctx, 'keep_me')
     // send_message & co. stay unregistered: the wiring must filter them out
     // rather than let the batch restrict throw and drop the whole mask.
-    surface.startSession()
+    await surface.startSession()
     const visible = surface.ctx.tools.schemas(surface.agent).map(schema => schema.name)
     expect(visible).not.toContain('skill')
     expect(visible).toContain('keep_me')
@@ -210,7 +214,7 @@ describe('wire mask — session-start restrict over the real layer chain', () =>
       },
       execute: args => Promise.resolve(`reported:${String((args as { output: string }).output)}`),
     }))
-    surface.startSession()
+    await surface.startSession()
     const visible = surface.ctx.tools.schemas(surface.agent).map(schema => schema.name)
     expect(visible).toContain('skill')
     // v0.2.1b: `subagent` is deliberately NOT in the mask list (annotated as
@@ -226,7 +230,7 @@ describe('wire mask — session-start restrict over the real layer chain', () =>
   it('masks only the started agent — a neighbor scope keeps the inherited names', async () => {
     const surface = await setupSurface()
     registerGlobalFake(surface.ctx, 'send_message')
-    surface.startSession()
+    await surface.startSession()
     // The neighbor agent (no presentation row, never started) still sees
     // the global tool: the restriction lives on the started agent's own
     // layer, never on the registry or the global layer. (`skill` no longer
@@ -241,7 +245,7 @@ describe('session-start capture — before wrappers, before the mask', () => {
   it('holds the masked definitions while the registry hides them', async () => {
     const surface = await setupSurface()
     registerGlobalFake(surface.ctx, 'send_message')
-    surface.startSession()
+    await surface.startSession()
     expect(surface.ctx.tools.get('send_message', surface.agent)).toBeUndefined()
     expect(getCapturedTools(surface.agent)?.get('send_message')).toBeDefined()
   })
@@ -259,7 +263,7 @@ describe('session-start capture — before wrappers, before the mask', () => {
       execute: () => Promise.resolve('native-write'),
     })
     surface.ctx.tools.register(nativeWrite)
-    surface.startSession()
+    await surface.startSession()
     // The registry resolves the agent's own-layer wrapper (shadowing)…
     const resolved = surface.ctx.tools.get('write', surface.agent)
     expect(resolved).toBeDefined()
@@ -276,7 +280,7 @@ describe('REPL bindings — single-state auto-map over the post-mask projection'
     registerGlobalFake(surface.ctx, 'subagent')
     registerGlobalFake(surface.ctx, 'plain_tool')
     registerGlobalFake(surface.ctx, 'hyphen-tool')
-    surface.startSession()
+    await surface.startSession()
     const functions = await captureBindings(surface)
     const names = Object.keys(functions)
     expect(names).toContain('plain_tool')
@@ -295,7 +299,7 @@ describe('REPL bindings — single-state auto-map over the post-mask projection'
 
   it('a host tool registered after session-start joins the next cell with zero wiring', async () => {
     const surface = await setupSurface()
-    surface.startSession()
+    await surface.startSession()
     registerGlobalFake(surface.ctx, 'late_tool')
     const functions = await captureBindings(surface)
     expect(Object.keys(functions)).toContain('late_tool')

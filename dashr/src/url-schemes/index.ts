@@ -1,9 +1,14 @@
 /**
  * `dsh-url-schemes`: DASHR's URL-aware I/O backend.
  *
- * Owns the URL resolver + URL-aware read/write/grep/glob tools + the vendored
- * hashline + the scheme handlers (`skill://`, `agent://`, `dsh://`, `ctx://`,
- * `dvc://`, `http(s)://`). Mounted by `dashr-repl` (`src/index.ts`) via
+ * Owns the URL resolver + URL-aware read/write/grep/glob tools + the scheme
+ * handlers (`skill://`, `agent://`, `dsh://`, `ctx://`, `dvc://`,
+ * `http(s)://`). This module is also the COMPOSITION ROOT that wires the
+ * independent `src/hashline` module (read chain + edit family) into one
+ * plugin mount. Orthogonality (2026-09-13): `src/hashline` imports nothing
+ * from here; nothing in this module outside `index.ts` imports hashline —
+ * remove this composition and hashline still stands alone (and vice versa).
+ * Mounted by `dashr-repl` (`src/index.ts`) via
  * `ctx.plugin()` — one plugin, one row, following the same mount pattern as
  * `DashrRuntime`.
  *
@@ -48,15 +53,11 @@ import { captureNativeTools } from './native-capture.ts'
 import { UrlResolver } from './resolver.ts'
 import { createGlobTool } from './tools/glob.ts'
 import { createGrepTool } from './tools/grep.ts'
-import { createReadTool } from './tools/read.ts'
+import { createSchemeReadTool } from './tools/read.ts'
 import { createWriteTool } from './tools/write.ts'
-import { ctxFsIO } from '../hashline/fs-bridge.js'
+import { initHashlineRuntime, installHashline } from '../hashline/install.js'
 import { FsSandboxController } from '../hashline/sandbox.js'
-import { registerEditTool } from '../hashline/tool-edit.js'
-import { registerUndoTool } from '../hashline/tool-undo.js'
-import { composeSections, ensurePresetGuidance, GUIDANCE_SECTIONS } from '../hashline/guidance.js'
-import { configDir } from '../hashline/paths.js'
-import { initHasher } from '../hashline/hashline/hash-assign.js'
+import { resolveGates, type ReadGates, type UrlSchemesConfig } from './gates.ts'
 import { listDvcDevices } from './handlers/dvc.ts'
 
 /** Cordis plugin name. */
@@ -71,27 +72,9 @@ export const name = 'dsh-url-schemes'
  */
 export const inject = ['tools', 'fs', 'skills', 'subagents', 'sessions', 'settings', 'agents', 'sessionPersistence']
 
-/** Feature gates (patch-line `config:` block). Every key defaults on — opt-out, not opt-in. */
-export interface Config {
-  /** URL scheme resolution: scheme branches of read/write/grep/glob + `ctx://`. */
-  urlSchemes?: boolean
-  /** Hashline feature: read anchors + the `edit`/`undo` tool family. */
-  hashline?: boolean
-}
-
-/** Resolved gate pair. */
-export interface UrlSchemesGates {
-  readonly urlSchemes: boolean
-  readonly hashline: boolean
-}
-
-/** Every key defaults on — the service is opt-out, not opt-in. */
-export function resolveGates(config: Config | undefined): UrlSchemesGates {
-  return {
-    urlSchemes: config?.urlSchemes !== false,
-    hashline: config?.hashline !== false,
-  }
-}
+/** Feature gates (patch-line `config:` block) — see `./gates.ts`. */
+export type { ReadGates as UrlSchemesGates, UrlSchemesConfig as Config } from './gates.ts'
+export { resolveGates } from './gates.ts'
 
 /** Register the four URL-aware tools on one agent's own scope layer. */
 /**
@@ -150,14 +133,15 @@ export function buildLspWriteFeedback(): { preWriteFormat: import('./tools/write
   }
 }
 
-function installAgentTools(rootCtx: Context, agent: Agent, resolver: UrlResolver, gates: UrlSchemesGates): void {
-  // Gate granularity (reshape 后，2026-09-12):
-  // - `urlSchemes: false` → write/grep/glob wrappers 不安装，FS 后端不拦截
+async function installAgentTools(rootCtx: Context, agent: Agent, resolver: UrlResolver, gates: ReadGates): Promise<void> {
+  // Gate granularity (reshape 后，2026-09-12; 正交化改排，2026-09-13):
+  // - `urlSchemes: false` → write/grep/glob/scheme-read 不安装，FS 后端不拦截
   //   scheme（挂载行 gate），一切路径走原生语义。
-  // - `hashline: false` → read wrapper 不安装（captured 原生 read 独立站立，
-  //   scheme 解析由挂载的 FS 后端承担），edit/undo 家族亦不安装。
-  // - `urlSchemes: true && hashline: true` → read wrapper 双分支：scheme 走
-  //   URL 呈现分支（无锚点），真实文件走 hashline 锚点管线。
+  // - `hashline: false` → hashline install（edit/undo 家族 + 锚点 read）不挂，
+  //   captured 原生 read 独立站立。
+  // - 两者皆开 → read 单注册链：scheme wrapper（外）→ hashline 锚点 read
+  //   （内）→ captured 原生 read（终端）。两模块互不 import：hashline 零
+  //   出向引用；scheme wrapper 不识 hashline——组装只发生在这里。
   agent.ctx.effect(async () => {
     // Capture the agent's FULL inherited surface BEFORE any wrapper
     // registers on the agent's own scope layer — after registration the
@@ -172,26 +156,29 @@ function installAgentTools(rootCtx: Context, agent: Agent, resolver: UrlResolver
     const native = captureNativeTools(rootCtx, agent)
     const disposers: Array<() => void> = []
 
-    // v0.2.2-c: instantiated BEFORE the write registration so the URL-aware
-    // wrapper can re-advertise the escalation fields (see WriteToolDeps.sandbox);
-    // the hashline edit family below shares the same controller instance.
+    // v0.2.2-c: the sandbox controller is created HERE (composition root) and
+    // injected into both the hashline install and the write wrapper, so the
+    // edit family and the write escalation advertisement share one instance.
     const hashlineSandbox = new FsSandboxController(rootCtx)
-    // The fs bridge the hashline anchor transform serves through — one bridge
-    // for the agent's lifetime (read anchors + edit family share it).
-    const hashlineIo = ctxFsIO(rootCtx.fs, rootCtx)
 
-    // The read wrapper exists FOR the hashline anchor pipeline — register it
-    // only when `hashline` is on. With `hashline: false` the captured native
-    // read stands alone and scheme resolution belongs to the mounted FS
-    // backend (`urlSchemes` gate), not to any tool-layer code.
+    // Read chain (single `read` registration): hashline's anchored read sits
+    // INSIDE the scheme wrapper as the terminal delegate. Each module stands
+    // alone: hashline alone → its read registers directly; url-schemes alone
+    // → the wrapper delegates files to the captured native read.
+    let readDelegate = native.read
     if (gates.hashline) {
-      disposers.push(agent.ctx.tools.register(createReadTool({
-        resolver,
-        fs: rootCtx.fs,
-        ctx: rootCtx,
-        gates,
-        capturedRead: native.read,
-      })))
+      const hashline = await installHashline(rootCtx, agent, {
+        sandbox: hashlineSandbox,
+        editFeedback: buildLspWriteFeedback().postWrite,
+      })
+      disposers.push(...hashline.disposers)
+      readDelegate = hashline.readTool
+    }
+    if (gates.urlSchemes || gates.hashline) {
+      const readTool = gates.urlSchemes && readDelegate !== undefined
+        ? createSchemeReadTool({ resolver, capturedRead: readDelegate })
+        : readDelegate
+      if (readTool !== undefined) disposers.push(agent.ctx.tools.register(readTool))
     }
     if (gates.urlSchemes) {
       disposers.push(agent.ctx.tools.register(createWriteTool({
@@ -200,67 +187,14 @@ function installAgentTools(rootCtx: Context, agent: Agent, resolver: UrlResolver
         ...buildLspWriteFeedback(),
       })))
     }
-
-    // The hashline EDIT family (v0.2.0-b): vendored since v0.1.8c, wired here
-    // for the first time — same own-layer pattern as the wrappers above, so
-    // `edit` shadows the preset's built-in and unwinds with the agent.
-    // `read` needs no registration: the DASHR read wrapper already runs the
-    // vendored hashline read pipeline.
-    if (gates.hashline) {
-      disposers.push(registerEditTool(rootCtx, agent.ctx, hashlineIo, hashlineSandbox))
-      disposers.push(registerUndoTool(rootCtx, agent.ctx, hashlineIo, hashlineSandbox))
-    }
-    // The lsp feedback loop rides edit too — but NOT through the write
-    // wrapper (edit lands through hashline's own fs-write). A post-execute
-    // listener covers every successful edit with an explicit path; `write`
-    // is skipped here because the wrapper already owns its feedback pair.
-    if (gates.hashline) {
-      // The lsp feedback loop rides edit (hashline's own fs-write bypasses
-      // the write wrapper): after a successful edit with an explicit path,
-      // read the landed content back and attach the diagnostics summary —
-      // same contract as the write wrapper's post-write hook (EXACT content,
-      // didSave freshness, span guard). `write` is skipped: the wrapper
-      // already owns its feedback pair. Anchor-only edits (path: null) skip
-      // silently — the resolved path lives inside hashline's own logic.
-      const diagnosticsHook = buildLspWriteFeedback().postWrite
-      disposers.push(agent.ctx.on('tools/post-execute', async (exec, result, next) => {
-        const decision = await next()
-        if (exec.name !== 'edit' || result.isError) return decision
-        const args = exec.arguments as { path?: string | null } | undefined
-        const rawPath = args?.path
-        if (typeof rawPath !== 'string' || rawPath === '') return decision
-        try {
-          const content = await hashlineIo.readText(rawPath, exec.signal)
-          if (typeof content !== 'string') return decision
-          const summary = await diagnosticsHook(rawPath, content)
-          if (summary === undefined) return decision
-          const decisionRecord = decision as { kind?: string, content?: Array<{ type: string, text?: string }> }
-          if (decisionRecord.kind !== 'accept') return decision
-          const base = decisionRecord.content ?? (result.content as Array<{ type: string, text?: string }> | undefined) ?? []
-          decisionRecord.content = [...base, { type: 'text', text: `\n${summary}` }]
-          return decision
-        } catch {
-          return decision
-        }
-      }))
-    }
-    // Guidance sections shadow the preset's built-in tool guidance on the
-    // agent's own layer (same names win). agentPresets present → per-preset
-    // overrides; absent or failing → compiled defaults, never a failed boot.
     try {
-      const agentPresets = rootCtx.get('agentPresets') as { composedPreset: (ctx: unknown) => string } | undefined
-      let sections = GUIDANCE_SECTIONS.map(section => ({ name: section.name, order: section.defaultOrder, text: section.renderDefault() }))
-      if (agentPresets !== undefined) {
-        try {
-          const resolved = await composeSections(agentPresets.composedPreset(agent.ctx), configDir())
-          sections = resolved.map(section => ({ name: section.name, order: section.order, text: section.text }))
-        } catch { /* compiled defaults already in place */ }
-      }
-      for (const section of sections) disposers.push(agent.ctx.systemPrompt.section(section))
       // L1 existence disclosure (gated): general URL grammar + bare-enumeration
-      // pointer. Rendered only while the URL capability is on.
-      const general = generalSection(gates)
-      if (general !== undefined) disposers.push(agent.ctx.systemPrompt.section(general))
+      // pointer. Rendered only while the URL capability is on. (Hashline's tool
+      // guidance sections ride its own install above.)
+      if (gates.urlSchemes) {
+        const general = generalSection(gates)
+        if (general !== undefined) disposers.push(agent.ctx.systemPrompt.section(general))
+      }
     } catch { /* guidance is best-effort; the tools stand alone */ }
     if (gates.urlSchemes) {
       disposers.push(agent.ctx.tools.register(createGrepTool({ resolver, nativeGrep: native.grep })))
@@ -273,12 +207,11 @@ function installAgentTools(rootCtx: Context, agent: Agent, resolver: UrlResolver
 }
 
 /** Mount the resolver + scheme handlers, then install the tools per agent. */
-export function apply(ctx: Context, config: Config | undefined): void {
-  // Hashline one-time init (v0.2.0-b): warm the hasher and materialize the
-  // editable per-preset guidance overrides (idempotent; failures are noise,
-  // never a failed boot).
-  void initHasher().catch(() => {})
-  void ensurePresetGuidance(configDir()).catch(() => {})
+export function apply(ctx: Context, config: UrlSchemesConfig | undefined): void {
+  // Hashline one-time init: warm the hasher and materialize the editable
+  // per-preset guidance overrides (idempotent; failures are noise, never a
+  // failed boot).
+  initHashlineRuntime()
   const resolver = new UrlResolver()
 
   // FS-gate scheme resolution (change 2026-09-12-fs-scheme-resolution): wrap
@@ -335,13 +268,11 @@ export function apply(ctx: Context, config: Config | undefined): void {
   ctx.on('agent/session-start', ({ agent }) => {
     if (registered.has(agent)) return
     registered.add(agent)
-    try {
-      installAgentTools(ctx, agent, resolver, resolveGates(config))
-    } catch (error) {
+    installAgentTools(ctx, agent, resolver, resolveGates(config)).catch((error) => {
       ctx.logger('dsh-url-schemes').warn(
         `failed to install URL-aware tools for agent ${agent.id}: ${error instanceof Error ? error.message : String(error)}`,
       )
-    }
+    })
   })
 }
 
