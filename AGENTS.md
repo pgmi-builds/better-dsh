@@ -4,6 +4,21 @@
 
 ---
 
+## 流程纪律 — Superpowers（运行时无关约定，2026-09-13 起）
+
+本仓库的开发流程采用 **Superpowers** 技能集（位于 `.agents/skills/superpowers/`）。注意：runtime 的 skill 目录发现通常只扫一层，不会自动加载深层子目录，因此约定入口为：
+
+- **任何任务开始前，先读 `.agents/skills/superpowers/using-superpowers/SKILL.md` 并遵循其路由规则**：只要存在可能适用的技能（哪怕 1% 可能），先调用该技能再行动。
+- 常用流程技能（均在同一目录下，按入口文件的指引加载）：
+  - "做个 X / 设计 X" → `brainstorming` 先行，再实现类技能。
+  - "修这个 bug" → `systematic-debugging` 先行。
+  - 带计划的执行 → `writing-plans` → `executing-plans`（配合 `test-driven-development`、`verification-before-completion`）。
+  - 分支收尾 → `finishing-a-development-branch`；评审 → `requesting-code-review` / `receiving-code-review`。
+- 规格落盘：变更的规格（spec）写入 `docs/specs/<topic>/spec.md`（纯文档，格式自明，无工具依赖）；历史提案底稿在 `openspec/changes/archive/`。
+- 用户指令与本文件优先于技能；技能优先于默认行为。
+
+---
+
 ## 〇、Development Operation Contract — 发布与验收红线（2026-09-06 裁决）
 
 > 起因：0.2.2-c 违规发包——agent 只做了"4999 拉起来没崩"级别的检查就直发 npm，跳过了第一人称实测与 user 确认两道闸。
