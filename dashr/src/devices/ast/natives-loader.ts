@@ -2,7 +2,7 @@
  * Platform-addon loader for the vendored `ast_edit`/`ast_grep` dvc devices.
  *
  * Adapted from `upstream/oh-my-pi` @ v18.0.6 (packages/natives,
- * `native/loader-state.js` — MIT; see `../LICENSE-OMP.md`). The npm wrapper
+ * `native/loader-state.js` — MIT; see `../NOTICE-OMP.md`). The npm wrapper
  * `@oh-my-pi/pi-natives` is ESM+Bun-only (`import.meta.dir` breaks under
  * Node 22), so this loader does not import the wrapper: it resolves the
  * platform leaf package — declared as an optionalDependency
@@ -14,7 +14,7 @@
  * the device layer turns that into a structured `DVC_DEVICE_ERROR` whose
  * message names the platform package to install.
  *
- * @module dashr/url-schema/vendored/devices/ast/natives-loader
+ * @module dashr/devices/ast/natives-loader
  */
 
 import { existsSync, readFileSync } from 'node:fs'

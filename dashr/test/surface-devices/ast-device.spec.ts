@@ -20,16 +20,16 @@ import {
   piNativesAddonFilenames,
   piNativesPackageName,
   setPiNativesForTest,
-} from '../../src/url-schemes/vendored/devices/ast/natives-loader.ts'
+} from '../../src/devices/ast/natives-loader.ts'
 import type {
   AstFindResult,
   AstReplaceResult,
-} from '../../src/url-schemes/vendored/devices/ast/natives-loader.ts'
+} from '../../src/devices/ast/natives-loader.ts'
 import {
   registerAstDevices,
   summaries,
-} from '../../src/url-schemes/vendored/devices/ast/ast-device.ts'
-import type { DvcRegistry } from '../../src/url-schemes/vendored/devices/ast/ast-device.ts'
+} from '../../src/devices/ast/ast-device.ts'
+import type { DvcRegistry } from '../../src/devices/ast/ast-device.ts'
 import {
   createDvcHandler,
   dispatchDvcWrite,

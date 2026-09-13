@@ -20,7 +20,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { dispatchDvcWrite, listDvcDevices } from '../../src/url-schemes/handlers/dvc.ts'
 import { UrlSchemesError } from '../../src/url-schemes/selector.ts'
-import { registerBrowserDevice } from '../../src/url-schemes/vendored/devices/browser/browser-device.ts'
+import { registerBrowserDevice } from '../../src/devices/browser/browser-device.ts'
 
 // Light registration: mounting must not launch anything (zero-cost register).
 registerBrowserDevice()

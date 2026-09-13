@@ -32,8 +32,8 @@ import {
   installLspDevices,
   setLspDeviceIdleTimeout,
   shutdownLspDevice,
-} from '../../src/url-schemes/vendored/devices/lsp/lsp-device.ts'
-import { registryNames, resolveCommandPath } from '../../src/url-schemes/vendored/devices/lsp/lsp-server-registry.ts'
+} from '../../src/devices/lsp/lsp-device.ts'
+import { registryNames, resolveCommandPath } from '../../src/devices/lsp/lsp-server-registry.ts'
 
 const FIXTURES_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures')
 const FAKE_SERVER = path.join(FIXTURES_DIR, 'fake-lsp-server.mjs')

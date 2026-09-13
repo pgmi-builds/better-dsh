@@ -33,10 +33,10 @@ import type { ResolverEnv, UrlResolver } from '../resolver.ts'
 import {
   normalizeRequest as normReq,
   assertReadRequest,
-} from '../vendored/hashline/contract.js'
-import { ctxFsIO } from '../vendored/hashline/fs-bridge.js'
-import { readAndServe } from '../vendored/hashline/read-and-serve.js'
-import { execCwd, withWorkspace } from '../vendored/hashline/session-view.js'
+} from '../../hashline/contract.js'
+import { ctxFsIO } from '../../hashline/fs-bridge.js'
+import { readAndServe } from '../../hashline/read-and-serve.js'
+import { execCwd, withWorkspace } from '../../hashline/session-view.js'
 
 /** Feature gates (patch-line `config:` block; both default on). */
 export interface ReadGates {

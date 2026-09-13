@@ -2,7 +2,7 @@
  * `dvc://lsp` device — LSP queries over vendored stdio language servers (Wave2).
  *
  * Vendored from `upstream/oh-my-pi` (packages/coding-agent/src/lsp, MIT — see
- * ../LICENSE-OMP.md): the action contract (diagnostics/definition/references/
+ * ../NOTICE-OMP.md): the action contract (diagnostics/definition/references/
  * hover), server selection, and result normalization follow `src/lsp/tool.ts`
  * + `src/lsp/diagnostics.ts`; the client/registry live in the sibling vendored
  * modules. Trimmed vs upstream: single primary server per file (upstream fans
@@ -37,9 +37,9 @@
 import { existsSync } from 'node:fs'
 import * as path from 'node:path'
 
-import { registerDvcDevice } from '../../../handlers/dvc.ts'
-import type { DvcDevice } from '../../../handlers/dvc.ts'
-import { UrlSchemesError } from '../../../selector.ts'
+import { registerDvcDevice } from '../../url-schemes/handlers/dvc.ts'
+import type { DvcDevice } from '../../url-schemes/handlers/dvc.ts'
+import { UrlSchemesError } from '../../url-schemes/selector.ts'
 import {
   ensureFileOpen,
   fileToUri,

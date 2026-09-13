@@ -26,8 +26,8 @@ import { UrlResolver } from '../../src/url-schemes/resolver.ts'
 import type { ResolverEnv } from '../../src/url-schemes/resolver.ts'
 import { UrlSchemesError } from '../../src/url-schemes/selector.ts'
 import { createWriteTool } from '../../src/url-schemes/tools/write.ts'
-import { registerAstDevices } from '../../src/url-schemes/vendored/devices/ast/ast-device.ts'
-import { registerBrowserDevice } from '../../src/url-schemes/vendored/devices/browser/browser-device.ts'
+import { registerAstDevices } from '../../src/devices/ast/ast-device.ts'
+import { registerBrowserDevice } from '../../src/devices/browser/browser-device.ts'
 
 /** Shared resolver env — the dvc handler reads no env fields. */
 const env: ResolverEnv = {}

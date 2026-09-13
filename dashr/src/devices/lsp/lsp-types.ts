@@ -2,7 +2,7 @@
  * Minimal LSP protocol + config types for the vendored `dvc://lsp` device.
  *
  * Vendored from `upstream/oh-my-pi` (packages/coding-agent/src/lsp/types.ts,
- * MIT — see ../LICENSE-OMP.md), trimmed to the four supported actions
+ * MIT — see ../NOTICE-OMP.md), trimmed to the four supported actions
  * (diagnostics/definition/references/hover): position/range/location/diagnostic/
  * hover shapes, the defaults.json `ServerConfig` fields, JSON-RPC message
  * types, and the client state interface. Dropped: schema, symbol/rename/code-

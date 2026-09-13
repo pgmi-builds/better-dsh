@@ -2,7 +2,7 @@
  * Minimal LSP client for the vendored `dvc://lsp` device.
  *
  * Vendored from `upstream/oh-my-pi` (packages/coding-agent/src/lsp/client.ts,
- * MIT — see ../LICENSE-OMP.md), rewritten thin on Node `child_process`:
+ * MIT — see ../NOTICE-OMP.md), rewritten thin on Node `child_process`:
  * the JSON-RPC loop, request/response correlation, `initialize` →
  * `initialized` → `didChangeConfiguration` handshake, `didOpen` tracking,
  * publishDiagnostics capture, the publish-settle diagnostics wait, graceful

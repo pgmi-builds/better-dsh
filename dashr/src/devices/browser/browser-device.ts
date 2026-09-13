@@ -2,7 +2,7 @@
  * `dvc://browser` device — single-tab headless-Chrome adapter (Wave2).
  *
  * Vendored from `upstream/oh-my-pi` (packages/coding-agent, MIT — see
- * ../LICENSE-OMP.md), rewritten thin. The `open`/`run`/`close` action contract
+ * ../NOTICE-OMP.md), rewritten thin. The `open`/`run`/`close` action contract
  * follows `src/tools/browser.ts`; the launch argv + protocol-timeout handling
  * follow `src/tools/browser/launch.ts`.
  *
@@ -47,9 +47,9 @@ import { existsSync } from 'node:fs'
 
 import type { Browser, Page } from 'puppeteer-core'
 
-import { registerDvcDevice } from '../../../handlers/dvc.ts'
-import type { DvcDevice } from '../../../handlers/dvc.ts'
-import { UrlSchemesError } from '../../../selector.ts'
+import { registerDvcDevice } from '../../url-schemes/handlers/dvc.ts'
+import type { DvcDevice } from '../../url-schemes/handlers/dvc.ts'
+import { UrlSchemesError } from '../../url-schemes/selector.ts'
 
 /**
  * puppeteer-core is imported lazily: a deployment without the optional browser

@@ -4,7 +4,7 @@
  *
  * Adapted from `upstream/oh-my-pi` @ v18.0.6 (packages/coding-agent,
  * `src/tools/ast-edit.ts` + `src/tools/ast-grep.ts` + `src/tools/path-utils.ts`
- * — MIT; see `../LICENSE-OMP.md`). This is a rewrite against the dvc device
+ * — MIT; see `../NOTICE-OMP.md`). This is a rewrite against the dvc device
  * contract, not a vendored copy of the tool layer: args keep the omp tool
  * shapes (`ops`/`paths` for edit, `patterns`/`path`/`offset`/`limit`/
  * `includeMeta` for grep), `ops` collapse into the native `rewrites` record
@@ -14,14 +14,14 @@
  *
  * `registerAstDevices` is the S10 wiring seam; `index.ts` is not touched.
  *
- * @module dashr/url-schema/vendored/devices/ast/ast-device
+ * @module dashr/devices/ast/ast-device
  */
 
 import { statSync } from 'node:fs'
 import * as path from 'node:path'
 
-import { registerDvcDevice } from '../../../handlers/dvc.ts'
-import type { DvcDevice } from '../../../handlers/dvc.ts'
+import { registerDvcDevice } from '../../url-schemes/handlers/dvc.ts'
+import type { DvcDevice } from '../../url-schemes/handlers/dvc.ts'
 import type {
   AstFindMatch,
   AstFindResult,

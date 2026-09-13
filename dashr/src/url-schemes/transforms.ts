@@ -22,9 +22,9 @@
  */
 
 import type { ToolExecution } from '@deepseek-ai/dsh-tools'
-import { readAndServe } from './vendored/hashline/read-and-serve.js'
-import { ctxFsIO } from './vendored/hashline/fs-bridge.js'
-import { execCwd, withWorkspace } from './vendored/hashline/session-view.js'
+import { readAndServe } from '../hashline/read-and-serve.js'
+import { ctxFsIO } from '../hashline/fs-bridge.js'
+import { execCwd, withWorkspace } from '../hashline/session-view.js'
 
 /** Feature gates (patch-line `config:` block; both default on). */
 export interface ReadGates {

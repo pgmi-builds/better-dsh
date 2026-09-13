@@ -26,7 +26,7 @@ import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
 
 import { SCHEME_NAMES } from '../catalog.ts'
 import { dispatchDvcWrite } from '../handlers/dvc.ts'
-import type { FsSandboxController } from '../vendored/hashline/sandbox.js'
+import type { FsSandboxController } from '../../hashline/sandbox.js'
 import type { ResolverEnv } from '../resolver.ts'
 import { parseUrl, UrlSchemesError } from '../selector.ts'
 

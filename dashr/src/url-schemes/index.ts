@@ -19,9 +19,9 @@
  * `settings`, `subagents`, `agents`) are read from the plugin's own context,
  */
 
-import { registerAstDevices } from './vendored/devices/ast/ast-device.ts'
-import { registerBrowserDevice } from './vendored/devices/browser/browser-device.ts'
-import { installLspDevices } from './vendored/devices/lsp/lsp-device.ts'
+import { registerAstDevices } from '../devices/ast/ast-device.ts'
+import { registerBrowserDevice } from '../devices/browser/browser-device.ts'
+import { installLspDevices } from '../devices/lsp/lsp-device.ts'
 import type { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 // Type-only: each empty import brings the service's `ctx.<name>` Context merge
@@ -50,13 +50,13 @@ import { createGlobTool } from './tools/glob.ts'
 import { createGrepTool } from './tools/grep.ts'
 import { createReadTool } from './tools/read.ts'
 import { createWriteTool } from './tools/write.ts'
-import { ctxFsIO } from './vendored/hashline/fs-bridge.js'
-import { FsSandboxController } from './vendored/hashline/sandbox.js'
-import { registerEditTool } from './vendored/hashline/tool-edit.js'
-import { registerUndoTool } from './vendored/hashline/tool-undo.js'
-import { composeSections, ensurePresetGuidance, GUIDANCE_SECTIONS } from './vendored/hashline/guidance.js'
-import { configDir } from './vendored/hashline/paths.js'
-import { initHasher } from './vendored/hashline/hashline/hash-assign.js'
+import { ctxFsIO } from '../hashline/fs-bridge.js'
+import { FsSandboxController } from '../hashline/sandbox.js'
+import { registerEditTool } from '../hashline/tool-edit.js'
+import { registerUndoTool } from '../hashline/tool-undo.js'
+import { composeSections, ensurePresetGuidance, GUIDANCE_SECTIONS } from '../hashline/guidance.js'
+import { configDir } from '../hashline/paths.js'
+import { initHasher } from '../hashline/hashline/hash-assign.js'
 import { listDvcDevices } from './handlers/dvc.ts'
 
 /** Cordis plugin name. */
@@ -316,7 +316,7 @@ export function apply(ctx: Context, config: Config | undefined): void {
   // (broken under tsdown bundling) is never reached.
   resolver.register('dsh', createDshHandler({ settings: ctx.settings, docsDir: resolveDocsDir() }))
   // `dvc://` device registry: bare read = roster, <device> read = doc,
-  // write = device dispatch (see vendored/devices/).
+  // write = device dispatch (see src/devices/).
   resolver.register('dvc', createDvcHandler())
   // `ctx://` reads the calling agent out of the resolver env (supplied by the
   // tool layer per call), so it needs no service and registers directly.

@@ -2,7 +2,7 @@
  * Content-Length JSON-RPC framing for the vendored `dvc://lsp` device.
  *
  * Vendored from `upstream/oh-my-pi` (packages/coding-agent/src/jsonrpc/
- * message-framing.ts, MIT — see ../LICENSE-OMP.md): near-verbatim port to
+ * message-framing.ts, MIT — see ../NOTICE-OMP.md): near-verbatim port to
  * plain Node Buffer APIs; upstream's private `#` fields kept. This is the
  * whole vendored surface of that module — no trims were needed.
  */

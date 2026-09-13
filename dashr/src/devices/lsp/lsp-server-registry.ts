@@ -2,7 +2,7 @@
  * Language-server registry + resolution for the vendored `dvc://lsp` device.
  *
  * Vendored from `upstream/oh-my-pi` (packages/coding-agent/src/lsp/defaults.json
- * + config.ts + servers.ts, MIT — see ../LICENSE-OMP.md): the full upstream
+ * + config.ts + servers.ts, MIT — see ../NOTICE-OMP.md): the full upstream
  * registry is shipped verbatim as `defaults.json`, and the resolution paths are
  * ported thin — file-type → server selection (type-checkers preferred over
  * `isLinter` servers), root-marker workspace discovery (upstream

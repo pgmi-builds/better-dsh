@@ -2,7 +2,7 @@
  * Extension → LSP language id detection for the vendored `dvc://lsp` device.
  *
  * Vendored from `upstream/oh-my-pi` (packages/coding-agent/src/utils/
- * lang-from-path.ts, MIT — see ../LICENSE-OMP.md), trimmed to the languages
+ * lang-from-path.ts, MIT — see ../NOTICE-OMP.md), trimmed to the languages
  * the vendored defaults.json registry can launch (plus the basename specials
  * upstream handles: Dockerfile/Makefile/Justfile/CMakeLists/.emacs). Upstream
  * additionally maps theme-highlight ids; only the LSP id column is kept.

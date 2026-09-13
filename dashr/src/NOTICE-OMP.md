@@ -24,7 +24,7 @@ SOFTWARE.
 
 ---
 
-Source: vendored from `upstream/oh-my-pi` @ v18.0.4 (packages/coding-agent,
+Source: adapted from `upstream/oh-my-pi` @ v18.0.4 (now maintained in-tree under `src/devices/`) (packages/coding-agent,
 MIT; see the license text above). Device modules adapted to the DASHR `dvc://`
 device contract (`registerDvcDevice(name, { execute, summary })`) keep their
-upstream copyright; this notice must stay alongside every vendored copy.
+upstream copyright; this notice must stay alongside the in-tree copy.

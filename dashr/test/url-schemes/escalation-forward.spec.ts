@@ -29,7 +29,7 @@
 
 import { describe, expect, it } from 'vitest'
 
-import { buildEditTool } from '../../src/url-schemes/vendored/hashline/tool-edit.js'
+import { buildEditTool } from '../../src/hashline/tool-edit.js'
 import { createWriteTool } from '../../src/url-schemes/tools/write.ts'
 
 interface ToolDef {
