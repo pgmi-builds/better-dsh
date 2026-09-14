@@ -49,13 +49,41 @@ export function serversForFile(filePath: string): Array<[string, ServerConfig]> 
 }
 
 /**
- * The primary server for a file: first non-linter match in registry order,
- * falling back to the first linter (upstream getServerForFile preference —
- * type intelligence over linting).
+ * Clear cached negative probes for a command (after a successful install) so
+ * availability is re-probed instead of failing forever until restart.
+ */
+export function clearCommandProbeCache(command?: string): void {
+  if (command === undefined) {
+    commandProbeCache.clear()
+    return
+  }
+  for (const key of [...commandProbeCache.keys()]) {
+    if (key.startsWith(`${command}\0`) && commandProbeCache.get(key) === null) commandProbeCache.delete(key)
+  }
+}
+
+/**
+ * The primary server for a file: first AVAILABLE non-linter match in
+ * registry order (availability = its binary resolves), falling back to the
+ * first available linter, and only then to the preference-order pick
+ * (upstream filters by availability before routing — the vendored port was
+ * availability-blind and bound .ts to a missing typescript-language-server
+ * even when other covering servers were installed).
  */
 export function primaryServerForFile(filePath: string): [string, ServerConfig] | null {
   const matches = serversForFile(filePath)
-  return matches.find(([, config]) => config.isLinter !== true) ?? matches[0] ?? null
+  if (matches.length === 0) return null
+  const cwd = path.dirname(filePath)
+  // Availability-first: first non-linter match whose binary resolves, then
+  // the first available linter; only when NOTHING is installed do we return
+  // the preference-order pick (so the structured LSP_SERVER_MISSING names
+  // the server the user actually wants to install).
+  const preferred = matches.find(([, config]) => config.isLinter !== true) ?? matches[0]!
+  for (const match of matches) {
+    if (match[1].isLinter === true && match[0] !== preferred[0]) continue
+    if (resolveCommandPath(match[1].command, cwd) !== null) return match
+  }
+  return preferred
 }
 
 /** Look up a named registry entry (device `server` arg). */
@@ -149,9 +177,17 @@ export function resolveCommandPath(command: string, cwd: string): string | null 
 
   const candidates: string[] = path.isAbsolute(command)
     ? [command]
-    : [path.join(cwd, 'node_modules', '.bin', command), ...(process.env.PATH ?? '').split(path.delimiter)
-        .filter(dir => dir !== '')
-        .map(dir => path.join(dir, command))]
+    : [
+        path.join(cwd, 'node_modules', '.bin', command),
+        // User-local install targets (npm prefix ~/.local, cargo, go) are
+        // commonly missing from a daemon's scrubbed PATH — probe them
+        // explicitly (2026-09-15: npm -g installed to ~/.local/bin which the
+        // service PATH never contained).
+        ...(process.env.HOME !== undefined ? [path.join(process.env.HOME, '.local', 'bin', command), path.join(process.env.HOME, '.cargo', 'bin', command), path.join(process.env.HOME, 'go', 'bin', command)] : []),
+        ...(process.env.PATH ?? '').split(path.delimiter)
+          .filter(dir => dir !== '')
+          .map(dir => path.join(dir, command)),
+      ]
 
   const resolved = candidates.find(candidate => isExecutableFile(candidate)) ?? null
   commandProbeCache.set(cacheKey, resolved)

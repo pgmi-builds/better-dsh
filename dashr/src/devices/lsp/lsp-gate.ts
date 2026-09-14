@@ -48,6 +48,8 @@ interface SessionGate {
   nags: number
   /** Languages whose server install was already attempted. */
   installTried: Set<string>
+  /** Languages whose background install FAILED (surfaced in status). */
+  installFailed: Map<string, string>
   /** Languages warm-started (gate on). */
   warmed: Set<string>
 }
@@ -57,10 +59,24 @@ const gates = new Map<string, SessionGate>()
 function gateOf(sessionId: string): SessionGate {
   let gate = gates.get(sessionId)
   if (gate === undefined) {
-    gate = { state: 'unasked', nags: 0, installTried: new Set(), warmed: new Set() }
+    gate = { state: 'unasked', nags: 0, installTried: new Set(), installFailed: new Map(), warmed: new Set() }
     gates.set(sessionId, gate)
   }
   return gate
+}
+
+/** Install attempt status for a language (status surface). */
+export function lspInstallState(sessionId: string, language: string): { tried: boolean, failed: boolean, error?: string } {
+  const gate = gateOf(sessionId)
+  const error = gate.installFailed.get(language)
+  return { tried: gate.installTried.has(language), failed: error !== undefined, error }
+}
+
+/** Install failures recorded for a session (status surface). */
+export function lspInstallFailures(sessionId: string): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const [language, error] of gateOf(sessionId).installFailed) out[language] = error
+  return out
 }
 
 /** Drop a session's gate state (agent dispose). */
@@ -89,15 +105,20 @@ function ensureMustHave(gate: SessionGate, language: string): void {
     const probePath = `/tmp/x.${language === 'python' ? 'py' : 'ts'}`
     const primary = registry.primaryServerForFile(probePath)
     if (primary === null) return
-    const [name, config] = primary
+    const [, config] = primary
     if (registry.resolveCommandPath(config.command, '/tmp') !== null) return // present — nothing to do
     const ok = await registry.installServer(config.command)
-    if (!ok) {
-      // Fail-soft: the notice text already points at dvc://lsp; a missing
-      // binary surfaces as the device's normal structured error at spawn.
-      void name
+    if (ok) {
+      // The registry's negative probe cache must not keep reporting the
+      // pre-install miss for the rest of the process lifetime.
+      registry.clearCommandProbeCache(config.command)
+      gate.installFailed.delete(language)
+    } else {
+      gate.installFailed.set(language, `auto-install of "${config.command}" failed — install manually (${registry.installHintFor(config.command)})`)
     }
-  })().catch(() => {})
+  })().catch((error: unknown) => {
+    gate.installFailed.set(language, error instanceof Error ? error.message : String(error))
+  })
 }
 
 /**
@@ -149,6 +170,14 @@ let transport: LspGateTransport | undefined
 /** The device registers its sync/spawn entry point at mount time. */
 export function registerLspGateTransport(fn: LspGateTransport): void {
   transport = fn
+}
+
+/** Availability ensure entry for non-write surfaces (read/status/fan-out). */
+export function lspGateEnsure(sessionId: string, filePath: string): void {
+  const gate = gateOf(sessionId)
+  const language = languageOf(filePath)
+  if (language === undefined || !MUST_HAVE.has(language)) return
+  ensureMustHave(gate, language)
 }
 
 export function lspGateSyncOnLand(

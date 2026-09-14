@@ -57,7 +57,7 @@ import {
   waitForProjectLoaded,
 } from './lsp-client.ts'
 import type { Diagnostic, Hover, LspClientState, Location, LocationLink, ServerConfig, TextEdit } from './lsp-types.ts'
-import { lspGateDecide, lspGateState, registerLspGateTransport } from './lsp-gate.ts'
+import { lspGateDecide, lspGateEnsure, lspGateState, lspInstallFailures, registerLspGateTransport } from './lsp-gate.ts'
 import {
   findWorkspaceRoot,
   installHintFor,
@@ -455,6 +455,59 @@ function resolveSymbolColumn(lines: string[], line: number, symbolSpec?: string)
   return fallback[occurrence - 1] ?? 0
 }
 
+
+interface FanOutEntry {
+  server: string
+  status: 'ok' | 'missing' | 'error'
+  diagnostics: ReturnType<typeof diagnosticRecord>[]
+  summary: string
+}
+
+/**
+ * Per-file diagnostics fan-out (OMP parity stage 3, made REACHABLE and
+ * honest — 2026-09-15): `{"all":true}` queries every registered server
+ * covering the file. Runs before ANY primary-client requirement; each
+ * server's failure is reported distinctly (`missing`/`error`), never folded
+ * into a silent zero.
+ */
+async function diagnosticsFanOut(record: Record<string, unknown>, file: string): Promise<unknown> {
+  const candidates = serversForFile(file)
+  if (candidates.length === 0) {
+    throw new UrlSchemesError('LSP_NO_SERVER', `lsp device: no defaults.json language server covers "${path.basename(file)}"`)
+  }
+  const results: FanOutEntry[] = []
+  for (const [srvName] of candidates) {
+    try {
+      const outcome = (await thisDispatch({ ...record, all: undefined, server: srvName })) as {
+        diagnostics?: ReturnType<typeof diagnosticRecord>[]
+        summary?: string
+      }
+      results.push({ server: srvName, status: 'ok', diagnostics: outcome.diagnostics ?? [], summary: outcome.summary ?? '' })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      const missing = /LSP_SERVER_MISSING|not found/.test(message)
+      results.push({ server: srvName, status: missing ? 'missing' : 'error', diagnostics: [], summary: message })
+    }
+  }
+  const total = results.reduce((n, r) => n + r.diagnostics.length, 0)
+  const missing = results.filter(r => r.status === 'missing').map(r => r.server)
+  const failed = results.filter(r => r.status === 'error').map(r => r.server)
+  const parts = [
+    `${total} diagnostic(s)`,
+    ...results.map(r => `${r.server}: ${r.status === 'ok' ? String(r.diagnostics.length) : r.status}`),
+  ]
+  if (missing.length > 0) parts.push(`missing (NOT clean): ${missing.join(', ')}`)
+  if (failed.length > 0) parts.push(`errors: ${failed.join(', ')}`)
+  return {
+    ok: true as const,
+    fanout: true as const,
+    servers: results.map(r => r.server),
+    perServer: results,
+    diagnostics: results.flatMap(r => r.diagnostics),
+    summary: `fan-out ${file} — ${parts.join(' — ')}`,
+  }
+}
+
 /** The `dvc://lsp` device: dispatch on `action`, structured errors on every bad path. */
 const lspDevice: DvcDevice = {
   async execute(args: unknown, ctx?: { session?: string }): Promise<unknown> {
@@ -519,6 +572,13 @@ const lspDevice: DvcDevice = {
       const original = await fsPromises.readFile(filePath, 'utf-8')
       symbolCharacter = resolveSymbolColumn(original.split('\n'), position.line, record.symbol)
     }
+    // Fan-out (`all:true`) dispatches BEFORE the primary client is required
+    // — a missing primary binary must not kill queries that other installed
+    // servers can answer (2026-09-15 defect: obtainClient ran above the
+    // fan-out branch, making the fan-out unreachable on exactly those hosts).
+    if (action === 'diagnostics' && record.all === true) {
+      return await diagnosticsFanOut(record, filePath)
+    }
     const { name, client } = await obtainClient(record, filePath)
     const base = { ok: true as const, server: name, file: filePath, root: client.root }
     const uri = fileToUri(filePath)
@@ -554,35 +614,6 @@ const lspDevice: DvcDevice = {
       const { name, client } = await obtainClient(record, file)
       await shutdownClientInstance(client)
       return `${name}: reloaded — the next lsp call respawns the server fresh (config re-read from disk).`
-    }
-
-    // Stage 3: per-file diagnostics fan-out — `{"all":true}` queries every
-    // registered server covering the file (not just the primary) and merges
-    // results, tagged per server.
-    if (action === 'diagnostics' && record.all === true) {
-      const candidates = serversForFile(file)
-      if (candidates.length <= 1) {
-        // Single coverage: fall through nothing — handle inline below via
-        // the primary path by not intercepting.
-      } else {
-        const results: Array<{ server: string, diagnostics: ReturnType<typeof diagnosticRecord>[], summary: string }> = []
-        for (const [srvName] of candidates) {
-          try {
-            const outcome = await thisDispatch({ ...record, all: undefined, server: srvName })
-            results.push({ server: srvName, diagnostics: outcome.diagnostics ?? [], summary: outcome.summary ?? '' })
-          } catch (error) {
-            results.push({ server: srvName, diagnostics: [], summary: error instanceof Error ? error.message : String(error) })
-          }
-        }
-        const total = results.reduce((n, r) => n + r.diagnostics.length, 0)
-        return {
-          ok: true as const,
-          fanout: true as const,
-          servers: results.map(r => r.server),
-          diagnostics: results.flatMap(r => r.diagnostics),
-          summary: `fan-out ${file}: ${total} diagnostic(s) across ${results.length} server(s) — ${results.map(r => `${r.server}: ${r.diagnostics.length}`).join(', ')}`,
-        }
-      }
     }
 
     // ---- OMP parity stages 2+3 (spec roadmap): workspace `*` diagnostics
@@ -770,7 +801,7 @@ const lspDevice: DvcDevice = {
     }
   },
   summary:
-    'LSP queries over stdio language servers (defaults.json registry) — diagnostics / definition / references / hover on {file,line,character}',
+    'LSP over stdio language servers (defaults.json registry). read: status | diagnostics?file=[&all=1] | definition|references|hover?file=&line=&character=|symbol=. write: on/off/status | diagnostics(+all) | definition/references/hover | format | rename | code_actions | reload',
   read: lspDeviceRead,
 }
 
@@ -802,12 +833,40 @@ function parseReadQuery(subpath: string): { action: string, args: Record<string,
 
 async function lspDeviceRead(subpath: string, session?: string): Promise<string> {
   const parsed = parseReadQuery(subpath)
+  // Must-have availability assurance fires on QUERY-FIRST usage too (2026-09-15
+  // defect: it was reachable only from the post-write nag, so a pure-read
+  // session never triggered the background install).
+  if (session !== undefined && parsed !== undefined) {
+    const f = parsed.args['file']
+    if (typeof f === 'string' && f !== '') lspGateEnsure(session, f)
+  }
   if (parsed === undefined) {
     return `unknown read path dvc://lsp/${subpath} — reads: status | diagnostics?file=…[&all=1] | definition?file=&line=[&character=|&symbol=] | references?… | hover?…`
   }
   if (parsed.action === 'status') {
-    if (session !== undefined) return JSON.stringify({ ok: true, gate: lspGateState(session) })
-    return JSON.stringify({ ok: true, note: 'per-session gate — read from a session for its gate (session missing in read env)' })
+    // Availability roster: one probe per gate-table language, plus live
+    // clients and (per session) install attempts. Cached probes make this
+    // cheap; a negative probe after a successful install is cleared by the
+    // gate's installer.
+    const availability: Record<string, { command: string, available: boolean, installFailed?: string }> = {}
+    const registry = await import('./lsp-server-registry.js')
+    for (const language of ['python', 'typescript', 'javascript', 'rust', 'go']) {
+      const ext = language === 'python' ? '.py' : language === 'go' ? '.go' : language === 'rust' ? '.rs' : '.ts'
+      const probe = `/tmp/probe${ext}`
+      const primary = registry.primaryServerForFile(probe) as [string, { command: string }] | null
+      const command = primary !== null ? primary[1].command : language
+      const available = primary !== null && registry.resolveCommandPath(primary[1].command, '/tmp') !== null
+      availability[language] = { command, available }
+    }
+    const live = listLiveClients().filter(c => c.status === 'ready').map(c => `${c.config.command}@${c.root}`)
+    const base: Record<string, unknown> = { ok: true, availability, liveServers: live }
+    if (session === undefined) {
+      return JSON.stringify({ ...base, gate: null, note: 'gate is per-session — read from a session for its gate' })
+    }
+    const gate = lspGateState(session)
+    const failures = lspInstallFailures(session)
+    if (Object.keys(failures).length > 0) base.installFailures = failures
+    return JSON.stringify({ ...base, gate })
   }
   const result = (await lspDevice.execute(parsed.args)) as Record<string, unknown>
   return JSON.stringify(result, null, 2)
