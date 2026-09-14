@@ -515,3 +515,66 @@ describe('write tool — lsp feedback loop (native-tools Wave3)', () => {
     expect(await postWrite('a.ts', 'x')).toBeUndefined()
   })
 })
+
+describe('glob URL-with-metachar splitting (2026-09-15 defect)', () => {
+  it('applies a trailing glob segment WITHIN the resource directory', async () => {
+    const { resolver } = testResolver()
+    const { tool: nativeGlob, calls } = fakeNative()
+    const glob = createGlobTool({ resolver, nativeGlob })
+
+    await glob.execute({ pattern: 'skill://my-skill/*' }, fakeExec())
+    await glob.execute({ pattern: 'skill://my-skill/**/*.md' }, fakeExec())
+
+    expect(calls[0]!.args).toEqual({ pattern: '*', path: join('/srv/skills', 'my-skill') })
+    expect(calls[1]!.args).toEqual({ pattern: '**/*.md', path: join('/srv/skills', 'my-skill') })
+  })
+
+  it('strips the metachar-free prefix so the resolver never sees glob chars', async () => {
+    const { resolver, seenPaths } = testResolver()
+    const { tool: nativeGlob, calls } = fakeNative()
+    const glob = createGlobTool({ resolver, nativeGlob })
+
+    await glob.execute({ pattern: 'skill://my-skill/**' }, fakeExec())
+
+    // The handler-facing path arrives scheme-stripped (resolver strips the
+    // scheme before calling resolvePath) — the point is: no glob chars.
+    expect(seenPaths).toEqual(['my-skill'])
+    expect(calls[0]!.args).toEqual({ pattern: '**', path: join('/srv/skills', 'my-skill') })
+  })
+})
+
+describe('grep URL rewrite-back (2026-09-15 cosmetic)', () => {
+  it('rewrites absolute match paths under the disk root back to the URL form', async () => {
+    const { resolver } = testResolver()
+    const { tool: nativeGrep } = fakeNative(async () => ({
+      matches: [
+        { path: '/srv/skills/my-skill/SKILL.md', lineNumber: 3, line: 'needle' },
+        { path: '/srv/skills/my-skill/sub/ref.md', lineNumber: 7, line: 'needle' },
+      ],
+    }))
+    const grep = createGrepTool({ resolver, nativeGrep })
+
+    const result = (await grep.execute({ pattern: 'needle', path: 'skill://my-skill' }, fakeExec())) as {
+      matches: Array<{ path: string }>
+    }
+
+    expect(result.matches.map((m) => m.path)).toEqual([
+      'skill://my-skill/SKILL.md',
+      'skill://my-skill/sub/ref.md',
+    ])
+  })
+
+  it('rewrites native-relative match paths under the URL', async () => {
+    const { resolver } = testResolver()
+    const { tool: nativeGrep } = fakeNative(async () => ({
+      matches: [{ path: 'SKILL.md', lineNumber: 3, line: 'needle' }],
+    }))
+    const grep = createGrepTool({ resolver, nativeGrep })
+
+    const result = (await grep.execute({ pattern: 'needle', path: 'skill://my-skill' }, fakeExec())) as {
+      matches: Array<{ path: string }>
+    }
+
+    expect(result.matches[0]!.path).toBe('skill://my-skill/SKILL.md')
+  })
+})

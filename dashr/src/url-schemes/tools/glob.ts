@@ -78,6 +78,22 @@ function isSchemeUrl(raw: string): boolean {
   }
 }
 
+
+/**
+ * Split a URL-with-glob pattern into `{ urlPart, globTail }`: the first glob
+ * metacharacter (`*?[`) in the path portion starts the glob tail, which the
+ * path-backed branch applies WITHIN the resource's real disk directory
+ * (`skill://grp/*` → root = the skill dir, pattern `*`). A URL with no
+ * metacharacters keeps the bare-URL listing behavior (tail empty → the
+ * all-depth default pattern).
+ */
+function splitUrlGlob(pattern: string): { urlPart: string, globTail: string } {
+  const metachar = pattern.search(/[*?\[]/)
+  if (metachar === -1) return { urlPart: pattern, globTail: '' }
+  const tail = pattern.slice(metachar).replace(/^\/+/, '')
+  return { urlPart: pattern.slice(0, metachar).replace(/\/+$/, ''), globTail: tail }
+}
+
 /** Structured error for calls that cannot run without the native delegate. */
 function nativeUnavailable(): UrlSchemesError {
   return new UrlSchemesError(
@@ -127,11 +143,16 @@ export function createGlobTool(deps: GlobToolDeps): ToolDefinition {
       if (isSchemeUrl(args.pattern)) {
         const env = execEnv(exec, args.pattern)
         // Path-backed scheme: native glob over the resource's disk directory.
-        const diskDir = await resolver.resolvePath(env, args.pattern)
+        // A trailing glob segment (`skill://grp/*.md`) is split off the URL
+        // and applied WITHIN the directory — never handed to ripgrep as a
+        // literal path.
+        const { urlPart, globTail } = splitUrlGlob(args.pattern)
+        const diskDir = await resolver.resolvePath(env, urlPart)
         if (diskDir !== undefined) {
           if (nativeGlob === undefined) throw nativeUnavailable()
+          const rootedPattern = globTail === '' ? '**/*' : globTail
           return nativeGlob.execute(
-            { ...args, pattern: '**/*', path: diskDir },
+            { ...args, pattern: rootedPattern, path: diskDir },
             exec,
           ) as Promise<GlobResult>
         }

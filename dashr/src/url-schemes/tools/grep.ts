@@ -147,10 +147,27 @@ export function createGrepTool(deps: GrepToolDeps): ToolDefinition {
 
       if (args.path !== undefined && isSchemeUrl(args.path)) {
         const env = execEnv(exec, args.path)
-        // Path-backed scheme: translate the URL to its real disk path.
+        // Path-backed scheme: translate the URL to its real disk path, then
+        // rewrite match paths back to the URL form so the model sees the
+        // resource addressing it used, not internal disk locations.
         const diskPath = await resolver.resolvePath(env, args.path)
         if (diskPath !== undefined) {
-          return nativeGrep.execute({ ...args, path: diskPath }, exec) as Promise<GrepResult>
+          const result = (await nativeGrep.execute({ ...args, path: diskPath }, exec)) as GrepResult
+          if (!Array.isArray(result.matches)) return result
+          const prefix = diskPath.endsWith('/') ? diskPath : `${diskPath}/`
+          return {
+            matches: result.matches.map((m) => {
+              // Absolute under the disk root → rewrite the prefix back to the
+              // URL; native-relative → prepend the URL.
+              if (m.path.startsWith(prefix)) {
+                return { ...m, path: `${args.path}/${m.path.slice(prefix.length)}` }
+              }
+              if (!m.path.startsWith('/')) {
+                return { ...m, path: `${args.path}/${m.path}` }
+              }
+              return m
+            }),
+          }
         }
         // Content-backed scheme: resolve the text, search its temp copy.
         const text = await resolver.resolve(env, args.path)
