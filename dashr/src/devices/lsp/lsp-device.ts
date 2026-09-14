@@ -388,6 +388,71 @@ async function applyOrPreviewWorkspaceEdit(edit: WorkspaceEditShape, apply: bool
   return out
 }
 
+
+// =============================================================================
+// Symbol position resolution (OMP parity stage 4)
+// =============================================================================
+
+const BARE_IDENTIFIER_RE = /^[$A-Za-z_][\w$]*$/
+const IDENTIFIER_CHAR_RE = /[A-Za-z0-9_$]/
+
+/** `symbol` / `symbol#N` — N-th 1-based occurrence of the identifier on the line. */
+function parseSymbolSpec(spec: string): { symbol: string, occurrence: number } {
+  const match = spec.match(/^(.+)#(\d+)$/)
+  if (match === null) return { symbol: spec, occurrence: 1 }
+  return { symbol: match[1] ?? spec, occurrence: Math.max(1, Number.parseInt(match[2] ?? '1', 10)) }
+}
+
+/** Match indexes for the symbol on the line: exact (word-bounded for bare identifiers), then case-insensitive. */
+function findSymbolMatchIndexes(lineText: string, symbol: string, caseInsensitive = false): number[] {
+  if (symbol.length === 0) return []
+  const haystack = caseInsensitive ? lineText.toLowerCase() : lineText
+  const needle = caseInsensitive ? symbol.toLowerCase() : symbol
+  const requireWordBoundary = BARE_IDENTIFIER_RE.test(symbol)
+  const indexes: number[] = []
+  let fromIndex = 0
+  for (;;) {
+    const matchIndex = haystack.indexOf(needle, fromIndex)
+    if (matchIndex === -1) break
+    if (requireWordBoundary) {
+      const before: string = matchIndex > 0 ? haystack[matchIndex - 1] ?? '' : ''
+      const afterIdx = matchIndex + needle.length
+      const after: string = afterIdx < haystack.length ? haystack[afterIdx] ?? '' : ''
+      if (IDENTIFIER_CHAR_RE.test(before) || IDENTIFIER_CHAR_RE.test(after)) {
+        fromIndex = matchIndex + 1
+        continue
+      }
+    }
+    indexes.push(matchIndex)
+    fromIndex = matchIndex + needle.length
+  }
+  return indexes
+}
+
+/**
+ * Resolve the query column on `line` (1-based): no `symbol` → first
+ * non-whitespace column; `symbol` → the occurrence's 0-based column,
+ * exact case-sensitive first, case-insensitive fallback. Mirrors upstream
+ * resolveSymbolColumn (OMP utils.ts).
+ */
+function resolveSymbolColumn(lines: string[], line: number, symbolSpec?: string): number {
+  const targetLine = lines[line - 1] ?? ''
+  if (symbolSpec === undefined || symbolSpec === '') {
+    const match = targetLine.match(/\S/)
+    return match && match.index !== undefined ? match.index : 0
+  }
+  const { symbol, occurrence } = parseSymbolSpec(symbolSpec)
+  const exact = findSymbolMatchIndexes(targetLine, symbol)
+  const fallback = exact.length > 0 ? exact : findSymbolMatchIndexes(targetLine, symbol, true)
+  if (fallback.length === 0) {
+    throw new UrlSchemesError('LSP_SYMBOL_NOT_FOUND', `lsp device: symbol "${symbol}" not found on line ${line}`)
+  }
+  if (occurrence > fallback.length) {
+    throw new UrlSchemesError('LSP_SYMBOL_NOT_FOUND', `lsp device: symbol "${symbol}" occurrence ${occurrence} out of bounds on line ${line} (found ${fallback.length})`)
+  }
+  return fallback[occurrence - 1] ?? 0
+}
+
 /** The `dvc://lsp` device: dispatch on `action`, structured errors on every bad path. */
 const lspDevice: DvcDevice = {
   async execute(args: unknown): Promise<unknown> {
@@ -442,10 +507,21 @@ const lspDevice: DvcDevice = {
     }
 
     const position = requirePosition(record)
+    // Stage 4 (spec roadmap): `symbol` / `symbol#N` resolves the query
+    // column on the line — definition/references/rename/hover accept it;
+    // explicit `character` still wins when provided.
+    let symbolCharacter: number | undefined
+    if (typeof record.symbol === 'string' && record.symbol !== '' && position.character === 1 && existsSync(filePath)) {
+      const original = await fsPromises.readFile(filePath, 'utf-8')
+      symbolCharacter = resolveSymbolColumn(original.split('\n'), position.line, record.symbol)
+    }
     const { name, client } = await obtainClient(record, filePath)
     const base = { ok: true as const, server: name, file: filePath, root: client.root }
     const uri = fileToUri(filePath)
-    const wirePosition = { line: position.line - 1, character: position.character - 1 }
+    const wirePosition = {
+      line: position.line - 1,
+      character: symbolCharacter ?? position.character - 1,
+    }
 
     // Diagnostics wait baseline, captured BEFORE the content sync so the
     // publish the sync itself triggers (didOpen/didChange) satisfies the
@@ -482,14 +558,15 @@ const lspDevice: DvcDevice = {
         throw new UrlSchemesError('LSP_BAD_ARGS', 'lsp device: "rename" requires a non-empty "new_name" string')
       }
       const { name, client } = await obtainClient(record, file)
-      const { line, character } = requirePosition(record)
+      const { line } = requirePosition(record)
+      const original = await fsPromises.readFile(file, 'utf-8')
+      const character = resolveSymbolColumn(original.split('\n'), line, typeof record.symbol === 'string' ? record.symbol : undefined)
       await ensureFileOpen(client, file)
       const result = await lspPositionRequest(client, 'textDocument/rename', {
         textDocument: { uri: fileToUri(file) },
-        position: { line: line - 1, character: character - 1 },
+        position: { line: line - 1, character },
         newName,
       }, false) as WorkspaceEditShape | null
-      void 0
       if (result === null || (result.changes === undefined && result.documentChanges === undefined)) {
         return `${name}: rename returned no edits`
       }
