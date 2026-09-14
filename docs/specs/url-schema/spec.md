@@ -21,6 +21,17 @@ The scheme registry SHALL be owned by the `dsh-url-schemes` cordis service (rena
 - **WHEN** a resolver-layer caller passes a string without `scheme://`
 - **THEN** the system returns the structured `URL_NO_SCHEME` error
 
+### Requirement: Bare `skill://` lists the available skills
+A bare `skill://` URL (no skill name) SHALL render the cwd-scoped skill catalog from the registry's `list` face — one line per winning summary (`skill://<name> — <description>`, plus `(use when: …)` when `whenToUse` is present) — using the same discovery rule as a name lookup. An empty catalog SHALL answer explicitly, never with an error.
+
+#### Scenario: Bare skill list
+- **WHEN** the model reads `skill://` with no skill name
+- **THEN** the tool result contains the count header and per-skill lines, cwd-scoped exactly like `skill://<name>` resolution
+
+#### Scenario: Empty catalog
+- **WHEN** no skill is available in the workspace scope
+- **THEN** the result reads "No skills available in this workspace scope." — not a `URL_SKILL_NOT_FOUND` error
+
 ### Requirement: Delegation shells preserve native non-URL behavior
 The system SHALL implement read/write/grep/glob as delegation shells over the definition registered under the same semantic name at capture time, captured once per agent via `ctx.tools.get(name, agent)` strictly before the wrappers register on the agent's own scope layer (`read` included — its captured delegate MAY be another feature's wrapper). Non-URL inputs SHALL be forwarded verbatim to `captured.execute(args, exec)`, preserving the native write-intent policy gate, sandbox resolution, ripgrep search semantics, and any outer-layer behavior already present. The shells SHALL honor per-feature config gates `Config = { urlSchemes?: boolean = true, hashline?: boolean = true }` from the patch-line `config:` block: with `urlSchemes: false`, scheme paths SHALL fall through to the captured definition (native failure semantics are honest); with `hashline: false`, file reads SHALL delegate without hashline anchoring.
 
@@ -59,6 +70,14 @@ The system SHALL run grep/glob over URL-addressed resources through the native s
 - **WHEN** the model calls glob with a URL in `pattern`
 - **THEN** a path-backed scheme globs the resource's real disk directory natively, and a content-backed scheme returns the resolved text's non-empty lines as the listing without a native call
 
+#### Scenario: Glob metacharacters in a URL pattern
+- **WHEN** the glob pattern is a URL carrying glob metacharacters (e.g. `skill://grp/*`, `skill://grp/**/*.md`)
+- **THEN** the pattern splits at the first metacharacter (`*?[`): the URL part resolves via `resolvePath` and the tail is the rooted glob pattern applied WITHIN the resource's real disk directory — the raw metachar-containing string is never handed to the native engine as a literal path
+
+#### Scenario: Grep match paths report URL addressing
+- **WHEN** a grep over a path-backed URL returns matches
+- **THEN** match paths are rewritten back to the URL form (`skill://grp/SKILL.md`), both for absolute paths under the disk root and for native-relative paths — the model never sees internal disk locations
+
 #### Scenario: Fallback to the OS temp dir
 - **WHEN** `/dev/shm` is unavailable or the content exceeds 8 MiB
 - **THEN** materialization falls back to the OS temp dir and the search still completes
@@ -84,6 +103,17 @@ The system SHALL parse selectors once (`:N-M` comma-lists, `:raw`, `:path/…`, 
 #### Scenario: JSON path and query selectors
 - **WHEN** the resolved text is JSON and the URL carries `:path/a.b` or `?q=a.b`
 - **THEN** the system navigates the JSON by dot-path; for non-JSON text `?q=` keeps the lines containing the query string
+
+### Requirement: Read delegation shapes args to the delegate and coerces output
+The URL-aware read wrapper SHALL accept both `path` and `file_path` (aliased); when delegating a non-scheme path it SHALL shape args to the delegate's DECLARED parameters (`file_path` for the host-native read, `path` for hashline; opaque schemas forwarded verbatim — no keys added an unknown validator might reject) and SHALL coerce a non-string delegate result to the wrapper's string output (JSON serialization), since the wrapper declares the string face for every branch.
+
+#### Scenario: Host-native delegate receives file_path
+- **WHEN** a file path is delegated to a delegate whose schema declares `file_path`
+- **THEN** the delegate receives `file_path` (the `path` key removed) and its structured result is serialized into the wrapper's string output
+
+#### Scenario: Hashline delegate receives path
+- **WHEN** a file path is delegated to the hashline read (schema declares `path`)
+- **THEN** the delegate receives `path` only and the anchored text returns verbatim
 
 ### Requirement: read's file branch stays vendored hashline
 The system SHALL keep the ordinary-file branch of read on the vendored hashline pipeline (HASH│content anchors plus the snapshot store the vendored edit tools depend on), reading through the sandboxed filesystem and the fs observation policy gate — read delegates to no native definition.

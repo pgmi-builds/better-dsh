@@ -97,6 +97,17 @@ Read-vs-write follows GET/PUT semantics — **reads never mutate, writes always 
 
 The write surface retains `status` for symmetry with the session-injected dispatcher, but the read form is canonical for all queries. Path-mutation forms (`dvc://lsp/on`) are NOT part of the contract: mutation never rides a read URL.
 
+### Requirement: Session transport is out-of-band
+The per-session gate addressing SHALL ride the dvc write dispatcher's `execute(args, { session })` context — NOT the args payload — so devices with strict argument validators (browser) are unaffected; the lsp device reads `ctx.session` with a legacy in-args fallback for direct callers. The read surface receives the calling session through the resolver env the same way (`dvc://lsp/status` returns the calling session's gate).
+
+#### Scenario: Strict-validator device unaffected
+- **WHEN** the model writes `dvc://browser` with `{"action":"open","url":…}` from a session
+- **THEN** the browser device's validator sees only its declared fields and the action executes (the session rides the dispatcher's out-of-band ctx)
+
+#### Scenario: Status read is session-aware
+- **WHEN** the model turns lsp on and then reads `dvc://lsp/status` from the same session
+- **THEN** the status reports that session's gate (`"gate":"on"`)
+
 ## OMP parity progress
 
 The device vendored a trimmed upstream oh-my-pi (`packages/coding-agent/src/lsp`) surface; parity is being completed in stages, each keeping the module boundary (nothing imports hash-edit/ast/url-schemes internals):
