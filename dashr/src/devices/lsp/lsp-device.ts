@@ -769,11 +769,47 @@ const lspDevice: DvcDevice = {
   },
   summary:
     'LSP queries over stdio language servers (defaults.json registry) — diagnostics / definition / references / hover on {file,line,character}',
+  read: lspDeviceRead,
 }
 
 /** One-level recursion for fan-out: re-dispatch with a specific `server`. */
 const thisDispatch = (args: Record<string, unknown>): Promise<{ diagnostics?: Array<ReturnType<typeof diagnosticRecord>>, summary?: string }> =>
   lspDevice.execute(args) as Promise<{ diagnostics?: Array<ReturnType<typeof diagnosticRecord>>, summary?: string }>
+
+// =============================================================================
+// Read surface (GET semantics): status + read-only queries. `dvc://lsp/status`,
+// `dvc://lsp/diagnostics?file=…&all=1`, `dvc://lsp/definition?file=…&line=…&character=…&symbol=…`,
+// `dvc://lsp/references?…`, `dvc://lsp/hover?…`. Anything that mutates device
+// or workspace state (on/off, reload, rename, apply, format) stays on write.
+// =============================================================================
+
+const READ_ACTIONS = new Set(['status', 'diagnostics', 'definition', 'references', 'hover'])
+
+function parseReadQuery(subpath: string): { action: string, args: Record<string, unknown> } | undefined {
+  const qIndex = subpath.indexOf('?')
+  const action = qIndex === -1 ? subpath : subpath.slice(0, qIndex)
+  if (!READ_ACTIONS.has(action)) return undefined
+  const args: Record<string, unknown> = { action }
+  if (qIndex !== -1) {
+    for (const [k, v] of new URLSearchParams(subpath.slice(qIndex + 1))) {
+      args[k] = k === 'all' || k === 'apply' ? v === '1' || v === 'true' : v
+    }
+  }
+  return { action, args }
+}
+
+async function lspDeviceRead(subpath: string, session?: string): Promise<string> {
+  const parsed = parseReadQuery(subpath)
+  if (parsed === undefined) {
+    return `unknown read path dvc://lsp/${subpath} — reads: status | diagnostics?file=…[&all=1] | definition?file=&line=[&character=|&symbol=] | references?… | hover?…`
+  }
+  if (parsed.action === 'status') {
+    if (session !== undefined) return JSON.stringify({ ok: true, gate: lspGateState(session) })
+    return JSON.stringify({ ok: true, note: 'per-session gate — read from a session for its gate (session missing in read env)' })
+  }
+  const result = (await lspDevice.execute(parsed.args)) as Record<string, unknown>
+  return JSON.stringify(result, null, 2)
+}
 
 /** Registry seam: any `(name, device)` receiver; defaults to the dvc:// module registry. */
 export type DvcRegistrar = (name: string, device: DvcDevice) => void

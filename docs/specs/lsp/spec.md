@@ -85,12 +85,17 @@ The lsp capability SHALL be a self-contained module: no url-schemes/hashline imp
 
 The dvc contract is uniform: **bare read = roster, `<device>` read = doc/status, `<device>` write = action dispatch**. Gate state is per-session — the write dispatcher injects the calling agent's session id automatically; agents never type it.
 
+Read-vs-write follows GET/PUT semantics — **reads never mutate, writes always do**:
+
 - `read dvc://lsp` — the device doc: actions, args, current contract.
-- `read dvc://lsp/status` — live status: per-language gate, availability, running servers.
+- `read dvc://lsp/status` — the calling session's gate (session injected from the read env; no session → an explicit pointer note).
+- `read dvc://lsp/diagnostics?file=<path>&all=1` — fan-out query (read-only; spawning a lazily-managed server is the side effect of asking, not a mutation).
+- `read dvc://lsp/definition?file=&line=&character=|&symbol=` (also `references`, `hover`) — position queries, 1-based.
 - `write dvc://lsp` `{"action":"on"}` / `{"action":"off"}` — per-session gate decision; ack describes the effect. No repo artifact in either direction.
-- `write dvc://lsp` `{"action":"status"}` — same as the status read (machine form).
-- `write dvc://lsp` `{"action":"diagnostics","file":...}` / `definition` / `references` / `hover` (`file`,`line`,`character`,1-based) / `format` (`file`) — the query surface.
-- Path-style forms (`dvc://lsp/on`) are NOT part of the contract: mutation never rides a read URL.
+- `write dvc://lsp` `{"action":"reload"}` — restart the server (config re-read).
+- `write dvc://lsp` `{"action":"rename",...}` / `{"action":"code_actions",...,"apply":N}` / `{"action":"format","file":...}` — workspace-mutating operations.
+
+The write surface retains `status` for symmetry with the session-injected dispatcher, but the read form is canonical for all queries. Path-mutation forms (`dvc://lsp/on`) are NOT part of the contract: mutation never rides a read URL.
 
 ## OMP parity progress
 

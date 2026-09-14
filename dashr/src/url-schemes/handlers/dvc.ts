@@ -17,7 +17,8 @@
  */
 
 import type { ResolverEnv, SchemeHandler } from '../resolver.ts'
-import { UrlSchemesError } from '../selector.ts'
+import { UrlSchemesError, applySelector } from '../selector.ts'
+import type { HandlerSelector } from '../resolver.ts'
 
 /**
  * One `dvc://` device. `execute` runs a JSON-args payload and resolves to the
@@ -29,6 +30,13 @@ export interface DvcDevice {
   execute(args: unknown, ctx?: unknown): Promise<unknown>
   /** One-line roster/doc summary shown on `dvc://` and `dvc://<device>` reads. */
   summary: string
+  /**
+   * Optional read subpath: `dvc://<device>/<subpath>` serves device state or
+   * runs READ-ONLY actions (status, queries) through the GET surface. Absent
+   * → the device only serves its doc on reads. Anything that mutates device
+   * or workspace state belongs on the write surface (`execute`), never here.
+   */
+  read?(subpath: string, session?: string): Promise<string>
 }
 
 /** Dependencies captured by the dvc:// handler. None — the registry is module-level. */
@@ -53,6 +61,16 @@ export function listDvcDevices(): ReadonlyMap<string, DvcDevice> {
  * A leading `dvc://` is tolerated so callers may pass either the parsed path
  * (the write tool's contract) or the full URL.
  */
+/** Subpath after the device name (`status`, `diagnostics?file=…`), or undefined. */
+function subpathOf(path: string): string | undefined {
+  const stripped = path.startsWith('dvc://') ? path.slice('dvc://'.length) : path
+  const trimmed = stripped.replace(/^\/+/, '')
+  const slash = trimmed.indexOf('/')
+  if (slash === -1) return undefined
+  const sub = trimmed.slice(slash + 1)
+  return sub === '' ? undefined : sub
+}
+
 function deviceNameFromPath(path: string): string {
   const stripped = path.startsWith('dvc://') ? path.slice('dvc://'.length) : path
   const trimmed = stripped.replace(/^\/+/, '')
@@ -73,15 +91,34 @@ function messageOf(error: unknown): string {
  */
 export function createDvcHandler(_deps: DvcHandlerDeps = {}): SchemeHandler {
   return {
-    async resolve(_env: ResolverEnv, path: string): Promise<string> {
+    // Selector-aware (2026-09-14): subpath reads need the query selector as
+    // device arguments (dvc://lsp/diagnostics?file=…), which the uniform pass
+    // would strip; doc/roster reads still apply selectors themselves — line
+    // windows (dvc://browser:1-3) and ?q= line filtering (dvc://ast_grep?q=…)
+    // behave exactly as before, just served by this handler.
+    selectorAware: true,
+    async resolve(_env: ResolverEnv & { agent?: { id?: string } }, path: string, selector?: HandlerSelector): Promise<string> {
       const name = deviceNameFromPath(path)
       if (name === '') {
         if (devices.size === 0) return 'no devices mounted'
-        return [...devices].map(([n, device]) => `${n}\t${device.summary}`).join('\n')
+        return applySelector([...devices].map(([n, device]) => `${n}\t${device.summary}`).join('\n'), selector ?? null)
       }
       const device = devices.get(name)
       if (device === undefined) return `unknown device: ${name}`
-      return `${device.summary}\nusage: write dvc://${name} with a JSON args object to execute this device`
+      const subpath = subpathOf(path)
+      if (subpath !== undefined && device.read !== undefined) {
+        // Reconstruct the query selector as device arguments.
+        const query = selector?.kind === 'query' ? `?${selector.q}` : ''
+        let text: string
+        try {
+          text = await device.read(`${subpath}${query}`, _env.agent?.id)
+        } catch (error) {
+          return `Error: ${error instanceof Error ? error.message : String(error)}`
+        }
+        return selector !== undefined && selector !== null && selector.kind !== 'query' ? applySelector(text, selector) : text
+      }
+      if (subpath !== undefined) return `unknown read path dvc://${name}/${subpath} (device serves doc only)`
+      return applySelector(`${device.summary}\nusage: write dvc://${name} with a JSON args object to execute this device`, selector ?? null)
     },
   }
 }
