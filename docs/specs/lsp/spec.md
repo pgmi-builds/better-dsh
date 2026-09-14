@@ -92,12 +92,14 @@ The dvc contract is uniform: **bare read = roster, `<device>` read = doc/status,
 - `write dvc://lsp` `{"action":"diagnostics","file":...}` / `definition` / `references` / `hover` (`file`,`line`,`character`,1-based) / `format` (`file`) — the query surface.
 - Path-style forms (`dvc://lsp/on`) are NOT part of the contract: mutation never rides a read URL.
 
-## OMP parity roadmap (not yet implemented)
+## OMP parity progress
 
-The current device trims upstream oh-my-pi (`packages/coding-agent/src/lsp`): single primary server per file, one file per request, no `symbol` resolution column. To reach full capacity, port in stages — each stage keeps the module boundary (nothing imports hash-edit/ast/url-schemes internals):
+The device vendored a trimmed upstream oh-my-pi (`packages/coding-agent/src/lsp`) surface; parity is being completed in stages, each keeping the module boundary (nothing imports hash-edit/ast/url-schemes internals):
 
-1. `rename` / `code_actions` / `reload` actions.
-2. Workspace-wide (`*`) diagnostics + `documentDiagnostic` pull.
-3. Multi-server diagnostics fan-out per file.
-4. `symbol`-based position resolution alongside explicit line/character.
-5. Real install automation for the must-have table (pinned pip/npm, fail-soft) — the current manager tracks intent; the installer lands with stage 1.
+1. ✅ `rename` / `code_actions` / `reload` actions (apply/preview WorkspaceEdit over `changes` + `documentChanges`; code action apply by index; reload = shutdown + evict).
+2. ✅ Workspace-wide diagnostics (`{"action":"diagnostics","file":"*"}` — aggregate cached publishDiagnostics across all live servers, per-file E/W counts) + `documentDiagnostic` pull for servers advertising `diagnosticProvider` (pull wins over last push on the saved path).
+3. ✅ Per-file fan-out: `{"action":"diagnostics","file":...,"all":true}` queries every registered server covering the file and merges results tagged per server (single-coverage falls through to the primary path).
+4. ✅ `symbol` / `symbol#N` position resolution on definition/references/rename/hover (word-bounded exact first, case-insensitive fallback, structured `LSP_SYMBOL_NOT_FOUND`; explicit `character` wins).
+5. ✅ Must-have installer: registry `installServer()` runs the package-manager command (npm/pip/go/rustup, 5 min timeout, fail-soft) for missing python/ts/js primaries once per session at first nag; niche languages stay install-on-opt-in.
+
+All five stages are in-tree; residual deltas vs upstream (lspmux, deferred-diagnostics ledger, writethrough editor integration) are IDE-side facilities without a dsh counterpart and are tracked as out of scope by the lsp spec's post-hoc sync ruling.

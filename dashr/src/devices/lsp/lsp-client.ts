@@ -691,6 +691,11 @@ export async function shutdownClientInstance(client: LspClientState): Promise<bo
   return waitForExit(client, EXIT_TIMEOUT_MS)
 }
 
+/** Snapshot of every live client (stage 2/3: workspace aggregation + fan-out). */
+export function listLiveClients(): LspClientState[] {
+  return [...clients.values()]
+}
+
 /** Shut down every live client (upstream shutdownAll). */
 export async function shutdownAllLspClients(): Promise<void> {
   const toShutdown = [...clients.values()]

@@ -178,6 +178,41 @@ const INSTALL_HINTS: Record<string, string> = {
   marksman: 'install from https://github.com/artempyanykh/marksman/releases',
 }
 
+/** Real installer commands (stage 5): only package-manager installables. */
+const INSTALL_COMMANDS: Record<string, string[]> = {
+  'typescript-language-server': ['npm', 'install', '-g', 'typescript-language-server', 'typescript'],
+  'pyright-langserver': ['npm', 'install', '-g', 'pyright'],
+  pylsp: ['pip', 'install', 'python-lsp-server[all]'],
+  ruff: ['pip', 'install', 'ruff'],
+  gopls: ['go', 'install', 'golang.org/x/tools/gopls@latest'],
+  'rust-analyzer': ['rustup', 'component', 'add', 'rust-analyzer'],
+  biome: ['npm', 'install', '-g', '@biomejs/biome'],
+  'bash-language-server': ['npm', 'install', '-g', 'bash-language-server'],
+}
+
+/** The installer command for a server binary, when one is automatable. */
+export function installCommandFor(command: string): string[] | undefined {
+  return INSTALL_COMMANDS[command]
+}
+
+/**
+ * Run the server's package-manager install, fail-soft (stage 5). A missing
+ * installer tool or a non-zero exit resolves false — never throws; the
+ * caller keeps its structured LSP_SERVER_MISSING path either way.
+ */
+export async function installServer(command: string, timeoutMs = 300_000): Promise<boolean> {
+  const argv = INSTALL_COMMANDS[command]
+  if (argv === undefined) return false
+  try {
+    const { execFile } = await import('node:child_process')
+    return await new Promise<boolean>((resolve) => {
+      execFile(argv[0] ?? command, argv.slice(1), { timeout: timeoutMs }, (error) => resolve(error === null || error === undefined))
+    })
+  } catch {
+    return false
+  }
+}
+
 /** Install hint for a missing server binary; generic fallback otherwise. */
 export function installHintFor(command: string): string {
   const hint = INSTALL_HINTS[command]

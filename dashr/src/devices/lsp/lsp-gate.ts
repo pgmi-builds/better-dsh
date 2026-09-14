@@ -74,16 +74,30 @@ export function lspGateState(sessionId: string): GateState {
 }
 
 /**
- * Best-effort must-have install probe. Real availability detection (server
- * on PATH / registry lookup) is delegated to the device's server registry at
- * spawn time; here we only track that we do not retry installs.
+ * Must-have install (stage 5): for python/typescript/javascript, probe the
+ * registry's primary server binary once per session; when missing, run its
+ * package-manager install in the background (fail-soft — a failed install
+ * degrades to the device's structured LSP_SERVER_MISSING at spawn time, and
+ * is never retried within the session). Niche languages install only after
+ * an explicit gate-on (spec: on-demand).
  */
 function ensureMustHave(gate: SessionGate, language: string): void {
   if (!MUST_HAVE.has(language) || gate.installTried.has(language)) return
   gate.installTried.add(language)
-  // Installation itself is the server registry's job (defaults.json command
-  // + install hint). Fail-soft by design: if the binary is missing at spawn,
-  // the device surfaces its normal structured LSP_* error — never a crash.
+  void (async () => {
+    const registry = await import('./lsp-server-registry.js')
+    const probePath = `/tmp/x.${language === 'python' ? 'py' : 'ts'}`
+    const primary = registry.primaryServerForFile(probePath)
+    if (primary === null) return
+    const [name, config] = primary
+    if (registry.resolveCommandPath(config.command, '/tmp') !== null) return // present — nothing to do
+    const ok = await registry.installServer(config.command)
+    if (!ok) {
+      // Fail-soft: the notice text already points at dvc://lsp; a missing
+      // binary surfaces as the device's normal structured error at spawn.
+      void name
+    }
+  })().catch(() => {})
 }
 
 /**

@@ -43,6 +43,7 @@ import type { DvcDevice } from '../../url-schemes/handlers/dvc.ts'
 import { UrlSchemesError } from '../../url-schemes/selector.ts'
 import {
   shutdownClientInstance,
+  listLiveClients,
   ensureFileOpen,
   fileToUri,
   notifyDidSave,
@@ -61,6 +62,7 @@ import {
   findWorkspaceRoot,
   installHintFor,
   primaryServerForFile,
+  serversForFile,
   resolveCommandPath,
   serverByName,
 } from './lsp-server-registry.ts'
@@ -552,6 +554,71 @@ const lspDevice: DvcDevice = {
       return `${name}: reloaded — the next lsp call respawns the server fresh (config re-read from disk).`
     }
 
+    // Stage 3: per-file diagnostics fan-out — `{"all":true}` queries every
+    // registered server covering the file (not just the primary) and merges
+    // results, tagged per server.
+    if (action === 'diagnostics' && record.all === true) {
+      const candidates = serversForFile(file)
+      if (candidates.length <= 1) {
+        // Single coverage: fall through nothing — handle inline below via
+        // the primary path by not intercepting.
+      } else {
+        const results: Array<{ server: string, diagnostics: ReturnType<typeof diagnosticRecord>[], summary: string }> = []
+        for (const [srvName] of candidates) {
+          try {
+            const outcome = await thisDispatch({ ...record, all: undefined, server: srvName })
+            results.push({ server: srvName, diagnostics: outcome.diagnostics ?? [], summary: outcome.summary ?? '' })
+          } catch (error) {
+            results.push({ server: srvName, diagnostics: [], summary: error instanceof Error ? error.message : String(error) })
+          }
+        }
+        const total = results.reduce((n, r) => n + r.diagnostics.length, 0)
+        return {
+          ok: true as const,
+          fanout: true as const,
+          servers: results.map(r => r.server),
+          diagnostics: results.flatMap(r => r.diagnostics),
+          summary: `fan-out ${file}: ${total} diagnostic(s) across ${results.length} server(s) — ${results.map(r => `${r.server}: ${r.diagnostics.length}`).join(', ')}`,
+        }
+      }
+    }
+
+    // ---- OMP parity stages 2+3 (spec roadmap): workspace `*` diagnostics
+    // aggregation over every live client, per-file diagnostics fan-out to
+    // every registered server covering the file, and documentDiagnostic
+    // pull for servers that advertise the provider.
+    if (action === 'diagnostics' && file === '*') {
+      const servers = listLiveClients().filter(c => c.status === 'ready')
+      const files: Array<{ file: string, server: string, count: number, errors: number, warnings: number }> = []
+      for (const c of servers) {
+        for (const [uri, published] of c.diagnostics) {
+          const diags = published.diagnostics ?? []
+          files.push({
+            file: uriToFile(uri),
+            server: c.config.command,
+            count: diags.length,
+            errors: diags.filter(d => (d.severity ?? 1) === 1).length,
+            warnings: diags.filter(d => (d.severity ?? 1) === 2).length,
+          })
+        }
+      }
+      files.sort((a, b) => b.count - a.count)
+      const totalErrors = files.reduce((n, f) => n + f.errors, 0)
+      const totalWarnings = files.reduce((n, f) => n + f.warnings, 0)
+      const lines = files.slice(0, 50).map(f =>
+        `  ${f.file} [${f.server}]: ${f.count} (${f.errors}E/${f.warnings}W)`)
+      return {
+        ok: true as const,
+        scope: 'workspace',
+        servers: servers.length,
+        files: files.length,
+        errors: totalErrors,
+        warnings: totalWarnings,
+        summary: `workspace diagnostics: ${files.length} file(s) with findings across ${servers.length} live server(s) — ${totalErrors} error(s), ${totalWarnings} warning(s)`,
+        detail: lines.length > 0 ? lines.join('\n') : 'no cached diagnostics',
+      }
+    }
+
     if (action === 'rename') {
       const newName = record.new_name
       if (typeof newName !== 'string' || newName === '') {
@@ -630,12 +697,25 @@ const lspDevice: DvcDevice = {
         const kept = waited.diagnostics
           .filter(diagnostic => !(waited.timedOut && diagnostic.source === 'rustc'))
           .map(diagnosticRecord)
-        return {
+        const out = {
           ...base,
           diagnostics: kept,
           summary: diagnosticsSummary(kept),
           check: waited.timedOut ? 'timeout-dropped-rustc' : 'completed',
         }
+        // Stage 2: documentDiagnostic pull — servers advertising the
+        // diagnostic provider get an explicit pull after the save-triggered
+        // publish wait; pull results (fresher than the last push) win.
+        if (client.serverCapabilities !== undefined && 'diagnosticProvider' in client.serverCapabilities) {
+          try {
+            const pulled = await sendRequest(client, 'textDocument/diagnostic', { textDocument: { uri } }) as { kind?: string, items?: unknown[] } | null
+            if (pulled !== null && Array.isArray(pulled.items)) {
+              const items = (pulled.items as Diagnostic[]).map(d => diagnosticRecord(d))
+              return { ...out, diagnostics: items, summary: diagnosticsSummary(items), pull: true }
+            }
+          } catch { /* pull is best-effort; the push-based result stands */ }
+        }
+        return out
       }
 
       case 'definition': {
@@ -690,6 +770,10 @@ const lspDevice: DvcDevice = {
   summary:
     'LSP queries over stdio language servers (defaults.json registry) — diagnostics / definition / references / hover on {file,line,character}',
 }
+
+/** One-level recursion for fan-out: re-dispatch with a specific `server`. */
+const thisDispatch = (args: Record<string, unknown>): Promise<{ diagnostics?: Array<ReturnType<typeof diagnosticRecord>>, summary?: string }> =>
+  lspDevice.execute(args) as Promise<{ diagnostics?: Array<ReturnType<typeof diagnosticRecord>>, summary?: string }>
 
 /** Registry seam: any `(name, device)` receiver; defaults to the dvc:// module registry. */
 export type DvcRegistrar = (name: string, device: DvcDevice) => void
