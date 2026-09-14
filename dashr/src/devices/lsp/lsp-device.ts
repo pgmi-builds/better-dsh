@@ -35,12 +35,14 @@
  */
 
 import { existsSync } from 'node:fs'
+import * as fsPromises from 'node:fs/promises'
 import * as path from 'node:path'
 
 import { registerDvcDevice } from '../../url-schemes/handlers/dvc.ts'
 import type { DvcDevice } from '../../url-schemes/handlers/dvc.ts'
 import { UrlSchemesError } from '../../url-schemes/selector.ts'
 import {
+  shutdownClientInstance,
   ensureFileOpen,
   fileToUri,
   notifyDidSave,
@@ -63,7 +65,7 @@ import {
   serverByName,
 } from './lsp-server-registry.ts'
 
-const ACTIONS = new Set(['diagnostics', 'definition', 'references', 'hover', 'format', 'on', 'off', 'status'])
+const ACTIONS = new Set(['diagnostics', 'definition', 'references', 'hover', 'format', 'on', 'off', 'status', 'rename', 'code_actions', 'reload'])
 
 const SEVERITY_NAMES: Record<number, string> = { 1: 'error', 2: 'warning', 3: 'info', 4: 'hint' }
 
@@ -342,6 +344,50 @@ function isEmptyPositionResult(result: unknown): boolean {
 }
 
 
+
+// =============================================================================
+// Workspace-edit application (OMP parity stage 1: rename / code_actions)
+// =============================================================================
+
+/** One LSP TextEdit (0-based positions, upstream shape). */
+interface LspTextEdit {
+  range: { start: { line: number; character: number }, end: { line: number; character: number } }
+  newText: string
+}
+
+interface WorkspaceEditShape {
+  changes?: Record<string, LspTextEdit[]>
+  documentChanges?: Array<{
+    textDocument: { uri: string }
+    edits: LspTextEdit[]
+  }>
+}
+
+/** Apply a WorkspaceEdit file entry through the in-memory applier; returns the changed path. */
+async function applyFileTextEdits(uri: string, edits: LspTextEdit[]): Promise<string> {
+  const filePath = uriToFile(uri)
+  const original = await fsPromises.readFile(filePath, 'utf-8')
+  const updated = applyTextEdits(original, edits)
+  await fsPromises.writeFile(filePath, updated, 'utf-8')
+  return filePath
+}
+
+/** Apply or preview a WorkspaceEdit; returns per-file summaries. */
+async function applyOrPreviewWorkspaceEdit(edit: WorkspaceEditShape, apply: boolean): Promise<string[]> {
+  const perFile: Array<{ uri: string, edits: LspTextEdit[] }> = []
+  for (const [uri, edits] of Object.entries(edit.changes ?? {})) perFile.push({ uri, edits })
+  for (const doc of edit.documentChanges ?? []) perFile.push({ uri: doc.textDocument.uri, edits: doc.edits })
+  if (perFile.length === 0) return []
+  if (!apply) {
+    return perFile.map(({ uri, edits }) => `  ${uriToFile(uri)}: ${edits.length} edit(s) (preview — pass "apply":true to apply)`)
+  }
+  const out: string[] = []
+  for (const { uri, edits } of perFile) {
+    out.push(`  ${await applyFileTextEdits(uri, edits)} (${edits.length} edit(s))`)
+  }
+  return out
+}
+
 /** The `dvc://lsp` device: dispatch on `action`, structured errors on every bad path. */
 const lspDevice: DvcDevice = {
   async execute(args: unknown): Promise<unknown> {
@@ -350,7 +396,7 @@ const lspDevice: DvcDevice = {
     if (typeof action !== 'string' || !ACTIONS.has(action)) {
       throw new UrlSchemesError(
         'LSP_BAD_ARGS',
-        `lsp device: unknown action ${JSON.stringify(action ?? null)} — expected "diagnostics", "definition", "references", "hover", "format", "on", "off", or "status"`,
+        `lsp device: unknown action ${JSON.stringify(action ?? null)} — expected "diagnostics", "definition", "references", "hover", "format", "rename", "code_actions", "reload", "on", "off", or "status"`,
       )
     }
 
@@ -422,6 +468,66 @@ const lspDevice: DvcDevice = {
       await waitForProjectLoaded(client)
     }
     const retryCold = action !== 'diagnostics' && client.config.isLinter !== true
+
+    // ---- OMP parity stage 1 (spec docs/specs/lsp/spec.md roadmap) ----
+    if (action === 'reload') {
+      const { name, client } = await obtainClient(record, file)
+      await shutdownClientInstance(client)
+      return `${name}: reloaded — the next lsp call respawns the server fresh (config re-read from disk).`
+    }
+
+    if (action === 'rename') {
+      const newName = record.new_name
+      if (typeof newName !== 'string' || newName === '') {
+        throw new UrlSchemesError('LSP_BAD_ARGS', 'lsp device: "rename" requires a non-empty "new_name" string')
+      }
+      const { name, client } = await obtainClient(record, file)
+      const { line, character } = requirePosition(record)
+      await ensureFileOpen(client, file)
+      const result = await lspPositionRequest(client, 'textDocument/rename', {
+        textDocument: { uri: fileToUri(file) },
+        position: { line: line - 1, character: character - 1 },
+        newName,
+      }, false) as WorkspaceEditShape | null
+      void 0
+      if (result === null || (result.changes === undefined && result.documentChanges === undefined)) {
+        return `${name}: rename returned no edits`
+      }
+      const apply = record.apply !== false
+      const lines = await applyOrPreviewWorkspaceEdit(result, apply)
+      return `${name}: rename ${apply ? 'applied' : 'preview'}:\n${lines.join('\n')}`
+    }
+
+    if (action === 'code_actions') {
+      const { name, client } = await obtainClient(record, file)
+      const { line, character } = requirePosition(record)
+      await ensureFileOpen(client, file)
+      const result = await lspPositionRequest(client, 'textDocument/codeAction', {
+        textDocument: { uri: fileToUri(file) },
+        range: { start: { line: line - 1, character: character - 1 }, end: { line: line - 1, character: character - 1 } },
+        context: { diagnostics: client.diagnostics.get(fileToUri(file))?.diagnostics ?? [], triggerKind: 1 },
+      }, false) as Array<{ title?: string, kind?: string, edit?: WorkspaceEditShape, command?: { command?: string, title?: string } }> | null
+      const actions: NonNullable<NonNullable<typeof result>> = result ?? []
+      if (actions.length === 0) return `${name}: no code actions available`
+      const applyIndex = typeof record.apply === 'number' ? record.apply : undefined
+      if (applyIndex === undefined) {
+        return `${name}: code actions (pass "apply":<index> to apply):\n` +
+          actions.map((a, i) => `  [${i}] ${a.title ?? '(untitled)'}${a.kind ? ` (${a.kind})` : ''}`).join('\n')
+      }
+      const chosen = actions[applyIndex]
+      if (chosen === undefined) {
+        throw new UrlSchemesError('LSP_BAD_ARGS', `lsp device: "apply" index ${applyIndex} out of range (0..${actions.length - 1})`)
+      }
+      if (chosen.edit !== undefined) {
+        const lines = await applyOrPreviewWorkspaceEdit(chosen.edit, true)
+        return `${name}: applied code action "${chosen.title ?? applyIndex}":\n${lines.join('\n')}`
+      }
+      if (chosen.command?.command !== undefined) {
+        await sendRequest(client, 'workspace/executeCommand', chosen.command)
+        return `${name}: executed command "${chosen.command.command}" for "${chosen.title ?? applyIndex}"`
+      }
+      return `${name}: code action "${chosen.title ?? applyIndex}" carries neither edit nor command`
+    }
 
     switch (action) {
       case 'diagnostics': {
