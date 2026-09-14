@@ -28,6 +28,7 @@ interface GetCall {
 export interface FakeSkills {
   calls: GetCall[]
   get(name: string, options?: SkillViewOptions): Promise<SkillDefinition | undefined>
+  list(options?: SkillViewOptions): Promise<Array<{ name: string, description: string, whenToUse?: string }>>
 }
 
 /** Recording fake for the `ctx.fs` surface the skill handler calls. */
@@ -51,6 +52,14 @@ function fakeSkills(
     async get(name, options) {
       calls.push({ name, options })
       return get(name, options)
+    },
+    async list() {
+      // Default catalog for list tests; tests that need a custom catalog
+      // override by constructing their own fake.
+      return [
+        { name: 'demo-skill', description: 'A demo skill', whenToUse: 'demoing' },
+        { name: 'other-skill', description: 'Another skill' },
+      ]
     },
   }
 }
@@ -214,5 +223,24 @@ describe('skill handler: resolvePath', () => {
   it('returns undefined for an escaping subpath instead of a guessed path', async () => {
     const h = makeHandler(fakeSkills(() => def('demo', { resourceBase: base })), fakeFs({}))
     await expect(h.resolvePath(agentEnv('/ws'), 'demo/../../etc/passwd')).resolves.toBeUndefined()
+  })
+})
+
+describe('skill:// bare list', () => {
+  it('renders the cwd-scoped skill catalog from the registry', async () => {
+    const skills = fakeSkills(() => undefined)
+    const handler = createSkillHandler({ skills, fs: fakeFs({}) })
+    const text = await handler.resolve({ agent: { session: { header: { cwd: process.cwd() } } } } as never, '')
+    expect(text).toContain('2 available skill(s)')
+    expect(text).toContain('skill://demo-skill — A demo skill (use when: demoing)')
+    expect(text).toContain('skill://other-skill — Another skill')
+  })
+
+  it('empty registry answers explicitly, never an error', async () => {
+    const skills = fakeSkills(() => undefined)
+    skills.list = async () => []
+    const handler = createSkillHandler({ skills, fs: fakeFs({}) })
+    const text = await handler.resolve({ agent: { session: { header: { cwd: process.cwd() } } } } as never, '')
+    expect(text).toContain('No skills available')
   })
 })

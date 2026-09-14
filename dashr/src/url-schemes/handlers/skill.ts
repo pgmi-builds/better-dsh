@@ -56,6 +56,8 @@ export interface SkillEnv extends ResolverEnv {
 export interface SkillRegistrySurface {
   /** Load the winning skill definition for a workspace (see SkillViewOptions). */
   get(name: string, options?: SkillViewOptions): Promise<SkillDefinition | undefined>
+  /** All winning skill summaries for a workspace (bare `skill://` list). */
+  list(options?: SkillViewOptions): Promise<Array<{ name: string, description: string, whenToUse?: string }>>
 }
 
 /** The subset of `ctx.fs` this handler calls (structural, test-friendly). */
@@ -119,11 +121,31 @@ function lookupOptions(env: SkillEnv): SkillViewOptions | undefined {
  * maps a URL to its on-disk location so `grep`/`glob` can search the real
  * files instead of resolved text.
  */
+/**
+ * Render the cwd-scoped skill catalog: one line per winning summary
+ * (`name — description`, plus `whenToUse` when present). Empty registry →
+ * an explicit empty answer, never an error.
+ */
+async function renderSkillList(skills: SkillRegistrySurface, env: SkillEnv): Promise<string> {
+  const all = await skills.list(lookupOptions(env))
+  if (all.length === 0) return 'No skills available in this workspace scope.'
+  const lines = all.map(skill => {
+    const when = skill.whenToUse !== undefined && skill.whenToUse !== '' ? ` (use when: ${skill.whenToUse})` : ''
+    return `skill://${skill.name} — ${skill.description}${when}`
+  })
+  return `${all.length} available skill(s):\n${lines.join('\n')}`
+}
+
 export function createSkillHandler(deps: SkillHandlerDeps): SchemeHandler {
   const handler: SchemeHandler & {
     resolvePath(env: ResolverEnv, path: string): Promise<string | undefined>
   } = {
     async resolve(env: SkillEnv, path: string): Promise<string> {
+      // Bare `skill://` (no name) → the available-skill list from the
+      // registry, cwd-scoped exactly like a name lookup (same discovery rule
+      // as `<available_skills>`).
+      if (path === '' || path === '/') return await renderSkillList(deps.skills, env)
+
       const { name, subpath } = splitSkillPath(path)
 
       const skill = await deps.skills.get(name, lookupOptions(env))
