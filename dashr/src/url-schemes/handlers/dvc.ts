@@ -158,16 +158,16 @@ export function dispatchDvcWrite(path: string, content: string, session?: string
       `dvc:// write dispatch: device "${name}" requires a JSON args payload (${messageOf(error)})`,
     )
   }
-  // Session injection (lsp gate contract): the calling agent's id rides the
-  // args so session-scoped devices (lsp on/off/status) can address their
-  // state. Devices that don't care ignore the extra key.
+  // Session transport (lsp gate contract): the calling agent's id rides the
+  // execute `ctx` (out-of-band), NOT the args — strict device validators
+  // (browser) reject unknown fields, and session is transport, not payload.
   if (session !== undefined && args !== null && typeof args === 'object' && !Array.isArray(args)) {
-    args = { ...(args as Record<string, unknown>), session }
+    args = { ...(args as Record<string, unknown>) }
   }
   // `Promise.resolve().then` also converts a synchronously throwing
   // `execute` into the same structured rejection.
   return Promise.resolve()
-    .then(() => device.execute(args))
+    .then(() => device.execute(args, { session }))
     .catch((error: unknown) => {
       throw new UrlSchemesError(
         'DVC_DEVICE_ERROR',

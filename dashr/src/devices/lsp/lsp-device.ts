@@ -457,9 +457,12 @@ function resolveSymbolColumn(lines: string[], line: number, symbolSpec?: string)
 
 /** The `dvc://lsp` device: dispatch on `action`, structured errors on every bad path. */
 const lspDevice: DvcDevice = {
-  async execute(args: unknown): Promise<unknown> {
+  async execute(args: unknown, ctx?: { session?: string }): Promise<unknown> {
     const record = requireObjectArgs(args)
     const action = record.action
+    // Session arrives out-of-band via the dispatcher's ctx (fallback: legacy
+    // in-args `session` for direct callers).
+    const sessionId = ctx?.session
     if (typeof action !== 'string' || !ACTIONS.has(action)) {
       throw new UrlSchemesError(
         'LSP_BAD_ARGS',
@@ -471,7 +474,6 @@ const lspDevice: DvcDevice = {
     // artifacts. The dispatcher injects `session` (the calling agent id);
     // without it the gate cannot be addressed — structured refusal.
     if (action === 'on' || action === 'off' || action === 'status') {
-      const sessionId = typeof record.session === 'string' ? record.session : undefined
       if (sessionId === undefined) {
         throw new UrlSchemesError(
           'LSP_BAD_ARGS',

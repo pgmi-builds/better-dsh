@@ -94,3 +94,50 @@ describe('read tool gate routing', () => {
     expect(seen).toEqual([{ path: 'src/some-file.ts' }])
   })
 })
+
+describe('read wrapper delegate shaping', () => {
+  const fakeExec = { signal: new AbortController().signal } as unknown as ToolRunContext
+
+  function makeDelegate(params: Record<string, unknown>, returns: unknown): { tool: ToolDefinition, calls: Array<Record<string, unknown>> } {
+    const calls: Array<Record<string, unknown>> = []
+    const tool: ToolDefinition = {
+      name: 'read',
+      description: 'delegate',
+      parameters: params as never,
+      output: { schema: {} },
+      execute: async (args) => { calls.push(args as Record<string, unknown>); return returns },
+    } as unknown as ToolDefinition
+    return { tool, calls }
+  }
+
+  it('file_path-declaring delegate (host native) receives file_path, not path', async () => {
+    const { tool: delegate, calls } = makeDelegate(
+      { type: 'object', properties: { file_path: { type: 'string' }, offset: { type: 'number' } }, required: ['file_path'] },
+      { type: 'text', text: 'native structured result' },
+    )
+    const wrapper = schemeReadTool({ capturedRead: delegate })
+    const out = await wrapper.execute({ file_path: 'a.ts' }, fakeExec)
+    expect(calls[0]).toEqual({ file_path: 'a.ts' })
+    expect(typeof out).toBe('string')
+    expect(out).toContain('native structured result')
+  })
+
+  it('path-declaring delegate (hashline) receives path, not file_path', async () => {
+    const { tool: delegate, calls } = makeDelegate(
+      { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] },
+      'plain string result',
+    )
+    const wrapper = schemeReadTool({ capturedRead: delegate })
+    const out = await wrapper.execute({ path: 'a.ts' }, fakeExec)
+    expect(calls[0]).toEqual({ path: 'a.ts' })
+    expect(out).toBe('plain string result')
+  })
+
+  it('opaque delegate schema forwards verbatim; non-string result coerced to JSON', async () => {
+    const { tool: delegate, calls } = makeDelegate({ type: 'object' }, { structured: true })
+    const wrapper = schemeReadTool({ capturedRead: delegate })
+    const out = await wrapper.execute({ path: 'a.ts' }, fakeExec)
+    expect(calls[0]).toEqual({ path: 'a.ts' })
+    expect(JSON.parse(out as string)).toEqual({ structured: true })
+  })
+})

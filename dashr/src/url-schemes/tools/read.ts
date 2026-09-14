@@ -45,6 +45,46 @@ type ToolResolverEnv = ResolverEnv & {
 }
 
 /** Mirrors `parseUrl`'s scheme prefix so the fork matches the resolver exactly. */
+
+/**
+ * Shape args toward the delegate's declared parameters: move the file path
+ * between the `path`/`file_path` aliases according to which key the
+ * delegate's schema actually declares (host-native read = `file_path`,
+ * hashline = `path`). Unknown-key tolerant delegates are unaffected.
+ */
+function shapeArgsForDelegate(delegate: ToolDefinition, args: Record<string, unknown>, rawPath: string): Record<string, unknown> {
+  const shaped = { ...args }
+  // Drop the alias pair if empty so "non-empty path" validators pass.
+  if (rawPath === '') {
+    delete shaped.path
+    delete shaped.file_path
+    return shaped
+  }
+  const schema = delegate.parameters as
+    | { properties?: Record<string, unknown>, required?: string[] }
+    | undefined
+  const props = schema?.properties
+  if (props === undefined) {
+    // Opaque schema: forward VERBATIM — adding keys an unknown validator
+    // doesn't declare is exactly the failure mode this shaping exists to
+    // avoid.
+    return shaped
+  }
+  const declaresPath = props['path'] !== undefined
+  const declaresFilePath = props['file_path'] !== undefined
+  if (declaresFilePath && !declaresPath) {
+    shaped.file_path = rawPath
+    delete shaped.path
+  } else if (declaresPath && !declaresFilePath) {
+    shaped.path = rawPath
+    delete shaped.file_path
+  } else {
+    shaped.path = rawPath
+    shaped.file_path = rawPath
+  }
+  return shaped
+}
+
 const SCHEME_URL_RE = /^[a-z][a-z0-9]*:\/\//
 
 /**
@@ -63,7 +103,11 @@ export function createSchemeReadTool(deps: SchemeReadDeps): ToolDefinition {
     parameters: {
       path: {
         type: 'string',
-        description: 'File path (hashline-anchored read), or a resource URI.',
+        description: 'File path, or a resource URI (skill://, agent://, dsh://, dvc://, ctx://, http(s)://).',
+      },
+      file_path: {
+        type: 'string',
+        description: 'Alias of `path` (accepted for host-native compatibility).',
       },
       offset: {
         type: 'number',
@@ -79,7 +123,9 @@ export function createSchemeReadTool(deps: SchemeReadDeps): ToolDefinition {
       render: (_args, value) => [{ type: 'text', text: value }],
     },
     async execute(args, exec) {
-      const rawPath = typeof args?.path === 'string' ? args.path : ''
+      const rawPath = typeof args?.path === 'string'
+        ? args.path
+        : typeof args?.file_path === 'string' ? args.file_path : ''
       // URL branch: resolve end-to-end via the scheme registry, handing the
       // handlers the calling agent, its cwd, and the raw input URL.
       // Without a resolver the wrapper carries no scheme capability —
@@ -94,9 +140,14 @@ export function createSchemeReadTool(deps: SchemeReadDeps): ToolDefinition {
 
       // Terminal delegate: the definition registered under `read` before this
       // wrapper (hashline's anchored read, or the native tool — capture
-      // anchors on the semantic name).
+      // anchors on the semantic name). Args are shaped to the delegate's own
+      // declared parameters (path/file_path alias — the native host read
+      // requires `file_path`; hashline takes `path`) and the result is
+      // coerced to the string output this wrapper declares.
       if (capturedRead !== undefined && capturedRead.execute !== undefined) {
-        return capturedRead.execute(args, exec) as Promise<string>
+        const delegated = await capturedRead.execute(shapeArgsForDelegate(capturedRead, args, rawPath), exec)
+        if (typeof delegated === 'string') return delegated
+        return delegated === undefined || delegated === null ? '' : JSON.stringify(delegated)
       }
       throw new UrlSchemesError(
         'NATIVE_READ_UNAVAILABLE',
