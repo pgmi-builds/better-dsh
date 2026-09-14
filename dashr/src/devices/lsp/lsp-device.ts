@@ -54,6 +54,7 @@ import {
   waitForProjectLoaded,
 } from './lsp-client.ts'
 import type { Diagnostic, Hover, LspClientState, Location, LocationLink, ServerConfig, TextEdit } from './lsp-types.ts'
+import { lspGateDecide, lspGateState, registerLspGateTransport } from './lsp-gate.ts'
 import {
   findWorkspaceRoot,
   installHintFor,
@@ -62,7 +63,7 @@ import {
   serverByName,
 } from './lsp-server-registry.ts'
 
-const ACTIONS = new Set(['diagnostics', 'definition', 'references', 'hover', 'format'])
+const ACTIONS = new Set(['diagnostics', 'definition', 'references', 'hover', 'format', 'on', 'off', 'status'])
 
 const SEVERITY_NAMES: Record<number, string> = { 1: 'error', 2: 'warning', 3: 'info', 4: 'hint' }
 
@@ -349,8 +350,25 @@ const lspDevice: DvcDevice = {
     if (typeof action !== 'string' || !ACTIONS.has(action)) {
       throw new UrlSchemesError(
         'LSP_BAD_ARGS',
-        `lsp device: unknown action ${JSON.stringify(action ?? null)} — expected "diagnostics", "definition", "references", "hover", or "format"`,
+        `lsp device: unknown action ${JSON.stringify(action ?? null)} — expected "diagnostics", "definition", "references", "hover", "format", "on", "off", or "status"`,
       )
+    }
+
+    // Gate actions (spec docs/specs/lsp/spec.md): per-session, no repo
+    // artifacts. The dispatcher injects `session` (the calling agent id);
+    // without it the gate cannot be addressed — structured refusal.
+    if (action === 'on' || action === 'off' || action === 'status') {
+      const sessionId = typeof record.session === 'string' ? record.session : undefined
+      if (sessionId === undefined) {
+        throw new UrlSchemesError(
+          'LSP_BAD_ARGS',
+          'lsp device: gate actions require a session context (the write dispatcher injects it automatically)',
+        )
+      }
+      if (action === 'status') {
+        return { ok: true, gate: lspGateState(sessionId) }
+      }
+      return { ok: true, gate: action, message: lspGateDecide(sessionId, action === 'on') }
     }
 
     const file = record.file
@@ -498,5 +516,25 @@ export type DvcRegistrar = (name: string, device: DvcDevice) => void
  * (`registerDvcDevice`); tests may pass their own recorder instead.
  */
 export function installLspDevices(registry: DvcRegistrar = registerDvcDevice): void {
+  // Gate transport: the device's own sync path answers the gate's
+  // fire-and-forget warm/sync callbacks (see lsp-gate.ts). Reads pre-warm
+  // via ensureFileOpen; edits/writes sync landed content.
+  registerLspGateTransport(async ({ kind, filePath, content }) => {
+    // Full server resolution (binary probe, root marker lookup, lazy spawn)
+    // rides the same obtainClient path as explicit device calls, so a
+    // gate-on sync never takes a shortcut the device contract wouldn't.
+    const { client } = await obtainClient({}, filePath)
+    if (kind === 'read') {
+      await ensureFileOpen(client, filePath)
+      return
+    }
+    // No in-hand content (edit/write hook without payload) → read the
+    // landed file from disk; the mutation already committed before we run.
+    const text = typeof content === 'string' && content !== ''
+      ? content
+      : await import('node:fs/promises').then(fs => fs.readFile(filePath, 'utf-8'))
+    await syncFileContent(client, filePath, text)
+    await notifyDidSave(client, filePath)
+  })
   registry('lsp', lspDevice)
 }

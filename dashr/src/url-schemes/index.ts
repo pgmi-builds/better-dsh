@@ -41,6 +41,7 @@ import type {} from '@deepseek-ai/dsh-subagent'
 import type {} from '@deepseek-ai/dsh-tools'
 
 import { resolveDocsDir } from './docs-dir.ts'
+import { disposeLspGate, lspGateNotice, lspGateSyncOnLand } from '../devices/lsp/lsp-gate.ts'
 import { wrapFsWithSchemes } from '../fs-aware/wrap.ts'
 import { createAgentHandler } from './handlers/agent.ts'
 import { createCtxHandler } from './handlers/ctx.ts'
@@ -200,6 +201,36 @@ async function installAgentTools(rootCtx: Context, agent: Agent, resolver: UrlRe
       disposers.push(agent.ctx.tools.register(createGrepTool({ resolver, nativeGrep: native.grep })))
       disposers.push(agent.ctx.tools.register(createGlobTool({ resolver, nativeGlob: native.glob })))
     }
+
+    // lsp gate (spec docs/specs/lsp/spec.md): post-hoc sync + availability
+    // notice. Attached unconditionally — the gate module is inert until the
+    // agent decides per session. Reads pre-warm (didOpen); edit/write sync
+    // landed content; nag rides edit/write results with the 10-cap enforced
+    // inside the gate module. Pure post-execute observation — nothing here
+    // intercepts or delays the mutation path.
+    const sessionId = agent.id
+    disposers.push(agent.ctx.on('tools/post-execute', async (exec, result, next) => {
+      const decision = await next()
+      const name = exec.name
+      if (name !== 'read' && name !== 'edit' && name !== 'write') return decision
+      const args = exec.arguments as { path?: string, file_path?: string } | undefined
+      const filePath = args?.path ?? args?.file_path
+      if (typeof filePath !== 'string' || filePath === '') return decision
+      if (name === 'read') {
+        lspGateSyncOnLand(sessionId, 'read', filePath)
+        return decision
+      }
+      lspGateSyncOnLand(sessionId, name as 'edit' | 'write', filePath)
+      if (result.isError) return decision
+      const notice = lspGateNotice(sessionId, filePath)
+      if (notice === undefined) return decision
+      const record = decision as { kind?: string, content?: Array<{ type: string, text?: string }> }
+      if (record.kind !== 'accept') return decision
+      const base = record.content ?? (result.content as Array<{ type: string, text?: string }> | undefined) ?? []
+      record.content = [...base, { type: 'text', text: `\n${notice}` }]
+      return decision
+    }))
+    disposers.push(() => disposeLspGate(sessionId))
     return () => {
       for (const dispose of disposers) dispose()
     }

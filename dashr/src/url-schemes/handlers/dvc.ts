@@ -96,7 +96,7 @@ export function createDvcHandler(_deps: DvcHandlerDeps = {}): SchemeHandler {
  * contract — while a device-reported failure rejects the returned promise as
  * `DVC_DEVICE_ERROR` carrying the device name.
  */
-export function dispatchDvcWrite(path: string, content: string): Promise<unknown> {
+export function dispatchDvcWrite(path: string, content: string, session?: string): Promise<unknown> {
   if (devices.size === 0) {
     throw new UrlSchemesError(
       'DVC_NO_DEVICE',
@@ -120,6 +120,12 @@ export function dispatchDvcWrite(path: string, content: string): Promise<unknown
       'DVC_BAD_ARGS',
       `dvc:// write dispatch: device "${name}" requires a JSON args payload (${messageOf(error)})`,
     )
+  }
+  // Session injection (lsp gate contract): the calling agent's id rides the
+  // args so session-scoped devices (lsp on/off/status) can address their
+  // state. Devices that don't care ignore the extra key.
+  if (session !== undefined && args !== null && typeof args === 'object' && !Array.isArray(args)) {
+    args = { ...(args as Record<string, unknown>), session }
   }
   // `Promise.resolve().then` also converts a synchronously throwing
   // `execute` into the same structured rejection.

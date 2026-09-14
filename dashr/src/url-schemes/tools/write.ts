@@ -108,11 +108,16 @@ function isSchemeUrl(raw: string): boolean {
  * Default scheme-write dispatch: `dvc://` routes through the device
  * registry (`dispatchDvcWrite`); every other write channel is rejected.
  */
-async function defaultSchemeWrite(scheme: string, path: string, content: string): Promise<WriteOutcome> {
+async function defaultSchemeWrite(
+  scheme: string,
+  path: string,
+  content: string,
+  meta: { session?: string } = {},
+): Promise<WriteOutcome> {
   if (scheme === 'dvc') {
     // The dispatch's structured errors (DVC_NO_DEVICE / DVC_UNKNOWN_DEVICE /
     // DVC_BAD_ARGS, plus the DVC_DEVICE_ERROR wrap) bubble unchanged.
-    const result = await dispatchDvcWrite(path, content)
+    const result = await dispatchDvcWrite(path, content, meta.session)
     return {
       path: `dvc://${path}`,
       operation: 'execute',
@@ -201,7 +206,7 @@ export function createWriteTool(deps: WriteToolDeps): ToolDefinition {
     async execute(args, exec): Promise<WriteOutcome> {
       if (isSchemeUrl(args.file_path)) {
         const parsed = parseUrl(args.file_path)
-        return writeScheme(parsed.scheme, parsed.path, args.content, {})
+        return writeScheme(parsed.scheme, parsed.path, args.content, { session: exec.agent?.id })
       }
       if (nativeWrite === undefined) {
         throw new UrlSchemesError(

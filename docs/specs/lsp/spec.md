@@ -80,3 +80,24 @@ The lsp capability SHALL be a self-contained module: no url-schemes/hashline imp
 #### Scenario: Host boot cost
 - **WHEN** the host starts with the lsp capability mounted
 - **THEN** no subprocess spawns, no marker probing runs, and nothing on the boot path can fail because of lsp
+
+## Surface syntax (`dvc://lsp`)
+
+The dvc contract is uniform: **bare read = roster, `<device>` read = doc/status, `<device>` write = action dispatch**. Gate state is per-session — the write dispatcher injects the calling agent's session id automatically; agents never type it.
+
+- `read dvc://lsp` — the device doc: actions, args, current contract.
+- `read dvc://lsp/status` — live status: per-language gate, availability, running servers.
+- `write dvc://lsp` `{"action":"on"}` / `{"action":"off"}` — per-session gate decision; ack describes the effect. No repo artifact in either direction.
+- `write dvc://lsp` `{"action":"status"}` — same as the status read (machine form).
+- `write dvc://lsp` `{"action":"diagnostics","file":...}` / `definition` / `references` / `hover` (`file`,`line`,`character`,1-based) / `format` (`file`) — the query surface.
+- Path-style forms (`dvc://lsp/on`) are NOT part of the contract: mutation never rides a read URL.
+
+## OMP parity roadmap (not yet implemented)
+
+The current device trims upstream oh-my-pi (`packages/coding-agent/src/lsp`): single primary server per file, one file per request, no `symbol` resolution column. To reach full capacity, port in stages — each stage keeps the module boundary (nothing imports hash-edit/ast/url-schemes internals):
+
+1. `rename` / `code_actions` / `reload` actions.
+2. Workspace-wide (`*`) diagnostics + `documentDiagnostic` pull.
+3. Multi-server diagnostics fan-out per file.
+4. `symbol`-based position resolution alongside explicit line/character.
+5. Real install automation for the must-have table (pinned pip/npm, fail-soft) — the current manager tracks intent; the installer lands with stage 1.
