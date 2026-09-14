@@ -16,23 +16,34 @@ Server availability and project-root determination SHALL follow the per-language
 - **WHEN** no marker exists for the mutated file's language
 - **THEN** availability is `unknown`, not `unavailable` — the gate below still offers opt-in
 
-### Requirement: One-time gate with explicit opt-in (on/off)
-When a session performs its first file mutation (edit/write 落盘) in a language with server availability `available` or `unknown` and the session gate is `unasked`, the tool result SHALL append exactly ONE notice: lsp 可用，可用 `dvc://lsp` 开（on）/关（off）。裁决后 SHALL NOT nag again（裁决存 session 态；repo marker `​.dashr/lsp.json` 仅作为 on 时的持久化偏好写入，off 不落任何 repo 文件）。
+### Requirement: Gated notice with explicit per-session opt-in (on/off)
+The manager at session start SHALL check local availability of each language server in its table（Python/TypeScript 为必备，缺失即安装；Rust/Go 保留 nag 检测，server 缺失时按需安装）. When a session performs file mutations (edit/write 落盘) in a language with availability `available` or `unknown` and the session gate is `unasked`, the tool result MAY append the availability notice (lsp 可用，`dvc://lsp` 开/关) **at most 10 times per session**（防刷屏上限）. Both `on` and `off` are PER-SESSION state — the manager handles everything, and SHALL write NO repo artifact or marker file in either direction（无 `.dashr/lsp.json`，无任何落盘偏好）.
 
-#### Scenario: First mutation nags once
-- **WHEN** the agent edits its first `.py` file in a session with gate `unasked` and Python server available
-- **THEN** that edit's tool result carries the one-line availability notice and no later mutation repeats it
+#### Scenario: Mutation nag capped
+- **WHEN** the agent edits `.py` files repeatedly in a session with gate `unasked`
+- **THEN** at most 10 tool results carry the notice; afterwards mutations stay silent until the gate is decided
 
-#### Scenario: Explicit on
+#### Scenario: Explicit on (per session)
 - **WHEN** the agent sets `dvc://lsp` on
-- **THEN** the session gate becomes `on`, the manager spawns the language server lazily per Requirement below, and `.dashr/lsp.json` records the preference
+- **THEN** the session gate becomes `on` and the manager warm-starts the language server; nothing is written to the repo
 
-#### Scenario: Explicit off
+#### Scenario: Explicit off (per session)
 - **WHEN** the agent sets `dvc://lsp` off
 - **THEN** the gate becomes `off`, no server spawns, the notice is muted for the session, and no repo marker is written
 
+### Requirement: Must-have servers installed, niche on demand
+At session start the manager SHALL verify Python and TypeScript servers and INSTALL a missing one (pip/npm, pinned, fail-soft — 安装失败降级为该语言 `unavailable`)；Rust/Go servers SHALL NOT be installed proactively — they stay in the nag-detection table and install only when the agent turns lsp on for that language.
+
+#### Scenario: Missing pyright on a fresh host
+- **WHEN** a session starts and no Python language server is installed
+- **THEN** the manager installs it in the background and reports availability `available` once done（安装期间 `unknown`，nag 照常）
+
+#### Scenario: Rust opted in on demand
+- **WHEN** the agent sets lsp on in a session touching Rust files and rust-analyzer is absent
+- **THEN** the manager installs rust-analyzer then spawns it — never before the opt-in
+
 ### Requirement: Lazy spawn, session lifetime
-Server subprocesses SHALL spawn lazily on first post-on use（已有 `.dashr/lsp.json` marker 时，on 语义可由 marker 预置——首个 mutation 即视为 opt-in）, one subprocess per (session, language), registered under the agent's own tool effect so agent dispose unwinds them via `shutdown`+`exit`; an idle timeout reclaims servers of still-live sessions.
+Server subprocesses SHALL spawn lazily on first post-on use, one subprocess per (session, language), registered under the agent's own tool effect so agent dispose unwinds them via `shutdown`+`exit`; an idle timeout reclaims servers of still-live sessions.
 
 #### Scenario: Per-session isolation
 - **WHEN** two sessions work in different cwd/repo simultaneously
@@ -46,11 +57,22 @@ The plugin SHALL feed document sync (`didOpen`/`didChange` full-text + `didSave`
 - **THEN** the server receives a full-text `didChange` + `didSave` with the exact written content before diagnostics are requested, so line numbers match what the model just wrote
 
 ### Requirement: Dual-mode results
-Proactive mode (`dvc://lsp` write: `diagnostics`/`format`/`definition`/…) and passive mode (cached `publishDiagnostics` attached to tool results, e.g. hashline edit 的 post-edit summary，经注入回调而非模块内依赖) SHALL both be served from the same session manager. Every failure — no server, no marker, cold-start noise, gate off — SHALL read as "no feedback": a serverless mutation is byte-identical to stock behavior.
+Proactive mode (`dvc://lsp` write: `diagnostics`/`format`/`definition`/…) and passive mode (cached `publishDiagnostics` attached to tool results, e.g. hashline edit 的 post-edit summary，经注入回调而非模块内依赖) SHALL both be served from the same session manager. Every failure — no server, gate off, cold-start noise — SHALL read as "no feedback": a serverless mutation is byte-identical to stock behavior.
 
 #### Scenario: Diagnostics ride the edit result
 - **WHEN** lsp is on, an edit lands, and the server answers diagnostics
 - **THEN** the edit's tool result carries the diagnostics summary; when the server is absent or slow, the result is unchanged
+
+### Requirement: Spin-up latency is absorbed, never blocking
+Server cold-start（spawn + `initialize` + 首轮索引）SHALL be handled by three means: (1) **warm-start at opt-in** — gate on 即后台 spawn，不等首个请求; (2) **fire-and-attach** — diagnostics 请求带超时，超时/未就绪读作"no feedback"，server 稍后推回的 `publishDiagnostics` 缓存并附到**下一个** mutation 的 tool result（延迟附挂，不丢不阻塞）; (3) **read 预热** — session 内首个某语言文件 read 即提前 `didOpen`，使首个 edit 命中已初始化的 server. The mutation path SHALL NEVER wait on server readiness — worst case is a summary arriving one tool call late.
+
+#### Scenario: First edit on a cold server
+- **WHEN** the gate turns on and the very next mutation hits an uninitialized server
+- **THEN** the edit result carries no diagnostics (no feedback), and when the server finishes indexing the diagnostics attach to the next mutation's result
+
+#### Scenario: Read pre-warms
+- **WHEN** the agent reads a `.ts` file before editing it and lsp gate is on for TypeScript
+- **THEN** the read triggers `didOpen` and server initialization, so the subsequent edit usually gets same-call diagnostics
 
 ### Requirement: Orthogonality and injection boundaries
 The lsp capability SHALL be a self-contained module: no url-schemes/hashline imports; per-feature attachments (edit-result diagnostics, availability notices) arrive as injected callbacks from composition roots. Host start SHALL NOT probe markers or spawn processes — all discovery is per-session, on demand.
