@@ -27,6 +27,7 @@
   "files": [
     "lib",
     "docs",
+    "dsh-docs",
     "cordis.patch.yml",
     "eval-description.md",
     "url-schemes-instruction.md",

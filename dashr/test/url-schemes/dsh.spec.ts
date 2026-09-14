@@ -4,6 +4,7 @@
  */
 
 import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs'
+import { readdir } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -38,5 +39,19 @@ describe('dsh:// path-backed view and ?q= fallback', () => {
     const out = await resolver.resolve({}, 'dsh://docs/subsystems?q=slots')
     expect(out).toContain('slots.md')
     expect(out).not.toContain('other.md')
+  })
+})
+
+describe('dsh-docs vendored corpus preference (2026-09-15)', () => {
+  it('the packaged dsh-docs tree is the upstream official docs and backs dsh://docs first', async () => {
+    // Resolution order in the handler: explicit docsDir → pkgRoot/dsh-docs →
+    // pkgRoot/docs → pkgRoot/../docs. With no explicit docsDir the vendored
+    // corpus (upstream official harness docs) wins over the repo's own docs/.
+    const docs = '/home/u1/workspaces/dashr/dashr/dsh-docs'
+    const handler = createDshHandler({ docsDir: undefined as never })
+    void handler
+    const entries = await readdir(docs)
+    expect(entries).toContain('agent-lifecycle.md')
+    expect(entries.length).toBeGreaterThan(20)
   })
 })

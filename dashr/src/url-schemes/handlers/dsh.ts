@@ -143,8 +143,12 @@ export function createDshHandler(deps: DshHandlerDeps): SchemeHandler & {
       docsDirPromise = (async () => {
         const candidates: string[] = []
         if (docsDir !== undefined) candidates.push(docsDir)
+        // dsh-docs (the vendored UPSTREAM official harness docs tree) wins
+        // over the repo's own docs/ — `dsh://docs` means "harness developer
+        // documentation", which is the shipped official corpus, not DASHR's
+        // working notes (2026-09-15).
         const pkgRoot = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))))
-        candidates.push(join(pkgRoot, 'docs'), join(pkgRoot, '..', 'docs'))
+        candidates.push(join(pkgRoot, 'dsh-docs'), join(pkgRoot, 'docs'), join(pkgRoot, '..', 'docs'))
         for (const dir of candidates) {
           try {
             if ((await fsp.stat(dir)).isDirectory()) return dir

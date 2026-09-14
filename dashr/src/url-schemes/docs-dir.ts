@@ -23,11 +23,15 @@ import { fileURLToPath } from 'node:url'
 export function resolveDocsDir(): string | undefined {
   let dir = dirname(fileURLToPath(import.meta.url))
   for (;;) {
-    const candidate = join(dir, 'docs')
-    try {
-      if (statSync(candidate).isDirectory()) return candidate
-    } catch {
-      // no `docs/` here — walk up one level
+    // `dsh-docs` (vendored upstream official docs) wins over a plain `docs/`
+    // working-notes directory at the same level.
+    for (const name of ['dsh-docs', 'docs']) {
+      const candidate = join(dir, name)
+      try {
+        if (statSync(candidate).isDirectory()) return candidate
+      } catch {
+        // not present — try the next candidate
+      }
     }
     const parent = dirname(dir)
     if (parent === dir) return undefined
