@@ -21,6 +21,13 @@ The scheme registry SHALL be owned by the `dsh-url-schemes` cordis service (rena
 - **WHEN** a resolver-layer caller passes a string without `scheme://`
 - **THEN** the system returns the structured `URL_NO_SCHEME` error
 
+### Requirement: `dsh://docs` serves the vendored upstream official docs
+`dsh://docs` SHALL serve the shipped upstream official harness documentation corpus (`dsh-docs/`, vendored from the `deepseek-ai/deepseek-harness` repo `docs/`), not the DASHR repository's working notes. Resolution order: explicit `docsDir` → packaged `dsh-docs/` → packaged `docs/` → repo-root `docs/` (walk-up probes `dsh-docs` before `docs` at every level).
+
+#### Scenario: Docs index lists the official corpus
+- **WHEN** the model reads `dsh://docs`
+- **THEN** the index enumerates the upstream official docs tree (`agent-lifecycle.md`, `api-gateway.md`, `architecture.md`, …)
+
 ### Requirement: Bare `skill://` lists the available skills
 A bare `skill://` URL (no skill name) SHALL render the cwd-scoped skill catalog from the registry's `list` face — one line per winning summary (`skill://<name> — <description>`, plus `(use when: …)` when `whenToUse` is present) — using the same discovery rule as a name lookup. An empty catalog SHALL answer explicitly, never with an error.
 
