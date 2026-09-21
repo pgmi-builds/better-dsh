@@ -47,7 +47,7 @@ describe('dsh-docs vendored corpus preference (2026-09-15)', () => {
     // Resolution order in the handler: explicit docsDir → pkgRoot/dsh-docs →
     // pkgRoot/docs → pkgRoot/../docs. With no explicit docsDir the vendored
     // corpus (upstream official harness docs) wins over the repo's own docs/.
-    const docs = '/home/u1/workspaces/dashr/dashr/dsh-docs'
+    const docs = '/home/u1/workspaces/dashr/better-dsh/dsh-docs'
     const handler = createDshHandler({ docsDir: undefined as never })
     void handler
     const entries = await readdir(docs)

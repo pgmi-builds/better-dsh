@@ -119,11 +119,11 @@ else
     tar -xzf "$ARCHIVE" -C "$TMP_ROOT/src" --strip-components=1
     SRC="$TMP_ROOT/src"
   fi
-  if [ ! -d "$SRC/dashr/lib" ]; then
+  if [ ! -d "$SRC/better-dsh/lib" ]; then
     info "building dashr (lib/ missing, 1-2 minutes)"
-    (cd "$SRC/dashr" && npm install --no-audit --no-fund && npm run build)
+    (cd "$SRC/better-dsh" && npm install --no-audit --no-fund && npm run build)
   fi
-  (cd "$SRC/dashr" && npm pack --pack-destination "$TMP_ROOT" >/dev/null)
+  (cd "$SRC/better-dsh" && npm pack --pack-destination "$TMP_ROOT" >/dev/null)
   "$DSH" plugin --profile "$DSH_PROFILE" add --config.auto-install-peers=false \
     "$TMP_ROOT/pgmi-builds-better-dsh-"*.tgz
 fi

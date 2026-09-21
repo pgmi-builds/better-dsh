@@ -1,9 +1,9 @@
-# tests/ — 测试脚本与 profile 种子（tracked）
+# .tests/ — 测试脚本与 profile 种子（tracked）
 
 本目录收拢 dashr 的测试资产；运行态数据一律落 gitignored 的 `.dsh-test*/`，这里只放**可再生的正本**。
 
 ```
-tests/
+.tests/
 ├── start-4999.sh        # Dev/Test 1 实例拉起脚本（唯一入口，AGENTS.md §二）
 └── profiles/
     └── web/             # 测试 profile 种子（tracked 正本）
@@ -16,9 +16,9 @@ tests/
 ## start-4999.sh
 
 ```bash
-bash tests/start-4999.sh              # canonical 4999，loopback only
-PORT=4988 bash tests/start-4999.sh    # 端口被占时覆盖
-LAN=1 bash tests/start-4999.sh        # 加用户态 socat 中继暴露 LAN IP
+bash .tests/start-4999.sh              # canonical 4999，loopback only
+PORT=4988 bash .tests/start-4999.sh    # 端口被占时覆盖
+LAN=1 bash .tests/start-4999.sh        # 加用户态 socat 中继暴露 LAN IP
 ```
 
 脚本自带：端口预检（外来进程拒绝）、停旧 + 等端口真释放、本 boot token 水位提取、
@@ -30,7 +30,7 @@ LAN=1 bash tests/start-4999.sh        # 加用户态 socat 中继暴露 LAN IP
 
 `.dsh-test/` 是 gitignored 运行态；种子在本目录 `profiles/web/`。再生步骤：
 
-1. `mkdir -p .dsh-test/profiles/web && cp tests/profiles/web/* .dsh-test/profiles/web/`
+1. `mkdir -p .dsh-test/profiles/web && cp .tests/profiles/web/* .dsh-test/profiles/web/`
 2. `.dsh-test/profiles/web/node_modules/` 内三个 symlink 指向 monorepo build 产物
    （**不是 registry 包**）：
    - `better-dsh` → `upstream/deepseek-harness/packages/better-dsh/better-dsh`
@@ -45,7 +45,7 @@ LAN=1 bash tests/start-4999.sh        # 加用户态 socat 中继暴露 LAN IP
 
 ## 约定
 
-- 新增测试脚本放本目录根（`tests/<name>.sh`）；涉及独立 dsh home 的实验线
+- 新增测试脚本放本目录根（`.tests/<name>.sh`）；涉及独立 dsh home 的实验线
   用独立 gitignored 目录（`.dsh-<name>/`），其种子若需长期保留，同样在
-  `tests/profiles/<name>/` 放正本。
+  `.tests/profiles/<name>/` 放正本。
 - 本目录内容入库（tracked）；`.dsh-test*` 运行态永不入库。

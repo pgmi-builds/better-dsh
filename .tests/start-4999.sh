@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # start-4999.sh — bring up the dashr (better-dsh) Dev/Test 1 instance (LAN-exposed).
 #
-# Usage:  bash tests/start-4999.sh              # canonical port 4999, loopback only
-#         PORT=4988 bash tests/start-4999.sh    # override when 4999 is occupied
-#         LAN=1 bash tests/start-4999.sh        # ALSO expose the LAN IP (relay)
+# Usage:  bash .tests/start-4999.sh              # canonical port 4999, loopback only
+#         PORT=4988 bash .tests/start-4999.sh    # override when 4999 is occupied
+#         LAN=1 bash .tests/start-4999.sh        # ALSO expose the LAN IP (relay)
 #
 # DEFAULT = no relay (superd start-4999.sh template: plain systemd-run, loopback).
 # The dsh webserver config accepts ONLY host 127.0.0.1 | 0.0.0.0 (zod union,
@@ -56,6 +56,23 @@ LOG_LINES=$( (wc -l < "$LOG") 2>/dev/null || echo 0)
 # The dsh instance — AGENTS.md §二 canonical command: prod-aligned
 # DSH_TRUSTED_HOSTS (fence + web-trust authorities, includes the LAN IP so the
 # relayed Host passes the /api fence) and UnsetEnvironment for GUI env vars.
+#
+# ⚠ 2026-09-22: boot from BUILT lib under plain node (no tsx). The tsx source
+# launch is a dual-plane runtime: TS files transpile from src/ (via
+# tsconfig.base.json paths) while the plugin loader resolves composition rows
+# to built lib file URLs — two live copies of dsh-tools/cordis in one process,
+# so the symbol-keyed tool scheduler mounted by the lib-side ToolRuntime is
+# INVISIBLE to the src-side agent-loop (`Symbol('@deepseek-ai/dsh-tools.scheduler')`
+# mismatch) → `Cannot read properties of undefined (reading 'prepare')` on the
+# FIRST tool call of every session, and the orphaned tool/call event poisons
+# the session log so every later turn dies with DeepSeek INVALID_REQUEST "tool
+# calls need immediate results". The built-lib boot is also how the packaged
+# prod runtime runs; `pnpm run build` is a prerequisite after any src change.
+HARNESS_LIB_BIN="$HARNESS/apps/cli/lib/bin.js"
+if [ ! -f "$HARNESS_LIB_BIN" ]; then
+  echo "missing $HARNESS_LIB_BIN — run \`pnpm run build\` in the harness checkout first" >&2
+  exit 1
+fi
 systemd-run --user --unit="$UNIT" \
   -p WorkingDirectory="$HARNESS" \
   -p Environment="DSH_HOME=$REPO/.dsh-test" \
@@ -63,7 +80,7 @@ systemd-run --user --unit="$UNIT" \
   -p 'UnsetEnvironment=DISPLAY WAYLAND_DISPLAY' \
   -p StandardOutput=append:"$LOG" \
   -p StandardError=append:"$LOG" \
-  "$NODE_BIN" --import tsx/esm apps/cli/src/bin.ts web --no-open --port "$PORT"
+  "$NODE_BIN" "$HARNESS_LIB_BIN" web --no-open --port "$PORT"
 
 # boot can take a while (kernel venv, model discovery); poll for the loopback
 # listener BEFORE starting the relay (relay binds instantly, dsh binds late)
