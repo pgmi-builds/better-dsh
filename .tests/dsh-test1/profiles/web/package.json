@@ -11,6 +11,6 @@
     }
   },
   "dependencies": {
-    "better-dsh": "0.2.4"
+    "better-dsh": "0.2.4-a"
   }
 }
