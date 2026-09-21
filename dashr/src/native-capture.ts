@@ -17,10 +17,16 @@
  * - The wire mask (`restrict({deny})`, src/index.ts) removes the displaced
  *   delegation names from every registry projection, including `get(name,
  *   agent)`. The `send_message` bridge downlink must still reach the native
- *   definition, so the full snapshot ({@link captureAllTools}) is taken at
- *   the same session-start moment, BEFORE the restrict call runs, and the
- *   bridge reads it back through {@link getCapturedTools} — a direct
- *   `def.execute` that never re-enters the masked name space.
+ *   definition, so the full snapshot ({@link captureAllTools}) must exist
+ *   BEFORE the restrict call runs. Since the plugins-page component split
+ *   (spec docs/specs/plugins-page-components/spec.md) the mask and the
+ *   url-schemes wrappers live on SEPARATE composition rows whose activation
+ *   order cordis does not define — so the mask listener itself calls
+ *   {@link captureAllTools} as its FIRST step (idempotent: a capture the
+ *   url-schemes listener already took is returned as-is) and only then
+ *   restricts. Whichever row activates first, the snapshot predates the
+ *   restriction; the bridge reads it back through {@link getCapturedTools}
+ *   — a direct `def.execute` that never re-enters the masked name space.
  *
  * A missing definition is not an error: a host that did not deploy the
  * native tool leaves the slot absent, and the corresponding wrapper reports
@@ -66,7 +72,10 @@ const projections = new WeakMap<Agent, NativeToolSet>()
  * register on the agent's own scope layer and (b) the wire-mask
  * `tools.restrict({deny})` call — after either, names this snapshot exists
  * to preserve (the shadowed natives, the masked delegation tools) read as
- * the wrapper or as absent. A definition that fails to resolve is skipped,
+ * the wrapper or as absent. (b) is guaranteed structurally: the mask
+ * listener's first step is this call (see the module comment). (a) holds
+ * because the wrappers register inside the same listener body that captures.
+ * A definition that fails to resolve is skipped,
  * not thrown: the snapshot serves best-effort internal delegation.
  *
  * @returns the cached full snapshot for `agent` (stable across recalls).

@@ -1,12 +1,18 @@
-# DASHR bundle patch: mounts `dashr-repl` on the HOST plane. Its `eval` tool
-# and persistent-kernel REPL runtime land in the global scope layer, so every
-# agent in every preset sees them (`agent → preset → global`). One
-# process-global runtime keys one kernel per Session/Agent, torn down on
-# `agent/disposed` — the promotion of the v0.1.5 DashrDaemon shell.
+# DASHR bundle patch: six component rows on the HOST plane (spec
+# docs/specs/plugins-page-components/spec.md). Each insert is one toggleable
+# component on the native Plugins page; a row toggle writes `{id, disabled}`
+# into the profile's user patch layer and applies live. The rows share no
+# inject edges — each degrades gracefully when its dependencies (host
+# services, not sibling rows) are absent.
 #
-# The tool is an ordinary registration: upstream's `code` preset still applies
-# its own `tools:code-only` rule (a direct `eval` call in a PTC session resolves
-# to UNKNOWN_TOOL). DASHR ships no PTC mode, so that rule never bites here.
+# `dashr-repl` (core): the `eval` tool and persistent-kernel REPL runtime land
+# in the global scope layer, so every agent in every preset sees them
+# (`agent → preset → global`). One process-global runtime keys one kernel per
+# Session/Agent, torn down on `agent/disposed` — the promotion of the v0.1.5
+# DashrDaemon shell. The tool is an ordinary registration: upstream's `code`
+# preset still applies its own `tools:code-only` rule (a direct `eval` call in
+# a PTC session resolves to UNKNOWN_TOOL). DASHR ships no PTC mode, so that
+# rule never bites here.
 #
 # `python` is only a hint: the runtime OWNS the kernel environment. An
 # explicit interpreter (DASHR_KERNEL_PYTHON) is verified; the bare
@@ -15,14 +21,32 @@
       name: 'better-dsh'
       config:
         python: !!js process.env.DASHR_KERNEL_PYTHON ?? 'python3'
-        # NOTE (v0.2.2a): trustedPageAuthorities' DERIVED default lives in the
-        # plugin's Config schema (src/index.ts), NOT here — a profile/home
-        # layer row with this id whole-row-overrides this config object, which
-        # would wipe any default declared at the bundle layer (empirically
-        # pinned on 4999). Schema defaults fill per-key at plugin load and
-        # survive every overlay layer; the default derives from the
-        # DSH_TRUSTED_HOSTS environment — the same single source the fence
-        # leg reads first. An explicit value in any later layer still wins.
+
+    # URL-aware I/O + hashline + devices. Gates ride THIS row's config
+    # (schema defaults: both ON — opt-out), no longer the core row's.
+    - id: dashr-url-schemes
+      name: 'better-dsh/url-schemes'
+
+    # LLM failover (settings-driven; the row config is the chain base —
+    # both slots default "not set").
+    - id: dashr-failover
+      name: 'better-dsh/failover'
+
+    # Auto-compaction threshold preference (settings-driven).
+    - id: dashr-compaction-tuning
+      name: 'better-dsh/compaction-tuning'
+
+    # Trusted page authorities leg of the boot script (browser-side twin of
+    # the connection fence below). Schema default derives trustedPageAuthorities
+    # from DSH_TRUSTED_HOSTS (v0.2.2a ruling: schema defaults, not patch
+    # config — they survive every overlay layer; an explicit value still wins).
+    - id: dashr-web-trust
+      name: 'better-dsh/web-trust'
+
+    # Mobile responsiveness leg of the boot script (gestures payload +
+    # zoomGuard section). All knobs default ON; `enabled: false` opts out.
+    - id: dashr-mobile
+      name: 'better-dsh/mobile'
 
 # Native compaction at the host plane: the base bundle ships the engine, the
 # `/compact` command, and the tool-result pruner as host rows; dsh-web-app

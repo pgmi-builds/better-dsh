@@ -29,6 +29,10 @@
  * recency budget, so it ignores `retainRatio`/`retainTokens` entirely. This
  * preference therefore tunes AUTOMATIC condensation only.
  *
+ * Plugins-page component row `dashr-compaction-tuning` →
+ * `better-dsh/compaction-tuning` (spec docs/specs/plugins-page-components/spec.md):
+ * the row config IS the composition base layer of the settings namespace.
+ *
  * @module dashr/compaction
  */
 
@@ -40,6 +44,16 @@ import {
   defaultCompactionTuningConfig,
   type CompactionTuningConfig,
 } from './config.ts'
+
+/** Cordis plugin name. */
+export const name = 'dashr-compaction-tuning'
+
+/**
+ * No static injects: both `settings` and `compaction` are composed
+ * conditionally inside {@link installCompactionTuning}, so the row loads
+ * (dormant) in compositions without them.
+ */
+export const inject: string[] = []
 
 /**
  * The `compaction-tuning` settings schema.
@@ -189,3 +203,10 @@ export function installCompactionTuning(
     probeWindows()
   })
 }
+
+/** Mount the tuning as the row's whole apply (the row config is the settings base). */
+export function apply(ctx: Context, config: CompactionTuningConfig | undefined): void {
+  installCompactionTuning(ctx, config ?? defaultCompactionTuningConfig)
+}
+
+export default { name, inject, Config, apply }

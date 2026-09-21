@@ -1,6 +1,7 @@
 {
   "name": "better-dsh",
   "version": "0.2.4",
+  "description": "Make your dsh ready for serious coding tasks. (Tools x Schemas)^REPL. `skill://`, `ctx://`, `agent://`, `dvc://`, `dsh://`, IPython REPL, Context as Variables, cross compactions recallable, full context revive. `hash-edit`, `dvc://browser`, subagent as function, workflow as function.",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -12,6 +13,26 @@
     "./py-sdk": {
       "types": "./lib/py-sdk.d.ts",
       "default": "./lib/py-sdk.js"
+    },
+    "./url-schemes": {
+      "types": "./lib/url-schemes/index.d.ts",
+      "default": "./lib/url-schemes/index.js"
+    },
+    "./failover": {
+      "types": "./lib/failover/index.d.ts",
+      "default": "./lib/failover/index.js"
+    },
+    "./compaction-tuning": {
+      "types": "./lib/compaction/index.d.ts",
+      "default": "./lib/compaction/index.js"
+    },
+    "./web-trust": {
+      "types": "./lib/web-trust.d.ts",
+      "default": "./lib/web-trust.js"
+    },
+    "./mobile": {
+      "types": "./lib/mobile/plugin.d.ts",
+      "default": "./lib/mobile/plugin.js"
     },
     "./fs-aware-sandbox": {
       "types": "./lib/fs-aware/sandbox-plugin.d.ts",

@@ -24,8 +24,8 @@ import { createScope } from '@deepseek-ai/dsh-scope'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import { FakeCellRuntime, fakeRuntime, runCell } from '../helpers.ts'
 import Presentation, { MASKED_TOOL_NAMES } from '../../src/index.ts'
-import { getCapturedTools } from '../../src/url-schemes/native-capture.ts'
-import { inject as urlSchemaInject } from '../../src/url-schemes/index.ts'
+import { getCapturedTools } from '../../src/native-capture.ts'
+import UrlSchemes, { inject as urlSchemaInject } from '../../src/url-schemes/index.ts'
 import { isFlatBindableName } from '../../src/py-sdk.ts'
 
 /** Everything the surface tests need: the composition harness plus the started agent's live scoped context. */
@@ -77,6 +77,12 @@ async function setupSurface(): Promise<Surface> {
   const presetKey = { preset: 'dashr' }
   const preset = createScope(host, presetKey)
   onTestFinished(() => preset.dispose())
+  // The url-schemes row (mounted beside the core row, as the bundle patch
+  // now does — see docs/specs/plugins-page-components/spec.md). Mount order
+  // vs the mask row is irrelevant by construction: the mask listener fixes
+  // the pre-mask capture itself.
+  const urlSchemesFiber = await preset.ctx.plugin(UrlSchemes, {})
+  onTestFinished(async () => { await urlSchemesFiber.dispose() })
   const presentationFiber = await preset.ctx.plugin(Presentation, {})
   onTestFinished(async () => { await presentationFiber.dispose() })
 

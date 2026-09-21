@@ -13,6 +13,11 @@
  *   agent/request-error → on trigger-code failure, advance the latch, retry
  *   agent/request       → if latched this turn, override provider/model
  *
+ * Plugins-page component row `dashr-failover` → `better-dsh/failover`
+ * (spec docs/specs/plugins-page-components/spec.md): the row config IS the
+ * composition base layer of the settings section (both slots default "not
+ * set"); the live values come from the settings scope once composed.
+ *
  * @module dashr/failover
  */
 
@@ -26,6 +31,16 @@ import {
   defaultFailoverConfig, fallbackRoutes, splitRoute,
   type FailoverConfig,
 } from './config.ts'
+
+/** Cordis plugin name. */
+export const name = 'dashr-failover'
+
+/**
+ * No static injects: `settings` is composed conditionally inside
+ * {@link installFailover} (`ctx.inject(['settings'], …)`), so the row loads
+ * (dormant) in compositions without a settings service.
+ */
+export const inject: string[] = []
 
 /** The `failover` settings schema: two optional fallback slots, both default "not set". */
 export const Config = z.object({
@@ -124,3 +139,10 @@ export function installFailover(ctx: Context, config: FailoverConfig = defaultFa
     return overrideConfig(seed, route)
   })
 }
+
+/** Mount the failover as the row's whole apply (the row config is the chain base). */
+export function apply(ctx: Context, config: FailoverConfig | undefined): void {
+  installFailover(ctx, config ?? defaultFailoverConfig)
+}
+
+export default { name, inject, Config, apply }

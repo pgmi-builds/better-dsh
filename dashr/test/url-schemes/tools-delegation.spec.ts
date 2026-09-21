@@ -7,7 +7,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import type { ToolDefinition, ToolRunContext } from '@deepseek-ai/dsh-tools'
 
-import { captureNativeTools } from '../../src/url-schemes/native-capture.ts'
+import { captureNativeTools } from '../../src/native-capture.ts'
 import { buildLspWriteFeedback } from '../../src/url-schemes/index.ts'
 import { listDvcDevices, registerDvcDevice } from '../../src/url-schemes/handlers/dvc.ts'
 import { UrlResolver } from '../../src/url-schemes/resolver.ts'

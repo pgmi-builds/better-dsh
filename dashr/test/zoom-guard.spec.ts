@@ -8,7 +8,8 @@ import {
   mergeViewportTokens,
   shouldApplyZoomGuard,
 } from '../src/mobile/zoom-guard.ts'
-import { buildBootScript } from '../src/web-trust.ts'
+import { buildMobileScript, buildTrustScript, type MobileConfig } from '../src/web-trust.ts'
+import { Config as MobileRowConfig } from '../src/mobile/plugin.ts'
 
 // ---------------------------------------------------------------------------
 // UA matrix fixtures (design D2): the iOS family, the iPadOS desktop
@@ -153,18 +154,20 @@ describe('buildFontFloorCss (design D3: 16px floor, breakpoint-scoped)', () => {
     expect(css).toContain('font-size:16px !important')
   })
 })
-describe('config schema (mobile.zoomGuard)', () => {
-  it('defaults an absent/null key to meta and passes explicit values through', async () => {
-    const { Config } = await import('../src/index.ts')
-    expect(Config({}).mobile!.zoomGuard).toBe('meta')
-    expect(Config({ mobile: { zoomGuard: 'off' } }).mobile!.zoomGuard).toBe('off')
-    expect(Config({ mobile: { zoomGuard: null } } as never).mobile!.zoomGuard).toBe('meta')
+describe('config schema (dashr-mobile row: mobile.zoomGuard)', () => {
+  // The knobs moved off the core row's Config to the `dashr-mobile` row
+  // (spec docs/specs/plugins-page-components/spec.md); the schema is unchanged.
+  const resolve = MobileRowConfig as unknown as (v?: unknown) => Record<string, unknown>
+
+  it('defaults an absent/null key to meta and passes explicit values through', () => {
+    expect(resolve({}).zoomGuard).toBe('meta')
+    expect(resolve({ zoomGuard: 'off' }).zoomGuard).toBe('off')
+    expect(resolve({ zoomGuard: null }).zoomGuard).toBe('meta')
   })
 
-  it('fails loud on values outside the enum (font is reserved-unimplemented)', async () => {
-    const { Config } = await import('../src/index.ts')
-    expect(() => Config({ mobile: { zoomGuard: 'font' } } as never)).toThrow(/meta.*off|expected/)
-    expect(() => Config({ mobile: { zoomGuard: 'bogus' } } as never)).toThrow(/meta.*off|expected/)
+  it('fails loud on values outside the enum (font is reserved-unimplemented)', () => {
+    expect(() => resolve({ zoomGuard: 'font' })).toThrow(/meta.*off|expected/)
+    expect(() => resolve({ zoomGuard: 'bogus' })).toThrow(/meta.*off|expected/)
   })
 })
 
@@ -263,14 +266,14 @@ interface RunResult {
 
 /** Evaluate a built script exactly as a page's inline head script would. */
 function runBootScript(
-  config: Parameters<typeof buildBootScript>[0],
+  config: MobileConfig | undefined,
   ua = IPHONE_UA,
   maxTouchPoints = 5,
   narrowAtScriptTime = true,
   standaloneAtScriptTime = false,
   navStandalone = false,
 ): RunResult {
-  const text = buildBootScript(config)
+  const text = buildMobileScript(config)
   if (text === undefined) throw new Error('boot script injected nothing — nothing to run')
   const doc = page = new StubDocument()
   doc.narrow = narrowAtScriptTime
@@ -325,7 +328,7 @@ describe('generated zoomGuard section (shape)', () => {
   })
 
   it('derives the media query from the fixed internal band (768 → 767.98px)', () => {
-    const run = runBootScript({ mobile: {} })
+    const run = runBootScript({})
     // Browser mode probes display-mode FIRST (the fork verdict), then the band.
     // 2026-09-11 mobile wave: the band is zoomGuard's own internal constant —
     // the mobile.breakpoint config is gone (responsive state is upstream's).
@@ -333,24 +336,23 @@ describe('generated zoomGuard section (shape)', () => {
   })
 
   it('serializes the configured zoomGuard into the payload verbatim', () => {
-    expect(buildBootScript({ mobile: { zoomGuard: 'off' } })).toContain('"zoomGuard":"off"')
-    expect(buildBootScript({ mobile: { zoomGuard: 'meta' } })).toContain('"zoomGuard":"meta"')
+    expect(buildMobileScript({ zoomGuard: 'off' })).toContain('"zoomGuard":"off"')
+    expect(buildMobileScript({ zoomGuard: 'meta' })).toContain('"zoomGuard":"meta"')
     // Absent config = default meta: payload omits the key, script still ships.
-    const text = buildBootScript({ mobile: {} })!
+    const text = buildMobileScript({})!
     expect(text).not.toContain('"zoomGuard"')
     expect(text).toContain('var ZI=')
   })
 
   it('omits the whole section when zoomGuard is off or the mobile leg is disabled', () => {
-    expect(buildBootScript({ mobile: { zoomGuard: 'off' } })).not.toContain('var ZI=')
-    expect(buildBootScript({ mobile: { enabled: false } })).toBeUndefined()
-    expect(buildBootScript({ trustedPageAuthorities: ['a.example'], mobile: { enabled: false } })!).not.toContain('var ZI=')
+    expect(buildMobileScript({ zoomGuard: 'off' })).not.toContain('var ZI=')
+    expect(buildMobileScript({ enabled: false })).toBeUndefined()
   })
 })
 
 describe('boot script evaluation (iOS × viewport × config matrix)', () => {
   it('iPhone ∧ narrow: guards immediately, then reconciles into the parsed stock meta', () => {
-    const run = runBootScript({ mobile: {} })
+    const run = runBootScript({})
     // Script time (stock meta not parsed yet — injections splice right after
     // <head>): a provisional meta already carries the guard tokens.
     expect(run.page.metas().map(m => m.getAttribute('content'))).toEqual(['maximum-scale=1, user-scalable=no'])
@@ -363,7 +365,7 @@ describe('boot script evaluation (iOS × viewport × config matrix)', () => {
   })
 
   it('reconciliation ignores non-viewport parser insertions and keeps watching', () => {
-    const run = runBootScript({ mobile: {} })
+    const run = runBootScript({})
     run.page.parse(new StubEl('style')) // observer fires, finds no stock meta
     expect(run.page.metas()).toHaveLength(1) // still the provisional one
     run.page.parse(run.page.stockMeta())
@@ -372,7 +374,7 @@ describe('boot script evaluation (iOS × viewport × config matrix)', () => {
   })
 
   it('wide → narrow crossings rewrite and restore; resize storms stay idempotent', () => {
-    const run = runBootScript({ mobile: {} })
+    const run = runBootScript({})
     run.page.parse(run.page.stockMeta())
     const [meta] = run.page.metas()
     // Leave the band: byte-identical stock restore.
@@ -396,7 +398,7 @@ describe('boot script evaluation (iOS × viewport × config matrix)', () => {
     const doc = page = new StubDocument()
     doc.parse(doc.stockMeta()) // stock parsed BEFORE the script runs
     doc.narrow = true
-    const text = buildBootScript({ mobile: {} })!
+    const text = buildMobileScript({})!
     const window: Record<string, unknown> = {
       matchMedia: (query: string) => (query === '(display-mode: standalone)'
         ? { matches: false }
@@ -412,7 +414,7 @@ describe('boot script evaluation (iOS × viewport × config matrix)', () => {
   })
 
   it('page without any stock meta: the provisional meta persists and still guards', () => {
-    const run = runBootScript({ mobile: {} })
+    const run = runBootScript({})
     expect(run.page.metas()).toHaveLength(1)
     expect(run.page.metas()[0]!.getAttribute('content')).toBe('maximum-scale=1, user-scalable=no')
     // Leaving the band removes the meta WE created (stock absence restored).
@@ -422,16 +424,16 @@ describe('boot script evaluation (iOS × viewport × config matrix)', () => {
   })
 
   it('iPad and iPadOS-desktop masquerade are guarded; desktop Safari is not', () => {
-    const ipad = runBootScript({ mobile: {} }, IPAD_UA, 5)
+    const ipad = runBootScript({}, IPAD_UA, 5)
     expect(ipad.page.metas()[0]!.getAttribute('content')).toBe('maximum-scale=1, user-scalable=no')
-    const ipadOs = runBootScript({ mobile: {} }, IPADOS_DESKTOP_UA, 5)
+    const ipadOs = runBootScript({}, IPADOS_DESKTOP_UA, 5)
     expect(ipadOs.page.metas()[0]!.getAttribute('content')).toBe('maximum-scale=1, user-scalable=no')
-    const mac = runBootScript({ mobile: {} }, MAC_DESKTOP_UA, 0)
+    const mac = runBootScript({}, MAC_DESKTOP_UA, 0)
     expect(mac.page.metas()).toHaveLength(0)
   })
 
   it('Android ∧ narrow: stock bytes untouched, no listeners wired', () => {
-    const run = runBootScript({ mobile: {} }, ANDROID_UA, 5)
+    const run = runBootScript({}, ANDROID_UA, 5)
     expect(run.page.metas()).toHaveLength(0)
     expect(run.page.resizeHandlers).toHaveLength(0)
     // Even a late stock meta parses into a virgin document.
@@ -441,7 +443,7 @@ describe('boot script evaluation (iOS × viewport × config matrix)', () => {
 
   it('desktop browsers at any width: no rewrite, no listeners', () => {
     for (const narrow of [true, false]) {
-      const run = runBootScript({ mobile: {} }, DESKTOP_CHROME_UA, 0)
+      const run = runBootScript({}, DESKTOP_CHROME_UA, 0)
       run.page.narrow = narrow
       run.fireResize()
       expect(run.page.metas()).toHaveLength(0)
@@ -450,7 +452,7 @@ describe('boot script evaluation (iOS × viewport × config matrix)', () => {
   })
 
   it('iPhone at/above the breakpoint: stock untouched, but crossing in later guards', () => {
-    const run = runBootScript({ mobile: {} }, IPHONE_UA, 5)
+    const run = runBootScript({}, IPHONE_UA, 5)
     run.page.narrow = false
     run.fireResize() // wide at load: nothing applied, nothing created
     expect(run.page.metas()).toHaveLength(0)
@@ -462,22 +464,39 @@ describe('boot script evaluation (iOS × viewport × config matrix)', () => {
   })
 
   it('zoomGuard off: no section, no rewriting anywhere (the escape hatch)', () => {
-    const run = runBootScript({ mobile: { zoomGuard: 'off' } })
+    const run = runBootScript({ zoomGuard: 'off' })
     expect(run.page.metas()).toHaveLength(0)
     expect(run.page.resizeHandlers).toHaveLength(0)
     run.page.parse(run.page.stockMeta())
     expect(run.page.metas()[0]!.getAttribute('content')).toBe(STOCK)
   })
 
-  it('coexists with the authorities leg in one script', () => {
-    const run = runBootScript({ trustedPageAuthorities: ['test.example'] })
-    expect(run.window.__DSH_TRANSPORT__).toEqual({ ownsHost: true })
-    expect(run.window.__DASHR_MOBILE__).toEqual({ enabled: true })
-    expect(run.page.metas()[0]!.getAttribute('content')).toBe('maximum-scale=1, user-scalable=no')
+  it('coexists with the authorities row: two pushed scripts, one page, both legs live', () => {
+    // Component split (spec docs/specs/plugins-page-components/spec.md): the
+    // authorities leg and the mobile leg arrive as TWO index-inject rows.
+    // Run both into one stub page in push order — the real page's composition.
+    const doc = page = new StubDocument()
+    const narrowBox = { value: true }
+    const window: Record<string, unknown> = {
+      matchMedia: (query: string) => (query === '(display-mode: standalone)'
+        ? { matches: false }
+        : { matches: narrowBox.value }),
+      addEventListener: () => {},
+    }
+    const scripts = [buildTrustScript(['test.example']), buildMobileScript({})]
+    for (const text of scripts) {
+      // eslint-disable-next-line no-new-func
+      new Function('window', 'location', 'document', 'navigator', 'MutationObserver', text!)(
+        window, { hostname: 'test.example' }, doc, { userAgent: IPHONE_UA, maxTouchPoints: 5 }, StubMutationObserver,
+      )
+    }
+    expect(window.__DSH_TRANSPORT__).toEqual({ ownsHost: true })
+    expect(window.__DASHR_MOBILE__).toEqual({ enabled: true })
+    expect(doc.metas()[0]!.getAttribute('content')).toBe('maximum-scale=1, user-scalable=no')
   })
 
   it('a wide viewport outside the fixed band removes the merged tokens', () => {
-    const run = runBootScript({ mobile: {} })
+    const run = runBootScript({})
     run.page.parse(run.page.stockMeta())
     // Narrow per the fixed 768 band semantics stays true here; flip to wide.
     run.page.narrow = false
@@ -500,7 +519,7 @@ describe('boot script evaluation (standalone display mode matrix)', () => {
   it('standalone (MQ source) ∧ iOS: font-floor style injected, meta bytes untouched, zero machinery traces', () => {
     const spy = vi.spyOn(globalThis, 'setTimeout')
     try {
-      const run = runBootScript({ mobile: {} }, IPHONE_UA, 5, true, true)
+      const run = runBootScript({}, IPHONE_UA, 5, true, true)
       const styles = run.page.getElementsByTagName('style')
       expect(styles).toHaveLength(1)
       const floor = styles[0]!
@@ -526,7 +545,7 @@ describe('boot script evaluation (standalone display mode matrix)', () => {
   })
 
   it('standalone ∧ iOS ∧ wide at script time: style STILL injected (width lives in the CSS media query)', () => {
-    const run = runBootScript({ mobile: {} }, IPHONE_UA, 5, false, true)
+    const run = runBootScript({}, IPHONE_UA, 5, false, true)
     const styles = run.page.getElementsByTagName('style')
     expect(styles).toHaveLength(1)
     expect(styles[0]!.getAttribute('id')).toBe('ios-zoom-font-floor')
@@ -538,7 +557,7 @@ describe('boot script evaluation (standalone display mode matrix)', () => {
   })
 
   it('standalone via navigator.standalone alone (MQ says browser) — legacy iOS source', () => {
-    const run = runBootScript({ mobile: {} }, IPHONE_UA, 5, true, false, true)
+    const run = runBootScript({}, IPHONE_UA, 5, true, false, true)
     expect(run.page.getElementsByTagName('style')).toHaveLength(1)
     expect(run.page.metas()).toHaveLength(0)
     expect(run.page.resizeHandlers).toHaveLength(0)
@@ -546,7 +565,7 @@ describe('boot script evaluation (standalone display mode matrix)', () => {
 
   it('standalone with no matchMedia at all: navigator.standalone single source (design D4 fallback)', () => {
     const doc = page = new StubDocument()
-    const text = buildBootScript({ mobile: {} })!
+    const text = buildMobileScript({})!
     const window: Record<string, unknown> = { addEventListener: () => {} } // no matchMedia key at all
     // eslint-disable-next-line no-new-func
     new Function('window', 'location', 'document', 'navigator', 'MutationObserver', text)(
@@ -559,23 +578,23 @@ describe('boot script evaluation (standalone display mode matrix)', () => {
   })
 
   it('standalone font floor derives from the fixed internal band (768 → 767.98px)', () => {
-    const run = runBootScript({ mobile: {} }, IPHONE_UA, 5, true, true)
+    const run = runBootScript({}, IPHONE_UA, 5, true, true)
     const floor = run.page.getElementsByTagName('style')[0]!
     expect(floor.textContent).toBe(buildFontFloorCss(768))
     expect(floor.textContent).toContain('(max-width:767.98px)')
   })
 
   it('browser mode explicitly: v0.2.4 meta machinery, no font-floor style', () => {
-    const run = runBootScript({ mobile: {} }, IPHONE_UA, 5, true, false, false)
+    const run = runBootScript({}, IPHONE_UA, 5, true, false, false)
     expect(run.page.getElementsByTagName('style')).toHaveLength(0)
     expect(run.page.metas()[0]!.getAttribute('content')).toBe('maximum-scale=1, user-scalable=no')
   })
 
   it('zoomGuard off: neither branch in any display mode', () => {
-    const off = buildBootScript({ mobile: { zoomGuard: 'off' } })!
+    const off = buildMobileScript({ zoomGuard: 'off' })!
     expect(off).not.toContain('var ZD=')
     expect(off).not.toContain('ios-zoom-font-floor')
-    const run = runBootScript({ mobile: { zoomGuard: 'off' } }, IPHONE_UA, 5, true, true)
+    const run = runBootScript({ zoomGuard: 'off' }, IPHONE_UA, 5, true, true)
     expect(run.page.getElementsByTagName('style')).toHaveLength(0)
     expect(run.page.metas()).toHaveLength(0)
     run.page.parse(run.page.stockMeta())
@@ -596,7 +615,7 @@ describe('initial-load re-evaluation ladder (viewport applied post-script, no re
 
   it('guards when matchMedia flips late with no resize dispatched, then stops with no leaked timer', () => {
     vi.useFakeTimers()
-    const run = runBootScript({ mobile: {} }, IPHONE_UA, 5, false) // wide (980 default) at script time
+    const run = runBootScript({}, IPHONE_UA, 5, false) // wide (980 default) at script time
     expect(run.page.metas()).toHaveLength(0) // unguarded at script time
     expect(vi.getTimerCount()).toBe(1) // the ladder, and only the ladder, is armed
     run.page.parse(run.page.stockMeta()) // parser inserts the stock meta while still wide
@@ -612,7 +631,7 @@ describe('initial-load re-evaluation ladder (viewport applied post-script, no re
 
   it('ladder lands the guard before the stock meta parses: provisional first, reconcile on parse', () => {
     vi.useFakeTimers()
-    const run = runBootScript({ mobile: {} }, IPHONE_UA, 5, false)
+    const run = runBootScript({}, IPHONE_UA, 5, false)
     run.page.narrow = true
     vi.advanceTimersByTime(10) // first tick applies with no stock in the DOM
     expect(run.page.metas()).toHaveLength(1) // the provisional meta
@@ -625,7 +644,7 @@ describe('initial-load re-evaluation ladder (viewport applied post-script, no re
 
   it('stops at readyState complete on a stay-wide load: no guard, no residual timer, listeners stay live', () => {
     vi.useFakeTimers()
-    const run = runBootScript({ mobile: {} }, IPHONE_UA, 5, false)
+    const run = runBootScript({}, IPHONE_UA, 5, false)
     run.page.readyState = 'complete'
     vi.advanceTimersByTime(10) // first tick: still wide + complete → terminate
     expect(vi.getTimerCount()).toBe(0)
@@ -640,7 +659,7 @@ describe('initial-load re-evaluation ladder (viewport applied post-script, no re
   it('non-iOS loads never start the ladder: zero setTimeout calls', () => {
     const spy = vi.spyOn(globalThis, 'setTimeout')
     try {
-      const run = runBootScript({ mobile: {} }, ANDROID_UA, 5, false)
+      const run = runBootScript({}, ANDROID_UA, 5, false)
       expect(run.page.metas()).toHaveLength(0)
       expect(run.page.resizeHandlers).toHaveLength(0)
       expect(run.page.mqChangeHandlers).toHaveLength(0)
@@ -652,7 +671,7 @@ describe('initial-load re-evaluation ladder (viewport applied post-script, no re
 
   it('media-query change events guard and restore without any resize (second channel)', () => {
     vi.useFakeTimers()
-    const run = runBootScript({ mobile: {} }, IPHONE_UA, 5, false)
+    const run = runBootScript({}, IPHONE_UA, 5, false)
     run.page.readyState = 'complete'
     vi.advanceTimersByTime(10) // retire the ladder first
     run.page.parse(run.page.stockMeta())
@@ -668,7 +687,7 @@ describe('initial-load re-evaluation ladder (viewport applied post-script, no re
     const doc = page = new StubDocument()
     doc.narrow = true
     const legacy: (() => void)[] = []
-    const text = buildBootScript({ mobile: {} })!
+    const text = buildMobileScript({})!
     const window: Record<string, unknown> = {
       matchMedia: (query: string) => (query === '(display-mode: standalone)'
         ? { matches: false }

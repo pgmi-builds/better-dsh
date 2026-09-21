@@ -1,7 +1,22 @@
 import { defineConfig } from 'tsdown'
 
 export default defineConfig({
-  entry: ['src/index.ts', 'src/py-sdk.ts', 'src/kernel-env.ts', 'src/fs-aware/sandbox-plugin.ts'],
+  // One entry per Plugins-page component row (spec docs/specs/plugins-page-
+  // components/spec.md): the bundle patch inserts one row per subpath export.
+  // Modules imported by several entries (native-capture, fs-aware/wrap,
+  // py-sdk, kernel-env) code-split into shared chunks, so their module state
+  // (the per-agent capture WeakMap) stays a single runtime instance.
+  entry: [
+    'src/index.ts',
+    'src/py-sdk.ts',
+    'src/kernel-env.ts',
+    'src/fs-aware/sandbox-plugin.ts',
+    'src/url-schemes/index.ts',
+    'src/failover/index.ts',
+    'src/compaction/index.ts',
+    'src/web-trust.ts',
+    'src/mobile/plugin.ts',
+  ],
   // Pin the output beside the package.json `main`/`types` declarations (the
   // default dist/ would leave the exports map dangling on a published tarball).
   outDir: 'lib',

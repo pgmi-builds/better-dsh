@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { buildBootScript } from '../src/web-trust.ts'
+import { buildMobileScript, buildTrustScript, Config } from '../src/web-trust.ts'
+import { Config as MobileRowConfig } from '../src/mobile/plugin.ts'
 
 /** Evaluate the built script exactly as a page would (head inline script). */
 function runScript(text: string, sandbox: Record<string, unknown>): Record<string, unknown> {
@@ -10,13 +11,14 @@ function runScript(text: string, sandbox: Record<string, unknown>): Record<strin
   return window
 }
 
-describe('web-trust boot script (buildBootScript)', () => {
-  it('injects nothing only when both legs are off', () => {
-    expect(buildBootScript({ trustedPageAuthorities: [], mobile: { enabled: false } })).toBeUndefined()
+describe('authorities leg (buildTrustScript)', () => {
+  it('injects nothing when no authorities are configured', () => {
+    expect(buildTrustScript([])).toBeUndefined()
+    expect(buildTrustScript(undefined)).toBeUndefined()
   })
 
   it('emits the ownsHost transport flag only for declared authorities', () => {
-    const text = buildBootScript({ trustedPageAuthorities: ['dsh.pc.randomhash.app'] })!
+    const text = buildTrustScript(['dsh.pc.randomhash.app'])!
     const matching = runScript(text, {
       window: {},
       location: { hostname: 'dsh.pc.randomhash.app' },
@@ -31,7 +33,7 @@ describe('web-trust boot script (buildBootScript)', () => {
   })
 
   it('never overwrites an existing transport (a worker shell owns one)', () => {
-    const text = buildBootScript({ trustedPageAuthorities: ['a.example'] })!
+    const text = buildTrustScript(['a.example'])!
     const existing = { fetch: () => Promise.resolve() }
     const window = runScript(text, {
       window: { __DSH_TRANSPORT__: existing },
@@ -41,14 +43,14 @@ describe('web-trust boot script (buildBootScript)', () => {
   })
 
   it('sets only ownsHost — no fetch/openStream ride along', () => {
-    const text = buildBootScript({ trustedPageAuthorities: ['a.example'] })!
+    const text = buildTrustScript(['a.example'])!
     const window = runScript(text, { window: {}, location: { hostname: 'a.example' } })
     expect(Object.keys(window.__DSH_TRANSPORT__ as object)).toEqual(['ownsHost'])
   })
 
   it('escapes hostile authority strings (JSON embed, no code splicing)', () => {
     // A hostname with a quote must survive as data, not terminate a string.
-    const text = buildBootScript({ trustedPageAuthorities: ['a"b.example'] })!
+    const text = buildTrustScript(['a"b.example'])!
     expect(text).not.toContain('a"b.example"')
     const window = runScript(text, { window: {}, location: { hostname: 'a"b.example' } })
     expect(window.__DSH_TRANSPORT__).toEqual({ ownsHost: true })
@@ -56,28 +58,54 @@ describe('web-trust boot script (buildBootScript)', () => {
 
   it('refuses malformed authorities loudly (port/path/empty)', () => {
     for (const bad of ['', 'a.example:3080', 'a.example/path', '//a.example']) {
-      expect(() => buildBootScript({ trustedPageAuthorities: [bad] })).toThrow(/bare hostname/)
+      expect(() => buildTrustScript([bad])).toThrow(/bare hostname/)
     }
   })
+})
 
+describe('mobile leg (buildMobileScript)', () => {
   it('ships the mobile page config by default (absent mobile = enabled)', () => {
-    // Absent mobile config = default ON (design D1): a bare authority-only
-    // config still carries the mobile global.
-    const both = buildBootScript({ trustedPageAuthorities: ['a.example'] })!
-    expect(both).toContain('__DASHR_MOBILE__')
-    const enabled = buildBootScript({ mobile: {} })!
+    const enabled = buildMobileScript({})!
     const window = runScript(enabled, { window: {}, location: { hostname: 'x' } })
     expect(window.__DASHR_MOBILE__).toEqual({ enabled: true })
 
-    const tuned = buildBootScript({ mobile: { swipeDistancePx: 64 } })!
+    const tuned = buildMobileScript({ swipeDistancePx: 64 })!
     const win2 = runScript(tuned, { window: {}, location: { hostname: 'x' } })
     expect(win2.__DASHR_MOBILE__).toEqual({ enabled: true, swipeDistancePx: 64 })
   })
 
-  it('omits the mobile global when explicitly disabled', () => {
-    const text = buildBootScript({ mobile: { enabled: false } })!
-    expect(text).toBeUndefined()
-    expect(buildBootScript({ trustedPageAuthorities: ['a.example'], mobile: { enabled: false } })!).not.toContain('__DASHR_MOBILE__')
+  it('injects nothing when explicitly disabled', () => {
+    expect(buildMobileScript({ enabled: false })).toBeUndefined()
+  })
+})
+
+describe('row config schemas', () => {
+  it('dashr-web-trust derives its authorities default from DSH_TRUSTED_HOSTS', () => {
+    // Schema-level default (v0.2.2a single-source): per-key defaults survive
+    // every overlay layer; the value tracks the same environment source the
+    // fence leg reads, whatever the test machine declares.
+    const resolve = Config as unknown as (v?: unknown) => Record<string, unknown>
+    expect(resolve({}).trustedPageAuthorities).toEqual(
+      (process.env.DSH_TRUSTED_HOSTS ?? '').split(/\s+/).filter(h => h.length > 0 && !/[:/@?#]/.test(h)),
+    )
+  })
+
+  it('dashr-mobile resolves all knobs with the wave defaults', () => {
+    const resolve = MobileRowConfig as unknown as (v?: unknown) => Record<string, unknown>
+    expect(resolve({})).toEqual({
+      enabled: true,
+      swipeDistancePx: 40,
+      dominanceRatio: 1.3,
+      leftEdgeBandPx: 120,
+      rightZoneRatio: 0.25,
+      swipeVelocityPxPerMs: 0.15,
+      zoomGuard: 'meta',
+    })
+  })
+
+  it('dashr-mobile rejects the reserved zoomGuard value loudly', () => {
+    const resolve = MobileRowConfig as unknown as (v?: unknown) => Record<string, unknown>
+    expect(() => resolve({ zoomGuard: 'font' })).toThrow()
   })
 })
 

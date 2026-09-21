@@ -8,9 +8,12 @@
  * plugin mount. Orthogonality (2026-09-13): `src/hashline` imports nothing
  * from here; nothing in this module outside `index.ts` imports hashline —
  * remove this composition and hashline still stands alone (and vice versa).
- * Mounted by `dashr-repl` (`src/index.ts`) via
- * `ctx.plugin()` — one plugin, one row, following the same mount pattern as
- * `DashrRuntime`.
+ * Mounted by its OWN composition row (`dashr-url-schemes` →
+ * `better-dsh/url-schemes`, spec docs/specs/plugins-page-components/spec.md)
+ * since the plugins-page component split — no longer a child plugin of
+ * `dashr-repl`; the two rows share no inject edge, and the one cross-row
+ * ordering constraint (capture before the wire mask's restrict) is owned by
+ * the mask listener via {@link captureAllTools}'s shared cache.
  *
  * The four tools are registered on the AGENT's own scope layer (via
  * `agent/session-start` + `agent.ctx.effect`), so they shadow the preset's
@@ -39,6 +42,7 @@ import type {} from '@deepseek-ai/dsh-settings'
 import type {} from '@deepseek-ai/dsh-skill'
 import type {} from '@deepseek-ai/dsh-subagent'
 import type {} from '@deepseek-ai/dsh-tools'
+import z from '@deepseek-ai/schemastery'
 
 import { resolveDocsDir } from './docs-dir.ts'
 import { disposeLspGate, lspGateNotice, lspGateSyncOnLand } from '../devices/lsp/lsp-gate.ts'
@@ -50,7 +54,7 @@ import { createDshHandler } from './handlers/dsh.ts'
 import { createDvcHandler } from './handlers/dvc.ts'
 import { createHttpHandler, HTTP_SCHEMES } from './handlers/http.ts'
 import { createSkillHandler } from './handlers/skill.ts'
-import { captureNativeTools } from './native-capture.ts'
+import { captureNativeTools } from '../native-capture.ts'
 import { UrlResolver } from './resolver.ts'
 import { createGlobTool } from './tools/glob.ts'
 import { createGrepTool } from './tools/grep.ts'
@@ -74,8 +78,19 @@ export const name = 'dsh-url-schemes'
 export const inject = ['tools', 'fs', 'skills', 'subagents', 'sessions', 'settings', 'agents', 'sessionPersistence']
 
 /** Feature gates (patch-line `config:` block) — see `./gates.ts`. */
-export type { ReadGates as UrlSchemesGates, UrlSchemesConfig as Config } from './gates.ts'
+export type { ReadGates as UrlSchemesGates, UrlSchemesConfig } from './gates.ts'
 export { resolveGates } from './gates.ts'
+
+/**
+ * Row config schema (plugins-page component row `dashr-url-schemes`, spec
+ * docs/specs/plugins-page-components/spec.md): the two feature gates as
+ * real patch-line config. Schema-level defaults (both ON — the service is
+ * opt-out) survive every overlay layer, per the v0.2.2a ruling.
+ */
+export const Config = z.object({
+  urlSchemes: z.boolean().default(true),
+  hashline: z.boolean().default(true),
+})
 
 /** Register the four URL-aware tools on one agent's own scope layer. */
 /**
@@ -147,10 +162,13 @@ async function installAgentTools(rootCtx: Context, agent: Agent, resolver: UrlRe
     // Capture the agent's FULL inherited surface BEFORE any wrapper
     // registers on the agent's own scope layer — after registration the
     // scoped lookup would resolve each name back to the wrapper itself
-    // (infinite recursion), and after the wire-mask restrict (installed by
-    // dashr-repl's later session-start listener) the masked names would
-    // read as absent. `captureNativeTools` seeds the one full snapshot
-    // ({@link captureAllTools}) — read/write/grep/glob all delegate to it:
+    // (infinite recursion), and after the wire-mask restrict the masked
+    // names would read as absent. Order-independence across the two rows
+    // (this one and `dashr-repl`) is structural: the mask listener's first
+    // step is `captureAllTools`, so this call hits its pre-mask cache even
+    // when the mask ran first. `captureNativeTools` seeds the one full
+    // snapshot ({@link captureAllTools}) — read/write/grep/glob all delegate
+    // to it:
     // the capture anchors on the SEMANTIC NAME, so whatever registered under
     // `read` before us (native tool or another feature's wrapper) becomes the
     // chassis terminal delegate.
@@ -307,4 +325,4 @@ export function apply(ctx: Context, config: UrlSchemesConfig | undefined): void 
   })
 }
 
-export default { name, inject, apply }
+export default { name, inject, Config, apply }

@@ -24,6 +24,15 @@
  * were removed in v0.1.8b — harness/refine became third-party territory, and
  * context compaction is the host runtime's business, not the REPL's.
  *
+ * Since the plugins-page component split (spec
+ * docs/specs/plugins-page-components/spec.md) this row is the CORE of a
+ * six-row bundle: url-schemes, failover, compaction-tuning, web-trust, and
+ * mobile each mount as their own composition row (their own subpath export,
+ * one toggleable component on the native Plugins page). This row shares no
+ * inject edge with them; the one cross-row ordering constraint — the
+ * inherited-surface capture must precede the wire mask's restrict — is
+ * owned by the mask listener itself (see ①½ below).
+ *
  * The presentation row registers against the harness tool registry the way
  * any dsh tool row must (shape-mirroring `dsh-agent-tool-presentation` and
  * the code-mode half of `dsh-tools`, 0.1.0-rc.6), but it re-points execution
@@ -71,7 +80,6 @@ import { Context } from '@deepseek-ai/cordis'
 import { DashrRuntime } from './runtime.ts'
 import { resolveKernelEnv } from './kernel-env.ts'
 import type { Config as RuntimeConfig } from './runtime.ts'
-import DshUrlSchemes from './url-schemes/index.ts'
 import z from '@deepseek-ai/schemastery'
 import { defineTool, TOOL_RUNTIME_SCHEDULER } from '@deepseek-ai/dsh-tools'
 import type {
@@ -109,9 +117,7 @@ import { createAgentBridgeTools } from './bridges/index.ts'
 import { createLlmCompletionTool } from './llm-completion.ts'
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
-import { installFailover } from './failover/index.ts'
-import { installCompactionTuning } from './compaction/index.ts'
-import { installWebTrust, deriveDefaultPageAuthorities, type WebTrustConfig } from './web-trust.ts'
+import { captureAllTools } from './native-capture.ts'
 
 
 
@@ -127,55 +133,15 @@ export const inject = ['tools']
 /** Plugin config. */
 export interface Config extends RuntimeConfig {
   maxParallelSubCalls?: number
-  /** URL scheme resolution (read/write/grep/glob scheme branches + `ctx://`). */
-  urlSchemes?: boolean
-  /** Hashline feature: read anchors + the `edit`/`undo` tool family. */
-  hashline?: boolean
-  /** Page hostnames this operator declares their own (web-trust boot script). */
-  trustedPageAuthorities?: string[]
-  /** Mobile responsiveness knobs (delivered to the client half as a page global). */
-  mobile?: WebTrustConfig['mobile']
 }
-
-/** Runtime schema. */
-const MOBILE_CONFIG: z<Required<WebTrustConfig['mobile']>> = z.object({
-  enabled: z.boolean().default(true),
-  // `breakpoint` removed (2026-09-11 mobile wave): responsive behavior tracks
-  // the upstream sidebar auto-collapse STATE ([data-sidebar-collapsed]), never
-  // our own pixel cut-off; zoomGuard carries its own internal narrow band.
-  swipeDistancePx: z.natural().min(8).default(40),
-  dominanceRatio: z.number().min(1).default(1.3),
-  leftEdgeBandPx: z.natural().min(8).default(120),
-  rightZoneRatio: z.number().min(0.05).max(0.9).default(0.25),
-  swipeVelocityPxPerMs: z.number().min(0).default(0.15),
-  // iOS focus auto-zoom suppression (change 2026-09-03-ios-focus-zoom-
-  // suppression): 'meta' rewrites the viewport meta early on iOS-class
-  // narrow viewports; 'off' is the escape hatch. 'font' (solution A, the
-  // 16px floor) is a RESERVED future value — deliberately NOT accepted yet:
-  // an unimplemented enum member would fail silent (no-op) at runtime, while
-  // an unknown value here fails LOUD at config load.
-  zoomGuard: z.union(['meta', 'off']).default('meta'),
-})
 
 /** Runtime schema. */
 export const Config = z.intersect([
   DashrRuntime.Config,
   z.object({
     maxParallelSubCalls: z.natural().min(1).default(10),
-    urlSchemes: z.boolean().default(true),
-    hashline: z.boolean().default(true),
-    // Schema-level default (v0.2.2a): derived from DSH_TRUSTED_HOSTS at module
-    // load — per-key defaults survive every patch-overlay layer (a profile/
-    // home row with this id whole-row-overrides the bundle row's CONFIG, so
-    // the bundle patch layer is the wrong home for a derived default; pinned
-    // empirically on 4999). Explicit config in any layer still wins.
-    trustedPageAuthorities: z.array(String).default(deriveDefaultPageAuthorities(process.env.DSH_TRUSTED_HOSTS)),
-    mobile: MOBILE_CONFIG,
   }),
 ]) as unknown as z<Config>
-// schemastery's intersect inference widens the nested mobile shape with
-// null|undefined beyond `Config['mobile']`; the runtime defaults are pinned
-// by test/web-trust.spec.ts and the Config({}) equality suites.
 
 
 
@@ -1002,24 +968,6 @@ export function apply(ctx: Context, config: Config): void {
   // presentation inject below resolves. Both halves were separate plugin rows
   // before the merge; one row now owns the whole lifecycle.
   ctx.plugin(DashrRuntime, pickRuntimeConfig(config))
-  ctx.plugin(DshUrlSchemes, config)
-  // General LLM failover (host-plane, per-turn): root-context waterfalls over
-  // `agent/request` / `agent/request-error` walk a two-slot fallback chain on
-  // AUTH/MISSING_CREDENTIAL/QUOTA/RATE_LIMIT. No cooldown, no primary tracking; settings is a
-  // conditional inject, so it degrades to a no-op without a settings service.
-  installFailover(ctx)
-  // Automatic-compaction threshold (host-plane): installs the
-  // `compaction-tuning` settings namespace and re-applies the resolved value
-  // onto the mounted compaction engine on every change — the engine re-reads
-  // its policy per event, so a new threshold needs no restart. Both `settings`
-  // and `compaction` are conditional injects here.
-  installCompactionTuning(ctx)
-  // Web-trust boot script (v0.2.1f): trusted page authorities flip the
-  // connection client's loopback verdict on operator-declared devices
-  // (restores settings/Models remotely); mobile thresholds reach the client
-  // half through the same page global. One `webserver/index-inject` row,
-  // fully inert with empty config.
-  installWebTrust(ctx, config)
   const logger = ctx.logger('dashr-repl')
   const maxParallel = resolveMaxParallelSubCalls(config.maxParallelSubCalls)
 
@@ -1144,26 +1092,33 @@ export function apply(ctx: Context, config: Config): void {
     runtimeCtx.tools.register(createLlmCompletionTool({ requireLlm: () => runtimeCtx.get('llm') }))
 
     // ①½ The wire mask (design D1): deny the displaced delegation names on
-    // the agent's OWN scope layer at session-start. Ordering is the mount
-    // order made explicit: the url-schemes row mounted earlier in `apply`
-    // registered its session-start listener FIRST, so for every dispatch
-    // this listener runs AFTER the own-layer wrappers registered (they are
-    // restriction-exempt — own-layer registrations are never filtered) and
-    // BEFORE any REPL binding enumeration or catalog render, both of which
-    // read the post-restriction visible projection. The mask therefore
-    // lands on wire schemas, catalog, SDK, bindings, and by-name dispatch
-    // in ONE move. Names the host never registered are filtered against
-    // the agent's visible schemas first (a restriction may only name
-    // inherited tools — an unknown name throws); a visible name that still
-    // refuses (it sits on a non-restrictable layer, e.g. the child-scoped
-    // native `report`) is skipped — that layer is exempt by construction
-    // and the capability stays reachable through the captured-definition
-    // bridge.
+    // the agent's OWN scope layer at session-start. Since the plugins-page
+    // component split (spec docs/specs/plugins-page-components/spec.md) the
+    // url-schemes wrappers live on a SEPARATE row (`dashr-url-schemes`)
+    // whose activation order cordis does not define against this one — so
+    // the ordering invariant is owned HERE, not assumed: the listener's
+    // first step fixes the pre-mask full snapshot via `captureAllTools`
+    // (idempotent shared-cache call; when the url-schemes row's listener
+    // already captured, the cache answers). The restrict therefore always
+    // runs AFTER the capture exists, whichever row activated first, and the
+    // masked delegation definitions stay reachable to the bridge through
+    // `getCapturedTools`. The mask lands on wire schemas, catalog, SDK,
+    // bindings, and by-name dispatch in ONE move. Names the host never
+    // registered are filtered against the agent's visible schemas first (a
+    // restriction may only name inherited tools — an unknown name throws); a
+    // visible name that still refuses (it sits on a non-restrictable layer,
+    // e.g. the child-scoped native `report`) is skipped — that layer is
+    // exempt by construction and the capability stays reachable through the
+    // captured-definition bridge.
     const wireMasked = new WeakSet<Agent>()
     runtimeCtx.on('agent/session-start', ({ agent }) => {
       if (wireMasked.has(agent)) return
       wireMasked.add(agent)
       try {
+        // MUST precede the restrict below (see the comment above): freeze
+        // the agent's pre-mask inherited surface, masked delegation tools
+        // included.
+        captureAllTools(runtimeCtx, agent)
         const visible = new Set(agent.ctx.tools.schemas(agent).map(schema => schema.name))
         const deny = [...WIRE_MASKED_NAMES].filter(name => visible.has(name))
         if (deny.length === 0) return
