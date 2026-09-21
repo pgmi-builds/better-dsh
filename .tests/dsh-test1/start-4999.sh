@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # start-4999.sh — bring up the dashr (better-dsh) Dev/Test 1 instance (LAN-exposed).
 #
-# Usage:  bash .tests/start-4999.sh              # canonical port 4999, loopback only
-#         PORT=4988 bash .tests/start-4999.sh    # override when 4999 is occupied
-#         LAN=1 bash .tests/start-4999.sh        # ALSO expose the LAN IP (relay)
+# Usage:  bash .tests/dsh-test1/start-4999.sh              # canonical port 4999, loopback only
+#         PORT=4988 bash .tests/dsh-test1/start-4999.sh    # override when 4999 is occupied
+#         LAN=1 bash .tests/dsh-test1/start-4999.sh        # ALSO expose the LAN IP (relay)
 #
 # DEFAULT = no relay (superd start-4999.sh template: plain systemd-run, loopback).
 # The dsh webserver config accepts ONLY host 127.0.0.1 | 0.0.0.0 (zod union,

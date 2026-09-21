@@ -1,51 +1,29 @@
-# .tests/ — 测试脚本与 profile 种子（tracked）
+# .tests/ — 测试资产（tracked，按 rig 分目录）
 
-本目录收拢 dashr 的测试资产；运行态数据一律落 gitignored 的 `.dsh-test*/`，这里只放**可再生的正本**。
+本目录收拢**可再生的测试源**（启动脚本 + profile 种子），按测试线（rig）一目录一 rig。
+运行态数据（DSH_HOME 实例 home）**永不入内**——见下方裁决。
 
 ```
 .tests/
-├── start-4999.sh        # Dev/Test 1 实例拉起脚本（唯一入口，AGENTS.md §二）
-└── profiles/
-    └── web/             # 测试 profile 种子（tracked 正本）
-        ├── package.json         # dsh.profile.bundles + dependencies.better-dsh（插件页卡片必需）
-        ├── cordis.patch.yml     # profile 用户层 patch（dashr-repl config / fs-sandbox 重指 / mobile 开关）
-        ├── cordis.yml           # 空入口列表 []（树由 patch 组成；勿编辑此文件）
-        └── pnpm-workspace.yaml  # allowBuilds: node-pty
+└── dsh-test1/           # Dev/Test 1：源码级 4988/4999 实例（AGENTS.md §二）
+    ├── start-4999.sh    #   拉起脚本（PORT=/LAN= 可覆盖；built-lib boot，双平面修复后形态）
+    ├── profiles/web/    #   测试 profile 种子（package.json / cordis.patch.yml / cordis.yml / pnpm-workspace.yaml）
+    └── README.md        #   本 rig 的 home 再生步骤与注意项
 ```
 
-## start-4999.sh
+新测试线 = 新建 `.tests/<rig-id>/`（自带 README 说明种子与 home 的对应关系）。
 
-```bash
-bash .tests/start-4999.sh              # canonical 4999，loopback only
-PORT=4988 bash .tests/start-4999.sh    # 端口被占时覆盖
-LAN=1 bash .tests/start-4999.sh        # 加用户态 socat 中继暴露 LAN IP
-```
+## home（运行态）裁决 — 2026-09-22
 
-脚本自带：端口预检（外来进程拒绝）、停旧 + 等端口真释放、本 boot token 水位提取、
-`DSH_TRUSTED_HOSTS` + `UnsetEnvironment=DISPLAY WAYLAND_DISPLAY` 两行 prod 对齐环境。
-关停：`systemctl --user stop dsh-<port>-test [dashr-lan-<port>-relay]`（勿 kill）。
-细节与原理见根 `AGENTS.md` §二。
+`.dsh-test*`、`.dsh-bun-test`、`.dsh-acp` 等根级点目录是各实例的 **DSH_HOME 运行态**
+（物理 pnpm profile 树、sessions、storages、快照；`.dsh-test*/.env` 含**真实 key**）。
+它们**不放进 `.tests/`**：
 
-## 测试 home 再生（`.dsh-test/` 丢失/换机时）
+1. `.tests/` 是 tracked 源树，home 是 gitignored 状态数据且含密钥——混入 = 一次
+   `git add -A` 之遥的泄密面；
+2. home 是重 disposable 的重型运行态（每个 300–530MB），与再生种子生命周期不同；
+3. 对应关系由各 rig 的 README 声明（如 `dsh-test1` ↔ `~/.dsh-test`，变量在 start 脚本
+   顶部可查），不需要靠目录嵌套来表达。
 
-`.dsh-test/` 是 gitignored 运行态；种子在本目录 `profiles/web/`。再生步骤：
-
-1. `mkdir -p .dsh-test/profiles/web && cp .tests/profiles/web/* .dsh-test/profiles/web/`
-2. `.dsh-test/profiles/web/node_modules/` 内三个 symlink 指向 monorepo build 产物
-   （**不是 registry 包**）：
-   - `better-dsh` → `upstream/deepseek-harness/packages/better-dsh/better-dsh`
-   - `@deepseek-ai/dsh-base` → `upstream/deepseek-harness/packages/bundle/base`
-   - `@deepseek-ai/dsh-web-app` → `upstream/deepseek-harness/packages/bundle/web-app`
-   其余 host 依赖由 `.dsh-test/profiles/node_modules/`（全 symlink → 全局 harness 树）与
-   module-fallback 机制供给——见 AGENTS.md §一"依赖解析"分层。
-3. `.env` 从 `~/.dsh/.env` 拷贝（真实 key）。
-4. **勿在测试 profile 跑 `pnpm install`**——会把上述 symlink 换成 registry 包。
-5. `dependencies.better-dsh` 版本条目**不可删**：0.1.6 plugin-manager 以 profile
-   dependencies 判定"已安装 bundle"，缺条目 = 插件页卡片不出现。
-
-## 约定
-
-- 新增测试脚本放本目录根（`.tests/<name>.sh`）；涉及独立 dsh home 的实验线
-  用独立 gitignored 目录（`.dsh-<name>/`），其种子若需长期保留，同样在
-  `.tests/profiles/<name>/` 放正本。
-- 本目录内容入库（tracked）；`.dsh-test*` 运行态永不入库。
+home 的 gitignore 覆盖：`.dsh-test*/`（glob 含 `.dsh-test-<port>` 变体）、`.dsh-bun-test/`、
+`.dsh-acp/`。

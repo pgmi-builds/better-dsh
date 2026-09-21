@@ -39,8 +39,11 @@ Thumbs.db
 # --- dsh-better-edit runtime artifact (hash store written into cwd) ---
 .dsh_better_edit/
 
-# --- local dsh-test instance data (Dev/Test 1) ---
-.dsh-test/
+# --- local dsh-test instance data (Dev/Test 1; runtime homes stay OUT of .tests/) ---
+.dsh-test*/
+
+# --- bun workstream test home (other session) ---
+.dsh-bun-test/
 
 # --- ACP test home (shared test-profile data) ---
 .dsh-acp/
