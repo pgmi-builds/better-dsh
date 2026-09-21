@@ -19,6 +19,16 @@
 
 ---
 
+## 仓库编排 — 一仓两包（2026-09-22 user 裁决）
+
+- **一仓两包，平级平铺**：`better-dsh/`（dsh 插件包，npm `@pgmi-builds/better-dsh`）与 `dashr/`（dsh distro——全部 better-dsh 组件的组合/交付层）同仓同层，各自自包含（各自的 README/AGENTS.md/package.json 满足自足）。不做根 pnpm workspace 式 monorepo 工具化——upstream checkout 的 pnpm workspace 是本环境唯一 pnpm 根，插件的 npm-range optional peers 是发布契约，不与任何外层锁文件共享版本。
+- **tag 命名空间**：`v*` = better-dsh 插件发布（现行）；distro 发行物启用 `dashr-v*`（首个发行物落地时起用）。
+- **边界纪律**（细则见 `dashr/AGENTS.md`）：不跨目录相对路径 import 源码；distro 消费发布产物（registry 精确版本）或内嵌副本手术模式；组件缺陷一律回 `better-dsh/` 修并发版，distro 跟版本。
+- **拆仓保留**：两目录自包含是拆分前提；出现实质分化（访问控制、受众、上游 pin 节奏）时以 `git filter-repo --subdirectory-filter <dir>` 按目录拆分，历史随行。
+- 上游 checkout（`upstream/`，gitignored 独立仓库）、测试资产（`.tests/`）、测试 home（`.dsh-test*/`，gitignored）为本仓两包共用的验证基座，编排归本文件 §二。
+
+---
+
 ## 〇、Development Operation Contract — 发布与验收红线（2026-09-06 裁决）
 
 > 起因：0.2.2-c 违规发包——agent 只做了"4999 拉起来没崩"级别的检查就直发 npm，跳过了第一人称实测与 user 确认两道闸。
@@ -237,7 +247,7 @@ prod npm CLI 当 harness 核，只把插件本体和它的 harness 依赖换成 
 
 ## 五、嵌套 AGENTS.md 约定
 
-- **本文件身份**：DASHR（better-dsh）的根 AGENTS.md（总纲，无更上层）。
+- **本文件身份**：DASHR 仓（`better-dsh` 插件 + `dashr` distro，一仓两包，见「仓库编排」节）的根 AGENTS.md（总纲，无更上层）。
 - **嵌套（Nesting）**：支持层层嵌套，但每一层并非都必须有——只在有实质内容的子目录放置；中间层级无 AGENTS.md 则跳过，沿用最近上层。
 - **作用范围（Scope）**：每个 AGENTS.md 只管辖其所在目录及所有子目录，不约束兄弟目录、不反向影响上层。
 - **优先级（Precedence）**：对某文件，生效规则 = 从根到该文件路径上所有 AGENTS.md 的叠加；冲突时离文件最近者胜出（nearest wins）；用户显式指令优先级高于一切 AGENTS.md。
