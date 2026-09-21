@@ -1,0 +1,24 @@
+# v0.2.1f smoke: dashr-repl row config override (restating the bundle row's
+# python expression per the whole-row-restate contract). 2026-09-17 component
+# split: hashline/urlSchemes gates moved to the dashr-url-schemes row (its own
+# schema defaults are both ON); trustedPageAuthorities/mobile moved to the
+# dashr-web-trust / dashr-mobile rows.
+- id: dashr-repl
+  config:
+    python: !!js process.env.DASHR_KERNEL_PYTHON ?? 'python3'
+    snapshotDir: /home/u1/workspaces/dashr/.dsh-test/snapshots
+
+# Toggle round-trip probe (2026-09-17): executed and reverted — the user-layer
+# `{id, disabled}` override (prod row-toggle's write) unmounted the mobile leg
+# live (mobile global + zoomGuard gone, authorities leg untouched), and removal
+# restored it.
+
+
+# ── 2026-09-12 fs-scheme-resolution（profile 层；0.1.5-rc.2 无 home patch 层）──
+# 同 id 重述 fs-sandbox，name 重指 better-dsh 子路径模块（整插件替换，带回滚）。
+- id: fs-sandbox
+  name: './node_modules/better-dsh/lib/fs-aware/sandbox-plugin.js'
+  config:
+    urlSchemes: true
+- id: dashr-mobile
+  disabled: false
