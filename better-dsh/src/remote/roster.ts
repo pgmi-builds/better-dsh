@@ -35,7 +35,7 @@ function oneLine(s: string): string {
 }
 
 /** ssh config 里的字面别名（无通配、非否定的首个模式）；通配块是默认值来源不是目标。 */
-function literalHosts(text: string): { hosts: string[]; wildcardBlocks: number } {
+export function literalHosts(text: string): { hosts: string[]; wildcardBlocks: number } {
   const { entries } = parseSshConfig(text)
   const hosts: string[] = []
   let wildcardBlocks = 0

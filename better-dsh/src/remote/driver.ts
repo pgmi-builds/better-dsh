@@ -4,6 +4,10 @@ import { tailWindow } from './nonce-framing.ts'
 import { resolveTarget, type TargetPlan } from './target.ts'
 import { probeTarget, renderProbe, renderSession, type ProbeOptions } from './status.ts'
 import { renderRoster, type RosterOptions } from './roster.ts'
+import { literalHosts } from './roster.ts'
+import { readFile } from 'node:fs/promises'
+import { homedir } from 'node:os'
+import { join } from 'node:path'
 import { buildOneShotArgv, buildPtyArgv, buildSpawnArgv } from './transports.ts'
 
 export interface RemoteCallParams {
@@ -46,8 +50,10 @@ export interface RemoteDriverOptions {
   ptyArgvFor?: (plan: TargetPlan) => string[]
   spawnArgvFor?: (spawnCommand: string) => string[]
   probeRunner?: ProbeOptions['runner']
-  /** 测试缝：roster 扫描执行器。 */
+  /** 测试缝：roster 扫描执行器（bare-name 解析复用）。 */
   rosterRunner?: RosterOptions['runner']
+  /** 测试缝：ssh config 读取（bare-name 解析复用）。 */
+  sshConfigReader?: () => Promise<string>
 }
 
 /** 双轨调度器（spec §七 Phase 2）：参数校验 → 路由 → oneshot 子进程 / pty 会话池。 */
@@ -77,6 +83,26 @@ export class RemoteDriver {
   }
 
   /** Ruling 16/17：on-demand 探测 + 会话层，两行如实陈述。 */
+  /**
+   * Ruling P20：裸名先按名匹配——ssh config 字面 host → docker → incus（本地廉价扫描，
+   * 撞名 ssh 优先，查无 → 默认 ssh 交原生错误）。选择器前缀的 target 不经此路径。
+   */
+  private async resolveBareName(name: string): Promise<TargetPlan> {
+    const runner = this.opts.rosterRunner ?? runOneShot
+    const readCfg = this.opts.sshConfigReader ?? (async () => await readFile(join(homedir(), '.ssh', 'config'), 'utf8'))
+    try {
+      const { hosts } = literalHosts(await readCfg())
+      if (hosts.some((h) => h.toLowerCase() === name.toLowerCase())) return { kind: 'ssh', host: name }
+    } catch { /* 无可读 config：跳过该源 */ }
+    const docker = await runner(['docker', 'ps', '-a', '--format', '{{.Names}}'], { timeoutSec: 10 })
+    if (docker.exit === 0 && docker.stdout.trim().split(/\r?\n/).some((n) => n.trim().toLowerCase() === name.toLowerCase()))
+      return { kind: 'docker', container: name }
+    const incus = await runner(['incus', 'list', '--format', 'csv', '--columns', 'n'], { timeoutSec: 10 })
+    if (incus.exit === 0 && incus.stdout.trim().split(/\r?\n/).some((n) => n.split(',')[0]?.trim().toLowerCase() === name.toLowerCase()))
+      return { kind: 'incus', container: name }
+    return { kind: 'ssh', host: name }
+  }
+
   /** Ruling P19：roster = 注意力入口——本地廉价扫描（ssh config/docker ps/incus list + 池内活会话），零拨号。 */
   async roster(): Promise<string> {
     const sessions = this.pool.list().map(({ key, snapshot }) => {
@@ -89,7 +115,7 @@ export class RemoteDriver {
   }
 
   async status(target: string, callCtx: { sessionKey?: string } = {}): Promise<string> {
-    const plan = resolveTarget(target)
+    const plan = /^(docker|incus|ssh):/.test(target) ? resolveTarget(target) : await this.resolveBareName(target)
     const head = `${target} — ${plan.kind === 'ssh' ? 'ssh host' : `${plan.kind} container`}`
     const probe = await probeTarget(plan, { runner: this.opts.probeRunner })
     const key = `${callCtx.sessionKey ?? 'no-session'}|t:${target}`
@@ -101,7 +127,7 @@ export class RemoteDriver {
     try { this.opts.onAudit?.(r) } catch { /* audit hook failure is never the command's failure */ }
   }
 
-  private route(params: RemoteCallParams): { mode: 'oneshot' | 'pty'; display: string; plan?: TargetPlan; spawn?: string } {
+  private route(params: RemoteCallParams): { mode: 'oneshot' | 'pty'; display: string; plan?: TargetPlan; bare?: string; spawn?: string } {
     const hasTarget = params.target !== undefined && params.target.length > 0
     const hasSpawn = params.spawn !== undefined && params.spawn.length > 0
     if (hasTarget && hasSpawn)
@@ -114,10 +140,13 @@ export class RemoteDriver {
       throw new Error('[E_STDIN_WITHOUT_CMD] remote: stdin requires cmd')
     const mode: 'oneshot' | 'pty' = hasSpawn ? 'pty' : params.mode ?? 'oneshot'
     if (hasSpawn) return { mode, display: params.spawn!, spawn: params.spawn }
-    return { mode, display: params.target!, plan: resolveTarget(params.target!) }
+    // P20：带选择器前缀的 target 走同步解析；裸名延迟到 execute 的按名匹配（异步本地扫描）。
+    const direct = /^(docker|incus|ssh):/.test(params.target!)
+    return { mode, display: params.target!, ...(direct ? { plan: resolveTarget(params.target!) } : { bare: params.target! }) }
   }
 
-  private async execute(params: RemoteCallParams, routing: { mode: 'oneshot' | 'pty'; display: string; plan?: TargetPlan; spawn?: string }, callCtx: { sessionKey?: string }): Promise<RemoteCallResult> {
+  private async execute(params: RemoteCallParams, routing: { mode: 'oneshot' | 'pty'; display: string; plan?: TargetPlan; bare?: string; spawn?: string }, callCtx: { sessionKey?: string }): Promise<RemoteCallResult> {
+    if (routing.bare !== undefined) routing.plan = await this.resolveBareName(routing.bare)
     const timeoutSec = params.timeout ?? this.opts.execTimeoutSec ?? 120
     const cap = this.opts.maxOutputChars ?? 30_000
     if (routing.mode === 'oneshot') {

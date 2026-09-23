@@ -28,30 +28,28 @@ export function createRemoteTool(
   return defineTool({
     name: 'remote',
     description:
-      'Run a command on a remote host or container. Two tracks: oneshot (default) runs `bash -lc` statelessly — fast, ' +
-      'parallel, zero residue, the exit code is the process\'s own; mode "pty" keeps one persistent terminal session ' +
-      'per (agent, target): cwd/env survive across calls, Ctrl-C interrupts work, sudo password prompts are possible. ' +
-      '`target` routes smartly: an ssh host name/IP/domain goes over ssh; "docker:<name>" / "incus:<name>" go to that ' +
-      'container; an explicit "ssh:<name>" selector always forces ssh. ' +
-      '`spawn` is the BYO-PTY escape hatch: give the full command that ' +
-      'starts an interactive shell (e.g. "docker exec -it img bash" or "ssh -t jump \'docker exec -it runner bash\'") ' +
-      'and the tool hosts its PTY with nonce framing (mode locks to pty). Nested hops are dumb pipes — only the ' +
-      'innermost bash frames. `stdin` feeds the command\'s input; `timeout` (seconds) interrupts then kills. Native ' +
-      'transport errors pass through verbatim — self-correct from them. Background processes must redirect their own ' +
-      'output (`cmd > log 2>&1 &`): the shared terminal is POSIX behavior, not a tool defect. ' +
-      'Omit `cmd` (with `target`) for an on-demand status probe: the tool dials once right then, bounded (5s connect / ' +
-      '10s hard), and reports honestly — "reachable"/"unreachable — <native error>" for ssh, the factual container ' +
-      'state for docker/incus, plus the session layer ("idle Ns", "busy", or "none — dials on first exec"). It never ' +
-      'reports "offline": a connection not existing says nothing about the target. Probes run at call time, never ' +
-      'cached from boot. Call with NO arguments to list known target names (ssh hosts from ~/.ssh/config, docker/incus ' +
-      'containers, live sessions) — a fresh local scan, no dialing; aim the roster first, verify with the probe.',
+      'Remote execution over three transports (ssh / docker / incus). Pick the call shape first:\n' +
+      '  {}            → roster: known target names from a local scan (no dialing)\n' +
+      '  {target}      → on-demand status probe of that one target\n' +
+      '  {target, cmd} → run cmd — oneshot by default; mode "pty" for a persistent shell\n' +
+      '  {spawn, cmd}  → BYO-PTY: you supply the interactive-shell command\n' +
+      'Bare names match by name first (ssh config, then docker, then incus; on a collision ssh wins; unknown names go ' +
+      'to ssh and its native error surfaces). "docker:<name>" / "incus:<name>" / "ssh:<name>" force a transport when you ' +
+      'must be explicit. oneshot: stateless `bash -lc`, stdout/stderr separate, the exit code is the remote process\'s ' +
+      'own. pty: one persistent shell per (agent, target) — cwd/env survive across calls, streams merge, Ctrl-C ' +
+      'interrupts without killing the session, idle sessions are reaped after 600s (a reconnect notice precedes the ' +
+      'fresh shell). Output is tail-truncated at ~30k chars with a "[truncated: …]" header — redirect bulk output to a ' +
+      'file yourself. `stdin` feeds the command; `timeout` (seconds) interrupts then kills. Native transport errors ' +
+      'pass through verbatim — self-correct from them. Background processes must redirect their own output ' +
+      '(`cmd > log 2>&1 &`). Status probes report "reachable"/"unreachable — <native error>" or the factual container ' +
+      'state plus the session layer ("idle Ns" / "busy" / "none — dials on first exec"), always probed at call time.',
     parameters: {
-      target: { type: 'string', description: 'SSH host / IP / domain, or docker:<name> / incus:<name> container. Omit when using spawn.' },
-      spawn: { type: 'string', description: 'BYO-PTY: full command starting an interactive shell; the tool hosts the PTY + framing. Mode locks to pty.' },
-      cmd: { type: 'string', description: 'One raw shell string parsed by the remote bash (multi-line = one compound; exit = last command\'s). Omit (with target) for an on-demand status probe.' },
-      mode: { type: 'string', description: "'oneshot' (default) or 'pty' (persistent session)." },
-      stdin: { type: 'string', description: 'Optional input fed to the command (oneshot pipe, or written right after it on the pty).' },
-      timeout: { type: 'number', description: 'Per-command timeout in seconds (default 120). pty: Ctrl-C then kill.' },
+      target: { type: 'string', description: 'Bare name / IP / domain matches by name (ssh config, then docker, then incus; collision → ssh). "docker:<name>" / "incus:<name>" / "ssh:<name>" force a transport. Exactly one of target / spawn.' },
+      spawn: { type: 'string', description: 'BYO-PTY escape hatch: the full command that starts an interactive shell (e.g. "docker exec -it img bash"). Requires cmd, excludes target; mode is locked to pty; nested hops are dumb pipes (only the innermost bash frames).' },
+      cmd: { type: 'string', description: "One raw shell string parsed by the remote bash (multi-line = one compound; exit = last command's). Omit with target → status probe; omit everything → roster." },
+      mode: { type: 'string', enum: ['oneshot', 'pty'], description: "'oneshot' (default): stateless `bash -lc`, stdout/stderr separate, exit code is the process's own. 'pty': one persistent shell per (agent, target), cwd/env survive, streams merge, idle TTL 600s." },
+      stdin: { type: 'string', description: 'Input fed to the command. oneshot: piped to stdin. pty: written right after the command line (REPL-style) — only helps commands that read stdin there. Requires cmd.' },
+      timeout: { type: 'number', description: 'Per-command timeout in seconds (default 120, row-configurable). pty: Ctrl-C first, then kill; an interrupt does not kill the session.' },
     },
     output: {
       schema: {

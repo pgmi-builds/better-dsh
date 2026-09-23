@@ -81,7 +81,7 @@ describe('createRemoteTool', () => {
   it('garbage mode and stdin-without-cmd fail loud before any execution', async () => {
     const tool = createRemoteTool(fakeDriver())
     const exec = fakeExec()
-    await expect(tool.execute!({ target: 'dev4', cmd: 'x', mode: 'pty ' } as never, exec)).rejects.toThrow(/E_BAD_MODE/)
+    await expect(tool.execute!({ target: 'dev4', cmd: 'x', mode: 'pty ' } as never, exec)).rejects.toThrow(/E_BAD_MODE|must be one of/)
     await expect(tool.execute!({ target: 'dev4', stdin: 's' } as never, exec)).rejects.toThrow(/E_STDIN_WITHOUT_CMD/)
   })
 })
