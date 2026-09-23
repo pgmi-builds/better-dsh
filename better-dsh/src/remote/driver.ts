@@ -2,6 +2,7 @@ import { runOneShot } from './oneshot.ts'
 import { PtyPool } from './pty-session.ts'
 import { tailWindow } from './nonce-framing.ts'
 import { resolveTarget, type TargetPlan } from './target.ts'
+import { probeTarget, renderProbe, renderSession, type ProbeOptions } from './status.ts'
 import { buildOneShotArgv, buildPtyArgv, buildSpawnArgv } from './transports.ts'
 
 export interface RemoteCallParams {
@@ -44,6 +45,7 @@ export interface RemoteDriverOptions {
   oneshotArgvFor?: (plan: TargetPlan, cmd: string) => string[]
   ptyArgvFor?: (plan: TargetPlan) => string[]
   spawnArgvFor?: (spawnCommand: string) => string[]
+  probeRunner?: ProbeOptions['runner']
 }
 
 /** 双轨调度器（spec §七 Phase 2）：参数校验 → 路由 → oneshot 子进程 / pty 会话池。 */
@@ -70,6 +72,15 @@ export class RemoteDriver {
       })
       throw error
     }
+  }
+
+  /** Ruling 16/17：on-demand 探测 + 会话层，两行如实陈述。 */
+  async status(target: string, callCtx: { sessionKey?: string } = {}): Promise<string> {
+    const plan = resolveTarget(target, this.opts.containers ?? {})
+    const head = `${target} — ${plan.kind === 'ssh' ? 'ssh host' : `${plan.kind} container`}`
+    const probe = await probeTarget(plan, { runner: this.opts.probeRunner })
+    const key = `${callCtx.sessionKey ?? 'no-session'}|t:${target}`
+    return [head, renderProbe(probe), renderSession(this.pool.inspect(key))].join('\n')
   }
 
   /** Ruling 13：审计 best-effort——钩子抛错不得影响命令路径（成功被毒化成失败+双重审计）。 */
