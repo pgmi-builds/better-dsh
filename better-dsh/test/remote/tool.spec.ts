@@ -46,7 +46,20 @@ describe('createRemoteTool', () => {
     await expect(tool.execute!({ target: 'a', spawn: 'b', cmd: 'x' } as never, exec)).rejects.toThrow(/E_PARAMS/)
     await expect(tool.execute!({ cmd: 'x' } as never, exec)).rejects.toThrow(/E_PARAMS/)
     await expect(tool.execute!({ spawn: 'docker exec -it x bash' } as never, exec)).rejects.toThrow(/E_PARAMS/)
-    await expect(tool.execute!({} as never, exec)).rejects.toThrow(/discovery is yours/)
+  })
+  it('empty call returns the roster (attention entry, local scan)', async () => {
+    const d = new RemoteDriver({
+      rosterRunner: async (argv: string[]) =>
+        ({ exit: 0, timedOut: false, stdout: argv[0] === 'docker' ? 'corti	running\n' : 'ctr-1,RUNNING\n', stderr: '', durationMs: 5 }),
+    })
+    const tool = createRemoteTool(d)
+    const exec = fakeExec()
+    const v = await tool.execute!({} as never, exec) as unknown as { kind: string; text: string }
+    expect(v.kind).toBe('roster')
+    expect(v.text).toContain('ssh hosts')
+    expect(v.text).toContain('docker containers: corti (running)')
+    expect(v.text).toContain('incus containers: ctr-1 (RUNNING)')
+    expect(v.text).toContain('live pty sessions: none')
   })
   it('cmd-less target call = on-demand status, honest vocabulary, never "offline"', async () => {
     const d = new RemoteDriver({

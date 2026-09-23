@@ -253,6 +253,11 @@ export class PtyPool {
     return this.sessions.get(key)?.snapshot
   }
 
+  /** roster 面：池内全部会话（key 含 agent 前缀 `${sessionKey}|t:<target>` / `|s:<spawn>`）。 */
+  list(): Array<{ key: string; snapshot: SessionSnapshot }> {
+    return [...this.sessions.entries()].map(([key, s]) => ({ key, snapshot: s.snapshot }))
+  }
+
   getOrCreate(key: string, argv: string[]): PtySession {
     let s = this.sessions.get(key)
     if (s === undefined || s.sessionState === 'disposed') {

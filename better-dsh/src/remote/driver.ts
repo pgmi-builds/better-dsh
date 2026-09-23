@@ -3,6 +3,7 @@ import { PtyPool } from './pty-session.ts'
 import { tailWindow } from './nonce-framing.ts'
 import { resolveTarget, type TargetPlan } from './target.ts'
 import { probeTarget, renderProbe, renderSession, type ProbeOptions } from './status.ts'
+import { renderRoster, type RosterOptions } from './roster.ts'
 import { buildOneShotArgv, buildPtyArgv, buildSpawnArgv } from './transports.ts'
 
 export interface RemoteCallParams {
@@ -45,6 +46,8 @@ export interface RemoteDriverOptions {
   ptyArgvFor?: (plan: TargetPlan) => string[]
   spawnArgvFor?: (spawnCommand: string) => string[]
   probeRunner?: ProbeOptions['runner']
+  /** 测试缝：roster 扫描执行器。 */
+  rosterRunner?: RosterOptions['runner']
 }
 
 /** 双轨调度器（spec §七 Phase 2）：参数校验 → 路由 → oneshot 子进程 / pty 会话池。 */
@@ -74,6 +77,15 @@ export class RemoteDriver {
   }
 
   /** Ruling 16/17：on-demand 探测 + 会话层，两行如实陈述。 */
+  /** Ruling P19：roster = 注意力入口——本地廉价扫描（ssh config/docker ps/incus list + 池内活会话），零拨号。 */
+  async roster(): Promise<string> {
+    const sessions = this.pool.list().map(({ key, snapshot }) => {
+      const target = key.includes('|') ? key.slice(key.indexOf('|') + 1) : key
+      return { target, state: snapshot.state, idleSec: snapshot.idleMs !== null ? Math.round(snapshot.idleMs / 1000) : null }
+    })
+    return await renderRoster(sessions, this.opts.rosterRunner !== undefined ? { runner: this.opts.rosterRunner } : {})
+  }
+
   async status(target: string, callCtx: { sessionKey?: string } = {}): Promise<string> {
     const plan = resolveTarget(target)
     const head = `${target} — ${plan.kind === 'ssh' ? 'ssh host' : `${plan.kind} container`}`

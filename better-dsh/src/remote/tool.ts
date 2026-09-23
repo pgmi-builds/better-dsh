@@ -4,7 +4,7 @@ import { RECONNECT_NOTICE } from './pty-session.ts'
 import type { RemoteCallResult, RemoteDriver } from './driver.ts'
 
 interface RemoteToolValue {
-  kind: 'exec' | 'status'
+  kind: 'exec' | 'status' | 'roster'
   text: string
   exit: number | null
   durationMs: number
@@ -43,8 +43,8 @@ export function createRemoteTool(
       '10s hard), and reports honestly — "reachable"/"unreachable — <native error>" for ssh, the factual container ' +
       'state for docker/incus, plus the session layer ("idle Ns", "busy", or "none — dials on first exec"). It never ' +
       'reports "offline": a connection not existing says nothing about the target. Probes run at call time, never ' +
-      'cached from boot. Discovery of valid names is yours: read ~/.ssh/config, `docker ps`, `incus list` with your ' +
-      'local tools.',
+      'cached from boot. Call with NO arguments to list known target names (ssh hosts from ~/.ssh/config, docker/incus ' +
+      'containers, live sessions) — a fresh local scan, no dialing; aim the roster first, verify with the probe.',
     parameters: {
       target: { type: 'string', description: 'SSH host / IP / domain, or docker:<name> / incus:<name> container. Omit when using spawn.' },
       spawn: { type: 'string', description: 'BYO-PTY: full command starting an interactive shell; the tool hosts the PTY + framing. Mode locks to pty.' },
@@ -58,7 +58,7 @@ export function createRemoteTool(
         type: 'object',
         additionalProperties: false,
         properties: {
-          kind: { type: 'string', required: true, enum: ['exec', 'status'] },
+          kind: { type: 'string', required: true, enum: ['exec', 'status', 'roster'] },
           text: { type: 'string', required: true },
           exit: { oneOf: [{ type: 'integer' }, { type: 'null' }] },
           durationMs: { type: 'integer' },
@@ -85,10 +85,10 @@ export function createRemoteTool(
           throw new Error('[E_STDIN_WITHOUT_CMD] remote: stdin requires cmd — status probes take no input')
         if (hasSpawn)
           throw new Error('[E_PARAMS] remote: spawn is an exec channel — pass cmd (there is nothing to probe for BYO-PTY)')
+        // Ruling P19：空调用 = roster（注意力入口——本地扫描列名字，零拨号）；
+        // 有 target = 单点 on-demand probe（第二现场）。
         if (!hasTarget)
-          throw new Error(
-            '[E_PARAMS] remote: target or spawn is required; discovery is yours — read ~/.ssh/config, ' +
-            '`docker ps`, `incus list` with your local tools')
+          return { kind: 'roster', text: await driver.roster(), exit: null, durationMs: 0 }
         const text = await driver.status(args.target as string, { sessionKey: getSessionKey(exec) })
         return { kind: 'status', text, exit: null, durationMs: 0 }
       }
