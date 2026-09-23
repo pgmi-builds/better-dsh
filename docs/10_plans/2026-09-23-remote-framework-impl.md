@@ -172,6 +172,22 @@ describe('createNonceFrameParser', () => {
     p.feed(`\x1b]133;D;${nonce};7;\x1b\\`)
     expect(frames).toEqual([{ exit: 7, cwd: null }])
   })
+  it('frames a cwd containing ; (terminal field — only BEL/ST end it)', () => {
+    const nonce = genNonce()
+    const frames: Array<{ exit: number; cwd: string | null }> = []
+    const p = createNonceFrameParser(nonce, { onFrame: (f) => frames.push(f) })
+    p.feed(`\x1b]133;D;${nonce};2;/pa;th\x07`)
+    expect(frames).toEqual([{ exit: 2, cwd: '/pa;th' }])
+  })
+  it('the spec\'s literal static 133-D marker (no nonce field) is ordinary output', () => {
+    const nonce = genNonce()
+    const out: string[] = []
+    const frames: Array<{ exit: number; cwd: string | null }> = []
+    const p = createNonceFrameParser(nonce, { onOutput: (t) => out.push(t), onFrame: (f) => frames.push(f) })
+    p.feed(`ok\n\x1b]133;D;0\x07text${MARK(nonce, 0, '/')}`)
+    expect(frames).toEqual([{ exit: 0, cwd: '/' }])
+    expect(out.join('')).toBe('ok\ntext') // 静态 marker 被 ANSI 剥洗当噪音清掉，正文保留
+  })
 
   it('holds back a partial marker prefix at buffer end; flush releases it', () => {
     const nonce = genNonce()
@@ -251,13 +267,14 @@ export function tailWindow(text: string, cap: number): { text: string; truncated
 }
 
 export interface FrameParserEvents {
+  /** 输出文本：feed 路径经 normalize（剥 ANSI/规整换行）；flush 路径为**裸放出**（残余字节原样，勿假设已剥洗）。 */
   onOutput?(text: string): void
   onFrame(frame: PtyFrame): void
 }
 
 export interface NonceFrameParser { feed(chunk: string): void; flush(): void }
 
-const FRAME_BODY_RE = /^(\d+);([^;\x07\x1b]*)(?:\x07|\x1b\\)/
+const FRAME_BODY_RE = /^(\d+);([^\x07\x1b]*)(?:\x07|\x1b\\)/ // cwd 是尾字段：合法路径可含 `;`，只有 BEL/ESC 终止它
 
 /**
  * 单 nonce、单帧解析器：一轮 dispatch 一个实例。只认 `\x1b]133;D;<nonce>;`，
