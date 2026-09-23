@@ -367,6 +367,10 @@ describe('resolveTarget', () => {
   it('registered bare container names beat ssh (ctr-1 is also an ssh Host)', () => {
     expect(resolveTarget('ctr-1', { 'ctr-1': 'incus:ctr-1' })).toEqual({ kind: 'incus', container: 'ctr-1' })
   })
+  it('ssh: explicit selector forces ssh even when an alias would match (Ruling P16)', () => {
+    expect(resolveTarget('ssh:ctr-1', { 'ctr-1': 'incus:ctr-1' })).toEqual({ kind: 'ssh', host: 'ctr-1' })
+    expect(resolveTarget('ssh:dev4')).toEqual({ kind: 'ssh', host: 'dev4' })
+  })
   it('explicit prefix beats the alias map', () => {
     expect(resolveTarget('incus:ctr-1', { 'ctr-1': 'docker:other' })).toEqual({ kind: 'incus', container: 'ctr-1' })
   })
@@ -393,17 +397,23 @@ export class TargetFormatError extends Error {
   constructor(message: string) { super(message); this.name = 'TargetFormatError' }
 }
 
-const PREFIX_RE = /^(docker|incus):(.+)$/
+/** 显式协议选择器（Ruling P16）：可扩展新协议——加一个词即一条新传输腿。 */
+const PREFIX_RE = /^(docker|incus|ssh):(.+)$/
+/** 别名表值只接受容器形态（ssh 无别名意义——裸名即 ssh）。 */
+const CONTAINER_PREFIX_RE = /^(docker|incus):(.+)$/
 
-/** spec §二.2 智能路由：显式前缀 > 别名表（已知容器裸名）> ssh。 */
+/** spec §二.2 智能路由（Ruling 12 + P16）：显式选择器 > 别名表（人工 pin，撞名时赢）> ssh 缺省。 */
 export function resolveTarget(target: string, containerAliases: Record<string, string> = {}): TargetPlan {
   const raw = target.trim()
   if (raw.length === 0) throw new TargetFormatError('[E_TARGET_FORMAT] remote: empty target')
   const direct = PREFIX_RE.exec(raw)
-  if (direct !== null) return { kind: direct[1] as 'docker' | 'incus', container: direct[2]! }
+  if (direct !== null) {
+    if (direct[1] === 'ssh') return { kind: 'ssh', host: direct[2]! }
+    return { kind: direct[1] as 'docker' | 'incus', container: direct[2]! }
+  }
   const aliased = containerAliases[raw]
   if (aliased !== undefined) {
-    const m = PREFIX_RE.exec(aliased)
+    const m = CONTAINER_PREFIX_RE.exec(aliased)
     if (m === null)
       throw new TargetFormatError(
         `[E_TARGET_FORMAT] remote: container alias '${raw}' must map to 'docker:<name>' or 'incus:<name>' (got ${JSON.stringify(aliased)})`)
@@ -1729,6 +1739,8 @@ export function createRemoteTool(
       'parallel, zero residue, the exit code is the process\'s own; mode "pty" keeps one persistent terminal session ' +
       'per (agent, target): cwd/env survive across calls, Ctrl-C interrupts work, sudo password prompts are possible. ' +
       '`target` routes smartly: an ssh host name/IP/domain goes over ssh; "docker:<name>" / "incus:<name>" (or a ' +
+      'server-registered alias) go to that container; an explicit "ssh:<name>" selector always forces ssh — use it ' +
+      'when a bare name is ambiguous (e.g. registered as a container alias but also an ssh host). ' +
       'server-registered alias) go to that container. `spawn` is the BYO-PTY escape hatch: give the full command that ' +
       'starts an interactive shell (e.g. "docker exec -it img bash" or "ssh -t jump \'docker exec -it runner bash\'") ' +
       'and the tool hosts its PTY with nonce framing (mode locks to pty). Nested hops are dumb pipes — only the ' +
@@ -2061,3 +2073,7 @@ Expected: `dashr-remote` 行在位（默认 config 生效）。鉴权拉 shell �
 - **类型一致性**：`PtyFrame{exit,cwd}`（Task 1 定义，Task 5 消费）；`TargetPlan`（Task 2 定义，Task 3/6/7 消费）；`OneShotResult`（Task 4，Task 7 runner 缝消费）；`PtyDispatchResult`（Task 5）在 Task 6 `execute` 合成 `RemoteCallResult`（Task 8 消费）；`SessionSnapshot`（Task 5 定义，Task 7 `renderSession` / Task 8 `driver.status` 消费）；`ProbeOutcome`（Task 7 定义，Task 8 消费）；`RECONNECT_NOTICE`（Task 5 定义，Task 8 render 消费）；`RemoteRowConfig`（Task 9）。已复核命名一致。
 - **占位符扫描**：各 Step 均含实码/实命令；Task 10 步骤 4 矩阵为实测脚本性步骤（验收性质，非代码占位）。
 - **已知测试环境风险**：130 断言确定性由 Ruling P8 两段打断（\x03 + 注入 130-marker 行）保证——两路（弃行/续行）皆 exit 130；trap INT 场景走 kill 兜底测试。若 CI 型环境无 /dev/ptmx，`script` 夹具会挂——本仓测试恒在真 Linux 跑，可接受。
+
+## Post-acceptance 增量记录
+
+- **Ruling P16**（user 2026-09-23 选 A）：补 `ssh:` 显式协议选择器（与 docker:/incus: 组成可扩展选择器族，未来新传输加一词即成）；撞名优先级维持"别名 override 赢"（人工显式意图），裸名缺省仍走 ssh；别名表值只接受容器形态（CONTAINER_PREFIX_RE 单独校验，ssh 无别名意义）。工具描述同步补 selector 消歧指引。若错：代价=极小（选择器仅显式路径）。
