@@ -1379,7 +1379,8 @@ export interface ProbeOptions {
 }
 export async function probeTarget(plan: TargetPlan, opts?: ProbeOptions): Promise<ProbeOutcome>
 export function renderProbe(p: ProbeOutcome): string
-export function renderSession(s: SessionSnapshot | undefined): string
+/** Ruling P12：renderSession 只消费 state/busy/idleMs 三字段（Pick 超集，测试字面量无需 pid）。 */
+export function renderSession(s: Pick<SessionSnapshot, 'state' | 'busy' | 'idleMs'> | undefined): string
 ```
 
 - [ ] **Step 1: 写失败测试**
@@ -1512,7 +1513,7 @@ export function renderProbe(p: ProbeOutcome): string {
   }
 }
 
-export function renderSession(s: SessionSnapshot | undefined): string {
+export function renderSession(s: Pick<SessionSnapshot, 'state' | 'busy' | 'idleMs'> | undefined): string {
   if (s === undefined || s.state === 'cold' || s.state === 'starting' || s.state === 'disposed')
     return 'session: none — dials on first exec'
   if (s.state === 'dead') return 'session: died — next exec cold-starts a fresh shell'
