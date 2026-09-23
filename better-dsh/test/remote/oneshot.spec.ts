@@ -21,11 +21,17 @@ describe('runOneShot', () => {
     expect(r.stdout).toBe('中'.repeat(20_000) + '\n')
     expect(r.exit).toBe(0)
   })
-  it('timeout: SIGTERM then SIGKILL, flagged, bounded duration', async () => {
+  it('timeout: TERM ignored -> KILL escalation observable (exit null, >2s), flagged, bounded', async () => {
     const r = await runOneShot(BASH('trap "" TERM; sleep 30'), { timeoutSec: 1 })
     expect(r.timedOut).toBe(true)
-    expect(r.exit).not.toBe(0)
+    expect(r.exit).toBe(null)
+    expect(r.durationMs).toBeGreaterThan(2_500)
     expect(r.durationMs).toBeLessThan(8_000)
+  })
+  it('timeout bounds completion when a background descendant holds the pipes (process-group kill)', async () => {
+    const r = await runOneShot(BASH('sleep 8 & sleep 8'), { timeoutSec: 1 })
+    expect(r.timedOut).toBe(true)
+    expect(r.durationMs).toBeLessThan(5_000)
   })
   it('spawn failure surfaces the OS error verbatim (error transparency)', async () => {
     const r = await runOneShot(['definitely-not-a-real-cli-xyz', '--version'])

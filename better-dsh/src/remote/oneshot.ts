@@ -3,13 +3,15 @@ import { spawn } from 'node:child_process'
 export interface OneShotOptions { stdin?: string; timeoutSec?: number }
 export interface OneShotResult { exit: number | null; timedOut: boolean; stdout: string; stderr: string; durationMs: number }
 
-/** 单流硬收集帽（4MB）：防失控输出吃内存；模型面截断由上层 tailWindow 负责。 */
+/** 单流硬收集帽（4M UTF-16 code units，ASCII≈4MB）：防失控输出吃内存；模型面截断由上层 tailWindow 负责。 */
 const HARD_CAP = 4_000_000
 
 /** One-shot：子进程退出码即收尾（spec §五.1），stdout/stderr 分离保留。 */
 export async function runOneShot(argv: string[], opts: OneShotOptions = {}): Promise<OneShotResult> {
   const started = Date.now()
-  const child = spawn(argv[0]!, argv.slice(1), { stdio: ['pipe', 'pipe', 'pipe'] })
+  // detached+进程组：超时杀整组——后台子进程若仍占着管道，只杀直接子进程会让 close
+  // 永不触发（实测 `sleep 30 &` 场景无限挂起）；组杀与 Ruling 9 的 pty 杀法同构。
+  const child = spawn(argv[0]!, argv.slice(1), { stdio: ['pipe', 'pipe', 'pipe'], detached: true })
   let stdout = ''
   let stderr = ''
   let timedOut = false
@@ -30,10 +32,14 @@ export async function runOneShot(argv: string[], opts: OneShotOptions = {}): Pro
     if (killTimer !== undefined) clearTimeout(killTimer)
   }
   if (opts.timeoutSec !== undefined) {
+    const killGroup = (sig: NodeJS.Signals): void => {
+      if (child.pid === undefined) { child.kill(sig); return }
+      try { process.kill(-child.pid, sig) } catch { /* group already gone */ }
+    }
     termTimer = setTimeout(() => {
       timedOut = true
-      child.kill('SIGTERM')
-      killTimer = setTimeout(() => child.kill('SIGKILL'), 2_000)
+      killGroup('SIGTERM')
+      killTimer = setTimeout(() => killGroup('SIGKILL'), 2_000)
     }, opts.timeoutSec * 1_000)
   }
 
