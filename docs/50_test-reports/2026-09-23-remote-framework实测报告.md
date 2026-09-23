@@ -80,3 +80,13 @@
 - `ws://` transport（spec §二.2 远期）。
 - status 的 `unreachable` 真机路径（断网/防火墙 DROP 场景）只有单测证据，真机矩阵未覆盖（需临时断 dev4）。
 - 描述文本补一句 oneshot 会话通道持留语义的披露（§六 第 1 条）。
+
+## 九、发布前增量补遗（P16–P20，2026-09-24，均含第一人称验证）
+
+- **P16** `ssh:` 显式选择器落地（后被 P20 降级为消歧备用）；`ssh:ctr-1` 冒烟 exit 0。
+- **P17** 删除自定义 `dashr/remote-exec` session 事件（原生事件集冻结、自定义类型落盘重载必拒——用户实测发现 history 加载失败）；14 个毒化会话以 `ignorable:true` 信封手术修复。原生 `tool/call`+`tool/result` waterfall 即完整审计。
+- **P18** 删除别名机制（插件数据不上 cordis 配置面；行 config 只留运行旋钮）。
+- **P19** `remote({})` = roster 注意力入口（ssh config hosts + docker ps -a + incus list + 池内活会话，本地扫描零拨号）；实测渲染无 exec 尾巴、池 key 内部标记剥离。
+- **P20** 裸名按名优先解析（ssh config → docker → incus，撞名 ssh 优先）；实测裸 `corti` 命中 docker、裸 `dev4` 走 ssh。description 重写为决策表开头 + 输出帽/流分离/pty 生命周期披露；`mode` 上 schema enum。
+- 基线 14 失败定性为包版本锚定问题（user 裁决留待 housekeeping 批处理）。
+- 最终态：`test/remote/` 78/78（11 spec）、tsc 既有基线零新增。
