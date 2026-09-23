@@ -34,7 +34,7 @@
 5. **init 协议**：会话冷启后先发 `stty -echo 2>/dev/null ; stty rows 40 cols 120 2>/dev/null ; PS1='' ; PS2='' ; export TERM=dumb ; printf '\033]133;D;<INIT_NONCE>;0;%s\007' "$PWD"\n`，INIT_NONCE 帧到达 = ready；帧前字节（回显残响/ssh banner）全部丢弃。固定 40×120 在此落位（Non-Goal ③）。
 6. **会话键与 Agent 隔离**：pty 会话键 = `<agentSessionKey>|t:<target>` 或 `|s:<spawn>`；agentSessionKey 默认 `exec.agent?.id`（无 agent 用常量 `no-session`）。同一 Agent 跨 turn 保持状态（spec 场景 2），并发 Agent 互不污染（RM0 Ruling 7 先例）。同键命令串行排队，不同键天然并发。
 7. **意外死亡 vs TTL**：进程死亡（EOF/被杀）后会话对象**留在池内**（state=dead），下次 dispatch 同对象重启并置 `reconnected: true`（带提示行）；TTL/row dispose 才出池（出池后重建是新对象 = 透明冷启，无提示）。
-8. **超时语义**：默认 120s（row `execTimeoutSec`）。pty 超时 = 写 `\x03`，3s 宽限等帧（bash 通常回 exit 130）→ 结果 `timedOut: true, exit: 130`；无帧则 kill 进程组，`exit: null`。oneshot 超时 = SIGTERM → 2s → SIGKILL，`timedOut: true`。超时秒数非正/非有限 → dispatch 前 `E_BAD_TIMEOUT` 拒绝。
+8. **超时语义**：默认 120s（row `execTimeoutSec`）。pty 超时 = 写 `\x03` + **紧随注入同 nonce 的 130-marker 行**（`printf '\033]133;D;<NONCE>;130;%s\007' "$PWD"`——交互 bash 被打断后放弃当前命令行剩余部分，尾部 marker 不再执行，注入行在 bash 回到读取态后补帧；若 bash 续行则原 marker 先帧、注入行帧被 parser 丢弃——两路皆 exit 130，会话存活）→ 3s 宽限无帧则 kill 进程组，`exit: null`。oneshot 超时 = SIGTERM → 2s → SIGKILL（**进程组杀**——后台子进程占管道时 close 永不触发，实测必挂），`timedOut: true`。超时秒数非正/非有限 → dispatch 前 `E_BAD_TIMEOUT` 拒绝。
 9. **杀进程纪律**：全部子进程 `detached: true` 起进程组，杀 = `process.kill(-pid, SIGTERM)` → 2s → SIGKILL（script 会连带 docker CLI 一并收掉）。
 10. **输出纪律**：回模型前机械剥残余 ANSI + CRLF→LF（RM0 连续性）；超帽保留尾窗 + 前置 `[truncated: showing last N of M chars]`（row `maxOutputChars` 默认 30000）。oneshot stdout/stderr 分离保留；pty 合流是诚实代价（spec §4.2 精神）。
 11. **stdin 语义**：oneshot = 管道直写后 close；pty = 紧随命令行裸写（REPL 式 best-effort——cmd 不读则残行被 bash 当下一条命令执行、输出计入本轮，Agent 看到后自纠）。工具层校验 `stdin` 依赖 `cmd` 在场。
@@ -691,7 +691,7 @@ export class PtySession {
 }
 export interface PtyPoolDefaults { idleTtlSec: number; initTimeoutSec?: number }
 export class PtyPool {
-  constructor(defaults: PtyPoolDefaults, opts?: { onSessionCountChange?: (n: number) => void })
+  constructor(defaults: PtyPoolDefaults)
   getOrCreate(key: string, argv: string[]): PtySession
   get size(): number
   inspect(key: string): SessionSnapshot | undefined
@@ -901,7 +901,12 @@ export class PtySession {
         if (dOpts.stdin !== undefined) this.write(dOpts.stdin) // Ruling 11: REPL 式紧随
         interruptTimer = setTimeout(() => {
           interrupted = true
+          // P8 两段打断：\x03 中断前台作业后，交互 bash 会放弃当前命令行的剩余部分
+          // （尾部 marker 不再执行）；紧随注入的同 nonce 130-marker 行在 bash 回到
+          // 读取态后被执行。无论 bash 弃行还是续行，帧都在宽限内到达且 exit=130，
+          // 会话存活；若命令 trap 掉 SIGINT，原 marker 先帧、注入行帧后字节被丢弃。
           this.write('\x03')
+          this.write(`printf '\\033]133;D;${nonce};130;%s\\007' "$PWD"\n`)
           killTimer = setTimeout(() => {
             this.markDead()
             finish({ output, exit: null, cwd: null, timedOut: true })
@@ -1045,7 +1050,7 @@ export class PtyPool {
 }
 ```
 
-- [ ] **Step 4: 跑测试确认通过** → PASS（若 `script` 夹具的 130 断言在个别环境抖动，先查 `stty -echo` 是否生效——回显残响会污染 output，不是帧问题）。
+- [ ] **Step 4: 跑测试确认通过** → PASS（130 断言由 Ruling P8 两段打断保证确定性：交互 bash 弃行→注入行补帧 130；续行→原 marker 报 130；trap INT 忽略→宽限后 kill 兜底 exit null，走另一测试）。
 
 - [ ] **Step 5: Commit** — `git commit -m "feat(remote): persistent pty session pool — init protocol, serial dispatch, ^C interrupt, TTL, reconnect notice"`。
 
@@ -1944,4 +1949,4 @@ Expected: `dashr-remote` 行在位（默认 config 生效）。鉴权拉 shell �
 - **Spec 覆盖**：§一 四层模型→双轨（Task 4/5）；§二 命名与智能路由（Task 2）；§三 API 契约 target/spawn/cmd/mode/stdin/timeout + 错误透明（Task 6/8）；§四 场景 1-4（Task 10 矩阵 1-14）；§五 oneshot 流水线 argv 逐字（Task 3）、nonce 收帧/TTL/断联自愈（Task 1/5 + 矩阵 6/7/14）；§六 Non-Goals（矩阵 15 + Ruling 5 固定 40×120 + 无状态回放）；§七 Phase 1-4（Task 1 / 4-5 / 2-3+6-9 / 10）。**user 2026-09-23 状态词汇裁决**（禁 offline；reachable/unreachable/容器事实态/idle/busy/none；on-demand 双重超时探测）→ Ruling 16/17 + Task 5 snapshot + Task 7 全任务 + Task 8 status 面 + 矩阵 16-18。无缺task。
 - **类型一致性**：`PtyFrame{exit,cwd}`（Task 1 定义，Task 5 消费）；`TargetPlan`（Task 2 定义，Task 3/6/7 消费）；`OneShotResult`（Task 4，Task 7 runner 缝消费）；`PtyDispatchResult`（Task 5）在 Task 6 `execute` 合成 `RemoteCallResult`（Task 8 消费）；`SessionSnapshot`（Task 5 定义，Task 7 `renderSession` / Task 8 `driver.status` 消费）；`ProbeOutcome`（Task 7 定义，Task 8 消费）；`RECONNECT_NOTICE`（Task 5 定义，Task 8 render 消费）；`RemoteRowConfig`（Task 9）。已复核命名一致。
 - **占位符扫描**：各 Step 均含实码/实命令；Task 10 步骤 4 矩阵为实测脚本性步骤（验收性质，非代码占位）。
-- **已知测试环境风险**：Task 5 `script` 夹具的 exit 130 依赖 pty 行规程 ISIG（Linux util-linux 稳定）；若 CI 型环境无 /dev/ptmx 会抖——本仓测试恒在真 Linux 跑，可接受，抖动时按 Step 4 注排查。
+- **已知测试环境风险**：130 断言确定性由 Ruling P8 两段打断（\x03 + 注入 130-marker 行）保证——两路（弃行/续行）皆 exit 130；trap INT 场景走 kill 兜底测试。若 CI 型环境无 /dev/ptmx，`script` 夹具会挂——本仓测试恒在真 Linux 跑，可接受。
