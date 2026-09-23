@@ -1741,7 +1741,7 @@ export function createRemoteTool(
       '`target` routes smartly: an ssh host name/IP/domain goes over ssh; "docker:<name>" / "incus:<name>" (or a ' +
       'server-registered alias) go to that container; an explicit "ssh:<name>" selector always forces ssh — use it ' +
       'when a bare name is ambiguous (e.g. registered as a container alias but also an ssh host). ' +
-      'server-registered alias) go to that container. `spawn` is the BYO-PTY escape hatch: give the full command that ' +
+      '`spawn` is the BYO-PTY escape hatch: give the full command that ' +
       'starts an interactive shell (e.g. "docker exec -it img bash" or "ssh -t jump \'docker exec -it runner bash\'") ' +
       'and the tool hosts its PTY with nonce framing (mode locks to pty). Nested hops are dumb pipes — only the ' +
       'innermost bash frames. `stdin` feeds the command\'s input; `timeout` (seconds) interrupts then kills. Native ' +

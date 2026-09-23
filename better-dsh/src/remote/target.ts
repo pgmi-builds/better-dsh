@@ -9,17 +9,23 @@ export class TargetFormatError extends Error {
   constructor(message: string) { super(message); this.name = 'TargetFormatError' }
 }
 
-const PREFIX_RE = /^(docker|incus):(.+)$/
+/** 显式协议选择器（Ruling P16）：可扩展新协议——加一个词即一条新传输腿。 */
+const PREFIX_RE = /^(docker|incus|ssh):(.+)$/
+/** 别名表值只接受容器形态（ssh 无别名意义——裸名即 ssh）。 */
+const CONTAINER_PREFIX_RE = /^(docker|incus):(.+)$/
 
-/** spec §二.2 智能路由：显式前缀 > 别名表（已知容器裸名）> ssh。 */
+/** spec §二.2 智能路由（Ruling 12 + P16）：显式选择器 > 别名表（人工 pin，撞名时赢）> ssh 缺省。 */
 export function resolveTarget(target: string, containerAliases: Record<string, string> = {}): TargetPlan {
   const raw = target.trim()
   if (raw.length === 0) throw new TargetFormatError('[E_TARGET_FORMAT] remote: empty target')
   const direct = PREFIX_RE.exec(raw)
-  if (direct !== null) return { kind: direct[1] as 'docker' | 'incus', container: direct[2]! }
+  if (direct !== null) {
+    if (direct[1] === 'ssh') return { kind: 'ssh', host: direct[2]! }
+    return { kind: direct[1] as 'docker' | 'incus', container: direct[2]! }
+  }
   const aliased = containerAliases[raw]
   if (aliased !== undefined) {
-    const m = PREFIX_RE.exec(aliased)
+    const m = CONTAINER_PREFIX_RE.exec(aliased)
     if (m === null)
       throw new TargetFormatError(
         `[E_TARGET_FORMAT] remote: container alias '${raw}' must map to 'docker:<name>' or 'incus:<name>' (got ${JSON.stringify(aliased)})`)
