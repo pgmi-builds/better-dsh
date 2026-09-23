@@ -1200,19 +1200,25 @@ describe('RemoteDriver routing', () => {
     expect(r.stdout).toContain('[truncated: showing last 10 of 100 chars]')
     await d.dispose()
   })
-  it('emits one audit record per attempt (success and failure)', async () => {
+  it('emits one audit record per attempt (success, nonzero exit, and error paths)', async () => {
     const audit: RemoteAuditRecord[] = []
     const d = driverWith({ onAudit: (r) => audit.push(r) })
     await d.call({ target: 'dev4', cmd: 'echo ok' })
-    await d.call({ target: 'no-such-host-xyz', cmd: 'echo no' }).catch(() => {})
-    expect(audit.length).toBeGreaterThanOrEqual(1)
-    expect(audit[0]).toMatchObject({ target: 'dev4', cmd: 'echo ok' })
-    await d.dispose()
+    const d255 = new RemoteDriver({
+      onAudit: (r) => audit.push(r),
+      oneshotArgvFor: () => ['bash', '-c', 'exit 255'],
+    })
+    await d255.call({ target: 'no-such-host-xyz', cmd: 'echo no' }).catch(() => {})
+    await expect(d.call({ target: 'a', spawn: 'b', cmd: 'x' })).rejects.toThrow(/E_PARAMS/)
+    expect(audit[0]).toMatchObject({ target: 'dev4', cmd: 'echo ok', exit: 0 })
+    expect(audit[1]).toMatchObject({ target: 'no-such-host-xyz', exit: 255 })
+    expect(audit[2]).toMatchObject({ target: 'a', cmd: 'x', error: expect.stringContaining('E_PARAMS') })
+    await d.dispose(); await d255.dispose()
   })
 })
 ```
 
-注：`no-such-host-xyz` 用例在无测试缝覆盖 oneshot argv 时会真拨 ssh——`driverWith()` 已把 oneshot 缝到本地 bash，此例改测错误路径：把缝指向 `['bash','-c','exit 255']` 并断言 audit 记录 `exit: 255`（executor 按"错误也记 audit"实现，勿真拨外网）。
+注：`no-such-host-xyz` 用例经 `exit 255` 缝走**非零退出的成功分支**审计（`runOneShot` 把 exit 收集为数据、不抛错）；真正的 catch 审计路径用 `E_PARAMS` 拒绝断言（`target ?? spawn ?? '?'` 回退）。
 
 - [ ] **Step 2: 跑测试确认失败** → FAIL。
 
@@ -1279,18 +1285,23 @@ export class RemoteDriver {
     try {
       const routing = this.route(params)
       const result = await this.execute(params, routing, callCtx)
-      this.opts.onAudit?.({
+      this.audit({
         target: routing.display, cmd: params.cmd, cwd: result.cwd ?? undefined,
         exit: result.exit, durationMs: Date.now() - started,
       })
       return result
     } catch (error) {
-      this.opts.onAudit?.({
+      this.audit({
         target: params.target ?? params.spawn ?? '?', cmd: params.cmd,
         error: error instanceof Error ? error.message : String(error), durationMs: Date.now() - started,
       })
       throw error
     }
+  }
+
+  /** Ruling 13：审计 best-effort——钩子抛错不得影响命令路径（成功被毒化成失败+双重审计）。 */
+  private audit(r: RemoteAuditRecord): void {
+    try { this.opts.onAudit?.(r) } catch { /* audit hook failure is never the command's failure */ }
   }
 
   private route(params: RemoteCallParams): { mode: 'oneshot' | 'pty'; display: string; plan?: TargetPlan; spawn?: string } {
