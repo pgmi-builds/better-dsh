@@ -101,4 +101,37 @@ describe('PtySession over script(1)-hosted PTY (BYO-PTY shape)', () => {
     expect(r.output.trim()).toBe('real')
     await s.dispose()
   })
+  it('grace-expiry kill fallback reaps the process group (snapshot pid null, group gone)', async () => {
+    const s = new PtySession({ key: 'k', argv: ['bash'], ...OPTS })
+    await s.dispatch('echo warm')
+    const pid = s.snapshot.pid
+    expect(pid).toBeTypeOf('number')
+    const r = await s.dispatch('trap "" INT; sleep 30', { timeoutSec: 1 })
+    expect(r.exit).toBe(null)
+    expect(r.timedOut).toBe(true)
+    expect(s.snapshot.pid).toBe(null)
+    // fix-round-2 偏离（唯一一处，plan 逐字之外的稳定化）：killTimer 在发送 SIGTERM 的
+    // 同一 tick 内结算 dispatch，僵尸组要等事件循环轮转 + node/init 收尸后才消失——
+    // 与下一测试「等 dispose 的 killTree 兑现」同一机制，同一 1.2s settle 手法。
+    await new Promise((r2) => setTimeout(r2, 1_200))
+    expect(() => process.kill(-pid!, 0)).toThrow()
+    await s.dispose()
+  }, 20_000)
+  it('dispose is terminal: stale-reference dispatch rejects E_SESSION_DISPOSED', async () => {
+    const s = new PtySession({ key: 'k', argv: ['bash'], ...OPTS })
+    await s.dispatch('echo hi')
+    await s.dispose()
+    await expect(s.dispatch('echo late')).rejects.toThrow(/E_SESSION_DISPOSED/)
+  })
+  it('dispose mid-flight settles the in-flight dispatch promptly (exit null, not timedOut)', async () => {
+    const s = new PtySession({ key: 'k', argv: ['bash'], ...OPTS })
+    const p = s.dispatch('sleep 30', { timeoutSec: 30 })
+    await new Promise((r) => setTimeout(r, 300))
+    await s.dispose()
+    const r = await p
+    expect(r.exit).toBe(null)
+    expect(r.timedOut).toBe(false)
+    expect(r.durationMs).toBeLessThan(5_000)
+    await new Promise((r2) => setTimeout(r2, 1_200)) // 等 dispose 的 killTree 兑现，防组泄漏到下一测试
+  }, 20_000)
 })
