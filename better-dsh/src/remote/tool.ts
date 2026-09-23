@@ -1,24 +1,7 @@
 import { defineTool, type ToolDefinition, type ToolRunContext } from '@deepseek-ai/dsh-tools'
 import type { ContentBlock } from '@deepseek-ai/dsh-llm'
-import type {} from '@deepseek-ai/dsh-session/types'
 import { RECONNECT_NOTICE } from './pty-session.ts'
 import type { RemoteCallResult, RemoteDriver } from './driver.ts'
-
-/** 会话审计记录（RM0 Ruling 10 形态连续）。 */
-export interface RemoteExecAudit {
-  target?: string
-  cmd?: string
-  cwd?: string
-  exit?: number | null
-  durationMs?: number
-  error?: string
-}
-
-declare module '@deepseek-ai/dsh-session/types' {
-  interface SessionEventMap {
-    'dashr/remote-exec': RemoteExecAudit
-  }
-}
 
 interface RemoteToolValue {
   kind: 'exec' | 'status'
@@ -119,7 +102,6 @@ export function createRemoteTool(
           },
           { sessionKey: getSessionKey(exec) },
         )
-        appendAudit(exec, { target: r.target, cmd: args.cmd, cwd: r.cwd ?? undefined, exit: r.exit, durationMs: r.durationMs })
         const v: RemoteToolValue = { kind: 'exec', text: r.stdout, exit: r.exit, durationMs: r.durationMs }
         if (r.cwd !== null) v.cwd = r.cwd
         if (r.stderr !== undefined) v.stderr = r.stderr
@@ -128,11 +110,6 @@ export function createRemoteTool(
         if (r.truncated !== undefined) v.truncated = r.truncated
         return v
       } catch (error) {
-        // Ruling 13：失败的 exec 尝试同样落审计（RM0 Ruling 10 形态），随后原样重抛
-        appendAudit(exec, {
-          target: args.target ?? args.spawn, cmd: args.cmd,
-          error: error instanceof Error ? error.message : String(error),
-        })
         throw error
       }
     },
@@ -153,8 +130,4 @@ function renderValue(v: RemoteToolValue): string {
   parts.push(`[exit ${v.exit} · ${secs}s${suffix}${cwdTag}]`)
   if (v.stderr !== undefined && v.stderr.length > 0) parts.push('[stderr]', v.stderr)
   return parts.join('\n')
-}
-
-function appendAudit(exec: ToolRunContext, data: RemoteExecAudit): void {
-  try { exec.agent?.session.append('dashr/remote-exec', data) } catch { /* best-effort by contract */ }
 }

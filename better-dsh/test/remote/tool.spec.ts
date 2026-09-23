@@ -10,13 +10,7 @@ const fakeDriver = (): RemoteDriver =>
     spawnArgvFor: () => ['bash'],
   })
 
-const fakeExec = (): { exec: ToolRunContext; appended: Array<[string, unknown]> } => {
-  const appended: Array<[string, unknown]> = []
-  const exec = {
-    agent: { id: 'agent-1', session: { append: (k: string, v: unknown) => appended.push([k, v]) } },
-  } as unknown as ToolRunContext
-  return { exec, appended }
-}
+const fakeExec = (): ToolRunContext => ({ agent: { id: 'agent-1' } }) as unknown as ToolRunContext
 
 describe('createRemoteTool', () => {
   it('registers under the name "remote"', () => {
@@ -24,12 +18,10 @@ describe('createRemoteTool', () => {
   })
   it('executes through the driver and returns the value envelope', async () => {
     const tool = createRemoteTool(fakeDriver())
-    const { exec, appended } = fakeExec()
+    const exec = fakeExec()
     const v = await tool.execute!({ target: 'dev4', cmd: 'echo out' } as never, exec) as { text: string; exit: number | null }
     expect(v.text).toBe('out\n')
     expect(v.exit).toBe(0)
-    expect(appended).toHaveLength(1)
-    expect(appended[0]![0]).toBe('dashr/remote-exec')
   })
   it('renders output + footer (+cwd), stderr block, and the reconnect notice line', async () => {
     const tool = createRemoteTool(fakeDriver())
@@ -50,7 +42,7 @@ describe('createRemoteTool', () => {
   })
   it('parameter violations fail before any execution', async () => {
     const tool = createRemoteTool(fakeDriver())
-    const { exec } = fakeExec()
+    const exec = fakeExec()
     await expect(tool.execute!({ target: 'a', spawn: 'b', cmd: 'x' } as never, exec)).rejects.toThrow(/E_PARAMS/)
     await expect(tool.execute!({ cmd: 'x' } as never, exec)).rejects.toThrow(/E_PARAMS/)
     await expect(tool.execute!({ spawn: 'docker exec -it x bash' } as never, exec)).rejects.toThrow(/E_PARAMS/)
@@ -61,7 +53,7 @@ describe('createRemoteTool', () => {
       probeRunner: async () => ({ exit: 0, timedOut: false, stdout: '', stderr: '', durationMs: 240 }),
     })
     const tool = createRemoteTool(d)
-    const { exec } = fakeExec()
+    const exec = fakeExec()
     const v = await tool.execute!({ target: 'dev4' } as never, exec) as { kind: string; text: string }
     expect(v.kind).toBe('status')
     expect(v.text).toContain('dev4 — ssh host')
@@ -69,16 +61,9 @@ describe('createRemoteTool', () => {
     expect(v.text).toContain('session: none — dials on first exec')
     expect(v.text).not.toContain('offline')
   })
-  it('failed exec attempts append an error audit record before rethrowing', async () => {
-    const tool = createRemoteTool(fakeDriver())
-    const { exec, appended } = fakeExec()
-    await expect(tool.execute!({ target: 'a', spawn: 'b', cmd: 'x' } as never, exec)).rejects.toThrow(/E_PARAMS/)
-    expect(appended).toHaveLength(1)
-    expect(appended[0]![1]).toMatchObject({ target: 'a', cmd: 'x', error: expect.stringContaining('E_PARAMS') })
-  })
   it('garbage mode and stdin-without-cmd fail loud before any execution', async () => {
     const tool = createRemoteTool(fakeDriver())
-    const { exec } = fakeExec()
+    const exec = fakeExec()
     await expect(tool.execute!({ target: 'dev4', cmd: 'x', mode: 'pty ' } as never, exec)).rejects.toThrow(/E_BAD_MODE/)
     await expect(tool.execute!({ target: 'dev4', stdin: 's' } as never, exec)).rejects.toThrow(/E_STDIN_WITHOUT_CMD/)
   })
