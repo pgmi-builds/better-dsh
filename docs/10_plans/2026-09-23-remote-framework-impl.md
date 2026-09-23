@@ -681,7 +681,7 @@ export interface PtyDispatchOptions { stdin?: string; timeoutSec?: number }
 export interface PtyDispatchResult { output: string; exit: number | null; cwd: string | null; timedOut: boolean; reconnected: boolean; durationMs: number }
 export type PtyState = 'cold' | 'starting' | 'ready' | 'dead' | 'disposed'
 /** 会话运行时快照（status 面消费，Ruling 16 词汇源）。 */
-export interface SessionSnapshot { state: PtyState; busy: boolean; idleMs: number | null }
+export interface SessionSnapshot { state: PtyState; busy: boolean; idleMs: number | null; pid: number | null }
 export class PtySession {
   constructor(opts: PtySessionOptions)
   get sessionState(): PtyState
@@ -805,6 +805,35 @@ describe('PtySession over script(1)-hosted PTY (BYO-PTY shape)', () => {
     expect(r.output.trim()).toBe('real')
     await s.dispose()
   })
+  it('grace-expiry kill fallback reaps the process group (snapshot pid null, group gone)', async () => {
+    const s = new PtySession({ key: 'k', argv: ['bash'], ...OPTS })
+    await s.dispatch('echo warm')
+    const pid = s.snapshot.pid
+    expect(pid).toBeTypeOf('number')
+    const r = await s.dispatch('trap "" INT; sleep 30', { timeoutSec: 1 })
+    expect(r.exit).toBe(null)
+    expect(r.timedOut).toBe(true)
+    expect(s.snapshot.pid).toBe(null)
+    expect(() => process.kill(-pid!, 0)).toThrow()
+    await s.dispose()
+  }, 20_000)
+  it('dispose is terminal: stale-reference dispatch rejects E_SESSION_DISPOSED', async () => {
+    const s = new PtySession({ key: 'k', argv: ['bash'], ...OPTS })
+    await s.dispatch('echo hi')
+    await s.dispose()
+    await expect(s.dispatch('echo late')).rejects.toThrow(/E_SESSION_DISPOSED/)
+  })
+  it('dispose mid-flight settles the in-flight dispatch promptly (exit null, not timedOut)', async () => {
+    const s = new PtySession({ key: 'k', argv: ['bash'], ...OPTS })
+    const p = s.dispatch('sleep 30', { timeoutSec: 30 })
+    await new Promise((r) => setTimeout(r, 300))
+    await s.dispose()
+    const r = await p
+    expect(r.exit).toBe(null)
+    expect(r.timedOut).toBe(false)
+    expect(r.durationMs).toBeLessThan(5_000)
+    await new Promise((r2) => setTimeout(r2, 1_200)) // 等 dispose 的 killTree 兑现，防组泄漏到下一测试
+  }, 20_000)
 })
 ```
 
@@ -859,9 +888,9 @@ export class PtySession {
 
   get sessionState(): PtyState { return this.state }
 
-  /** status 面快照：state + busy（有命令在跑）+ idleMs（上次 settle 至今）。 */
+  /** status 面快照：state + busy（有命令在跑）+ idleMs（上次 settle 至今）+ pid（进程组头，kill 兜底可观测）。 */
   get snapshot(): SessionSnapshot {
-    return { state: this.state, busy: this.inFlight > 0, idleMs: this.lastSettleAt > 0 ? Date.now() - this.lastSettleAt : null }
+    return { state: this.state, busy: this.inFlight > 0, idleMs: this.lastSettleAt > 0 ? Date.now() - this.lastSettleAt : null, pid: this.proc?.pid ?? null }
   }
 
   /** 同一会话命令严格串行（FIFO）；死亡/冷态先重启。 */
@@ -908,6 +937,9 @@ export class PtySession {
           this.write('\x03')
           this.write(`printf '\\033]133;D;${nonce};130;%s\\007' "$PWD"\n`)
           killTimer = setTimeout(() => {
+            // Ruling 8 的 kill 兜底：宽限无帧 = 会话不可恢复，杀整组后收尸
+            // （否则 trap-INT 的卡死进程永生，重连后旧组再不可达）
+            this.killTree()
             this.markDead()
             finish({ output, exit: null, cwd: null, timedOut: true })
           }, INTERRUPT_GRACE_MS)
@@ -937,6 +969,8 @@ export class PtySession {
   }
 
   private async start(): Promise<void> {
+    if (this.state === 'disposed')
+      throw new Error(`[E_SESSION_DISPOSED] remote pty session '${this.opts.key}' was disposed — the pool replaces disposed sessions; this reference is stale`)
     if (this.startPromise === null) {
       this.state = 'starting'
       this.startPromise = this.doStart().catch((err: unknown) => {
@@ -980,6 +1014,11 @@ export class PtySession {
         onFrame: () => {
           clearTimeout(timer)
           this.deathWaiters = this.deathWaiters.filter((w) => w !== waiter)
+          if (this.state === 'disposed') {
+            // dispose 竞态 init：不得复活已终态会话（否则重挂 idle timer + 幽灵 ready）
+            reject(new Error(`[E_SESSION_DISPOSED] remote pty session '${this.opts.key}' disposed during init`))
+            return
+          }
           this.state = 'ready'
           this.resetIdleTimer()
           resolve()
@@ -991,7 +1030,14 @@ export class PtySession {
   }
 
   private markDead(): void {
-    if (this.state === 'disposed') return
+    if (this.state === 'disposed') {
+      // dispose 是终态：不再翻转 state，但在飞 dispatch 的死亡等待仍需立即结算
+      // （row teardown 不是超时——不得等 123s 看门狗，也不得错标 timedOut）
+      const waiters = this.deathWaiters
+      this.deathWaiters = []
+      for (const w of waiters) w()
+      return
+    }
     this.state = 'dead'
     this.startPromise = null
     this.clearIdleTimer()
