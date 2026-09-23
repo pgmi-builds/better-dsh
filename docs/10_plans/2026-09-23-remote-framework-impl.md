@@ -450,11 +450,11 @@ describe('shQuote', () => {
 describe('buildOneShotArgv (spec §五.1 verbatim shapes)', () => {
   it('ssh: BatchMode, no tty, one mechanically-quoted argv after the host', () => {
     expect(buildOneShotArgv({ kind: 'ssh', host: 'dev4' }, "git status | head -1"))
-      .toEqual(['ssh', '-o', 'BatchMode=yes', '-T', '--', 'dev4', `'git status | head -1'`])
+      .toEqual(['ssh', '-o', 'BatchMode=yes', '-T', '--', 'dev4', `bash -lc 'git status | head -1'`])
   })
   it('ssh survives a cmd containing single quotes (one mechanical layer)', () => {
     const argv = buildOneShotArgv({ kind: 'ssh', host: 'dev4' }, "echo 'hi'")
-    expect(argv.at(-1)).toBe(`bash -lc 'echo '\\''hi'\\''`)
+    expect(argv.at(-1)).toBe(`bash -lc 'echo '\\''hi'\\'''`)
   })
   it('docker: exec -i, argv-direct (no -t, no re-parse)', () => {
     expect(buildOneShotArgv({ kind: 'docker', container: 'c1' }, 'echo x'))
