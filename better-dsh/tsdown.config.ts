@@ -16,6 +16,7 @@ export default defineConfig({
     'src/compaction/index.ts',
     'src/web-trust.ts',
     'src/mobile/plugin.ts',
+    'src/remote/plugin.ts',
   ],
   // Pin the output beside the package.json `main`/`types` declarations (the
   // default dist/ would leave the exports map dangling on a published tarball).

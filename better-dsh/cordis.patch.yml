@@ -48,6 +48,13 @@
     - id: dashr-mobile
       name: 'better-dsh/mobile'
 
+    # Remote execution framework (plan 2026-09-23-remote-framework-impl.md):
+    # `remote` tool face — two-track (oneshot default / pty opt-in), CLI
+    # transports (ssh/docker/incus), BYO-PTY spawn, nonce framing, 10min TTL.
+    # All config defaults, so the row carries no config block.
+    - id: dashr-remote
+      name: 'better-dsh/remote'
+
 # Native compaction at the host plane: the base bundle ships the engine, the
 # `/compact` command, and the tool-result pruner as host rows; dsh-web-app
 # disables them to move compaction behind per-session presets. DASHR is
