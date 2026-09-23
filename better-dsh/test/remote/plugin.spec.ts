@@ -3,9 +3,9 @@ import { apply, Config, name } from '../../src/remote/plugin.ts'
 import type { Context } from '@deepseek-ai/cordis'
 
 describe('dashr-remote row', () => {
-  it('Config defaults: no containers, 120s exec, 600s TTL, 30000 chars', () => {
-    const c = Config(undefined) as { containers: unknown; execTimeoutSec: number; idleTtlSec: number; maxOutputChars: number }
-    expect(c).toMatchObject({ containers: {}, execTimeoutSec: 120, idleTtlSec: 600, maxOutputChars: 30_000 })
+  it('Config defaults: 120s exec, 600s TTL, 30000 chars', () => {
+    const c = Config(undefined) as { execTimeoutSec: number; idleTtlSec: number; maxOutputChars: number }
+    expect(c).toMatchObject({ execTimeoutSec: 120, idleTtlSec: 600, maxOutputChars: 30_000 })
   })
   it('mounts dormant without tools, registers the remote tool when tools compose, disposer is safe', () => {
     expect(name).toBe('dashr-remote')

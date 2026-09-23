@@ -16,9 +16,8 @@ import { createRemoteTool } from './tool.ts'
 export const name = 'dashr-remote'
 export const inject: string[] = []
 
-/** 已知容器裸名 → 'docker:<name>' / 'incus:<name>'（Ruling 12）。 */
+/** 运行参数旋钮（Ruling P18）：无别名表面——容器一律显式 'docker:' / 'incus:' 前缀。 */
 export interface RemoteRowConfig {
-  containers: Record<string, string>
   execTimeoutSec: number
   idleTtlSec: number
   maxOutputChars: number
@@ -26,17 +25,15 @@ export interface RemoteRowConfig {
 
 export const Config: z<RemoteRowConfig> = z
   .object({
-    containers: z.dict(z.string()).default({}),
     execTimeoutSec: z.natural().min(1).default(120),
     idleTtlSec: z.natural().min(1).default(600),
     maxOutputChars: z.natural().min(1).default(30_000),
   })
-  .default({ containers: {}, execTimeoutSec: 120, idleTtlSec: 600, maxOutputChars: 30_000 }) as unknown as z<RemoteRowConfig>
+  .default({ execTimeoutSec: 120, idleTtlSec: 600, maxOutputChars: 30_000 }) as unknown as z<RemoteRowConfig>
 
 /** MUST stay an arrow（RM0 plugin.ts 同注：function 声明会被 cordis 当构造器 new 掉，返回的 disposer 丢失）。 */
 export const apply = (ctx: Context, config: RemoteRowConfig): (() => void) => {
   const driver = new RemoteDriver({
-    containers: config.containers,
     execTimeoutSec: config.execTimeoutSec,
     idleTtlSec: config.idleTtlSec,
     maxOutputChars: config.maxOutputChars,

@@ -31,9 +31,8 @@ export function createRemoteTool(
       'Run a command on a remote host or container. Two tracks: oneshot (default) runs `bash -lc` statelessly — fast, ' +
       'parallel, zero residue, the exit code is the process\'s own; mode "pty" keeps one persistent terminal session ' +
       'per (agent, target): cwd/env survive across calls, Ctrl-C interrupts work, sudo password prompts are possible. ' +
-      '`target` routes smartly: an ssh host name/IP/domain goes over ssh; "docker:<name>" / "incus:<name>" (or a ' +
-      'server-registered alias) go to that container; an explicit "ssh:<name>" selector always forces ssh — use it ' +
-      'when a bare name is ambiguous (e.g. registered as a container alias but also an ssh host). ' +
+      '`target` routes smartly: an ssh host name/IP/domain goes over ssh; "docker:<name>" / "incus:<name>" go to that ' +
+      'container; an explicit "ssh:<name>" selector always forces ssh. ' +
       '`spawn` is the BYO-PTY escape hatch: give the full command that ' +
       'starts an interactive shell (e.g. "docker exec -it img bash" or "ssh -t jump \'docker exec -it runner bash\'") ' +
       'and the tool hosts its PTY with nonce framing (mode locks to pty). Nested hops are dumb pipes — only the ' +
@@ -47,7 +46,7 @@ export function createRemoteTool(
       'cached from boot. Discovery of valid names is yours: read ~/.ssh/config, `docker ps`, `incus list` with your ' +
       'local tools.',
     parameters: {
-      target: { type: 'string', description: 'SSH host / IP / domain, or docker:<name> / incus:<name> container, or a registered alias. Omit when using spawn.' },
+      target: { type: 'string', description: 'SSH host / IP / domain, or docker:<name> / incus:<name> container. Omit when using spawn.' },
       spawn: { type: 'string', description: 'BYO-PTY: full command starting an interactive shell; the tool hosts the PTY + framing. Mode locks to pty.' },
       cmd: { type: 'string', description: 'One raw shell string parsed by the remote bash (multi-line = one compound; exit = last command\'s). Omit (with target) for an on-demand status probe.' },
       mode: { type: 'string', description: "'oneshot' (default) or 'pty' (persistent session)." },

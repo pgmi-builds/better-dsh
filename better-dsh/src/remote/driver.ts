@@ -37,7 +37,6 @@ export interface RemoteAuditRecord {
 }
 
 export interface RemoteDriverOptions {
-  containers?: Record<string, string>
   execTimeoutSec?: number
   idleTtlSec?: number
   maxOutputChars?: number
@@ -76,7 +75,7 @@ export class RemoteDriver {
 
   /** Ruling 16/17：on-demand 探测 + 会话层，两行如实陈述。 */
   async status(target: string, callCtx: { sessionKey?: string } = {}): Promise<string> {
-    const plan = resolveTarget(target, this.opts.containers ?? {})
+    const plan = resolveTarget(target)
     const head = `${target} — ${plan.kind === 'ssh' ? 'ssh host' : `${plan.kind} container`}`
     const probe = await probeTarget(plan, { runner: this.opts.probeRunner })
     const key = `${callCtx.sessionKey ?? 'no-session'}|t:${target}`
@@ -101,7 +100,7 @@ export class RemoteDriver {
       throw new Error('[E_STDIN_WITHOUT_CMD] remote: stdin requires cmd')
     const mode: 'oneshot' | 'pty' = hasSpawn ? 'pty' : params.mode ?? 'oneshot'
     if (hasSpawn) return { mode, display: params.spawn!, spawn: params.spawn }
-    return { mode, display: params.target!, plan: resolveTarget(params.target!, this.opts.containers ?? {}) }
+    return { mode, display: params.target!, plan: resolveTarget(params.target!) }
   }
 
   private async execute(params: RemoteCallParams, routing: { mode: 'oneshot' | 'pty'; display: string; plan?: TargetPlan; spawn?: string }, callCtx: { sessionKey?: string }): Promise<RemoteCallResult> {
