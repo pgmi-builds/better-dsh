@@ -805,6 +805,13 @@ describe('PtySession over script(1)-hosted PTY (BYO-PTY shape)', () => {
     expect(r.output.trim()).toBe('real')
     await s.dispose()
   })
+  it('caps dispatch output collection (tail ring) — runaway output cannot eat host memory', async () => {
+    const s = new PtySession({ key: 'k', argv: ['bash'], ...OPTS })
+    const r = await s.dispatch("printf 'x%.0s' $(seq 1 5000000) ; echo ; echo TAILMARK")
+    expect(r.output.length).toBeLessThanOrEqual(4_000_001)
+    expect(r.output.trim().endsWith('TAILMARK')).toBe(true)
+    await s.dispose()
+  }, 30_000)
   it('grace-expiry kill fallback reaps the process group (snapshot pid null, group gone)', async () => {
     const s = new PtySession({ key: 'k', argv: ['bash'], ...OPTS })
     await s.dispatch('echo warm')
@@ -872,6 +879,8 @@ export type PtyState = 'cold' | 'starting' | 'ready' | 'dead' | 'disposed'
 
 const DEFAULT_INIT_TIMEOUT_SEC = 30
 const INTERRUPT_GRACE_MS = 3_000
+/** pty 收集内存安全帽（Ruling P15，与 oneshot HARD_CAP 对齐）：模型面只见尾窗，保留尾部。 */
+const OUTPUT_HARD_CAP = 4_000_000
 
 export class PtySession {
   private proc: ChildProcess | null = null
@@ -908,8 +917,12 @@ export class PtySession {
         let settled = false
         let interruptTimer: NodeJS.Timeout | undefined
         let killTimer: NodeJS.Timeout | undefined
+        const deathWaiter = (): void => finish({ output, exit: null, cwd: null, timedOut: interrupted })
         const cleanup = (): void => {
           this.onChunk = null
+          // I1（终审）：已结算 dispatch 的死亡等待必须摘除——否则闭包钉住整段 output，
+          // 长命会话每调用累积一个 waiter（init 路径的 filter 同款形态）
+          this.deathWaiters = this.deathWaiters.filter((w) => w !== deathWaiter)
           if (interruptTimer !== undefined) clearTimeout(interruptTimer)
           if (killTimer !== undefined) clearTimeout(killTimer)
         }
@@ -923,7 +936,15 @@ export class PtySession {
           resolve({ ...r, reconnected, durationMs: Date.now() - started })
         }
         const parser = createNonceFrameParser(nonce, {
-          onOutput: (t) => { output += t },
+          onOutput: (t) => {
+            output += t
+            // C1（终审）：内存安全帽——无帽时一条 cat /dev/urandom 能在 120s 看门狗内
+            // 吃垮宿主 daemon。帽上切片避开代理对（首字符为低位代理则让出一字符）。
+            if (output.length > OUTPUT_HARD_CAP) {
+              output = output.slice(output.length - OUTPUT_HARD_CAP)
+              if (output.charCodeAt(0) >= 0xdc00 && output.charCodeAt(0) <= 0xdfff) output = output.slice(1)
+            }
+          },
           onFrame: ({ exit, cwd }) => finish({ output, exit, cwd, timedOut: interrupted }),
         })
         this.onChunk = (c) => parser.feed(c)
@@ -945,7 +966,7 @@ export class PtySession {
             finish({ output, exit: null, cwd: null, timedOut: true })
           }, INTERRUPT_GRACE_MS)
         }, dOpts.timeoutSec === undefined ? 120_000 : dOpts.timeoutSec * 1_000)
-        this.deathWaiters.push(() => finish({ output, exit: null, cwd: null, timedOut: interrupted }))
+        this.deathWaiters.push(deathWaiter)
       })
     }
     const run = this.queue.then(attempt, attempt)
