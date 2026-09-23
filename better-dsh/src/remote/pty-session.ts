@@ -89,7 +89,12 @@ export class PtySession {
         if (dOpts.stdin !== undefined) this.write(dOpts.stdin) // Ruling 11: REPL 式紧随
         interruptTimer = setTimeout(() => {
           interrupted = true
+          // P8 两段打断：\x03 中断前台作业后，交互 bash 会放弃当前命令行的剩余部分
+          // （尾部 marker 不再执行）；紧随注入的同 nonce 130-marker 行在 bash 回到
+          // 读取态后被执行。无论 bash 弃行还是续行，帧都在宽限内到达且 exit=130，
+          // 会话存活；若命令 trap 掉 SIGINT，原 marker 先帧、注入行帧后字节被丢弃。
           this.write('\x03')
+          this.write(`printf '\\033]133;D;${nonce};130;%s\\007' "$PWD"\n`)
           killTimer = setTimeout(() => {
             this.markDead()
             finish({ output, exit: null, cwd: null, timedOut: true })
