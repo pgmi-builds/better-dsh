@@ -1638,6 +1638,19 @@ describe('createRemoteTool', () => {
     expect(v.text).toContain('session: none — dials on first exec')
     expect(v.text).not.toContain('offline')
   })
+  it('failed exec attempts append an error audit record before rethrowing', async () => {
+    const tool = createRemoteTool(fakeDriver())
+    const { exec, appended } = fakeExec()
+    await expect(tool.execute!({ target: 'a', spawn: 'b', cmd: 'x' } as never, exec)).rejects.toThrow(/E_PARAMS/)
+    expect(appended).toHaveLength(1)
+    expect(appended[0]![1]).toMatchObject({ target: 'a', cmd: 'x', error: expect.stringContaining('E_PARAMS') })
+  })
+  it('garbage mode and stdin-without-cmd fail loud before any execution', async () => {
+    const tool = createRemoteTool(fakeDriver())
+    const { exec } = fakeExec()
+    await expect(tool.execute!({ target: 'dev4', cmd: 'x', mode: 'pty ' } as never, exec)).rejects.toThrow(/E_BAD_MODE/)
+    await expect(tool.execute!({ target: 'dev4', stdin: 's' } as never, exec)).rejects.toThrow(/E_STDIN_WITHOUT_CMD/)
+  })
 })
 ```
 
@@ -1736,32 +1749,46 @@ export function createRemoteTool(
       const hasCmd = typeof args.cmd === 'string' && args.cmd.length > 0
       const hasTarget = typeof args.target === 'string' && args.target.length > 0
       const hasSpawn = typeof args.spawn === 'string' && args.spawn.length > 0
+      // fail-loud 三闸：垃圾 mode 不静默降级；status 面不吃 stdin。
+      if (args.mode !== undefined && args.mode !== 'oneshot' && args.mode !== 'pty')
+        throw new Error(`[E_BAD_MODE] remote: mode must be 'oneshot' or 'pty' (got ${JSON.stringify(args.mode)})`)
       // cmd 缺省 + target 在场 = on-demand status（Ruling 16/17）；spawn 无可探测物。
       if (!hasCmd) {
+        if (args.stdin !== undefined)
+          throw new Error('[E_STDIN_WITHOUT_CMD] remote: stdin requires cmd — status probes take no input')
         if (hasSpawn)
           throw new Error('[E_PARAMS] remote: spawn is an exec channel — pass cmd (there is nothing to probe for BYO-PTY)')
         if (!hasTarget)
           throw new Error(
             '[E_PARAMS] remote: target or spawn is required; discovery is yours — read ~/.ssh/config, ' +
             '`docker ps`, `incus list` with your local tools')
-        const text = await driver.status(args.target, { sessionKey: getSessionKey(exec) })
+        const text = await driver.status(args.target as string, { sessionKey: getSessionKey(exec) })
         return { kind: 'status', text, exit: null, durationMs: 0 }
       }
-      const r: RemoteCallResult = await driver.call(
-        {
-          target: args.target, spawn: args.spawn, cmd: args.cmd,
-          mode: args.mode === 'oneshot' || args.mode === 'pty' ? args.mode : undefined,
-          stdin: args.stdin, timeout: args.timeout,
-        },
-        { sessionKey: getSessionKey(exec) },
-      )
-      appendAudit(exec, { target: r.target, cmd: args.cmd, cwd: r.cwd ?? undefined, exit: r.exit, durationMs: r.durationMs })
-      const v: RemoteToolValue = { kind: 'exec', text: r.stdout, exit: r.exit, durationMs: r.durationMs, cwd: r.cwd }
-      if (r.stderr !== undefined) v.stderr = r.stderr
-      if (r.timedOut) v.timedOut = true
-      if (r.reconnected) v.reconnected = true
-      if (r.truncated !== undefined) v.truncated = r.truncated
-      return v
+      try {
+        const r: RemoteCallResult = await driver.call(
+          {
+            target: args.target, spawn: args.spawn, cmd: args.cmd as string,
+            mode: args.mode === 'oneshot' || args.mode === 'pty' ? args.mode : undefined,
+            stdin: args.stdin, timeout: args.timeout,
+          },
+          { sessionKey: getSessionKey(exec) },
+        )
+        appendAudit(exec, { target: r.target, cmd: args.cmd, cwd: r.cwd ?? undefined, exit: r.exit, durationMs: r.durationMs })
+        const v: RemoteToolValue = { kind: 'exec', text: r.stdout, exit: r.exit, durationMs: r.durationMs, cwd: r.cwd }
+        if (r.stderr !== undefined) v.stderr = r.stderr
+        if (r.timedOut) v.timedOut = true
+        if (r.reconnected) v.reconnected = true
+        if (r.truncated !== undefined) v.truncated = r.truncated
+        return v
+      } catch (error) {
+        // Ruling 13：失败的 exec 尝试同样落审计（RM0 Ruling 10 形态），随后原样重抛
+        appendAudit(exec, {
+          target: args.target ?? args.spawn, cmd: args.cmd,
+          error: error instanceof Error ? error.message : String(error),
+        })
+        throw error
+      }
     },
   })
 }
