@@ -80,7 +80,9 @@ export class RemoteDriver {
   /** Ruling P19：roster = 注意力入口——本地廉价扫描（ssh config/docker ps/incus list + 池内活会话），零拨号。 */
   async roster(): Promise<string> {
     const sessions = this.pool.list().map(({ key, snapshot }) => {
-      const target = key.includes('|') ? key.slice(key.indexOf('|') + 1) : key
+      const raw = key.includes('|') ? key.slice(key.indexOf('|') + 1) : key
+      // 模型面不暴露池 key 内部标记：t: 前缀剥掉，s: 渲染为 spawn:
+      const target = raw.startsWith('t:') ? raw.slice(2) : raw.startsWith('s:') ? `spawn:${raw.slice(2)}` : raw
       return { target, state: snapshot.state, idleSec: snapshot.idleMs !== null ? Math.round(snapshot.idleMs / 1000) : null }
     })
     return await renderRoster(sessions, this.opts.rosterRunner !== undefined ? { runner: this.opts.rosterRunner } : {})

@@ -60,6 +60,10 @@ describe('createRemoteTool', () => {
     expect(v.text).toContain('docker containers: corti (running)')
     expect(v.text).toContain('incus containers: ctr-1 (RUNNING)')
     expect(v.text).toContain('live pty sessions: none')
+    const blocks = tool.output!.render!({} as never, v as never)
+    const rendered = (blocks[0] as { type: string; text: string }).text
+    expect(rendered).toBe(v.text)
+    expect(rendered).not.toContain('[exit')
   })
   it('cmd-less target call = on-demand status, honest vocabulary, never "offline"', async () => {
     const d = new RemoteDriver({

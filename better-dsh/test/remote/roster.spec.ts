@@ -23,7 +23,7 @@ const runnerFor = (docker: OneShotResult, incus: OneShotResult) =>
 describe('renderRoster (Ruling P19 — attention entry, local-only, zero dialing)', () => {
   it('lists literal ssh hosts, containers with state, and live sessions', async () => {
     const text = await renderRoster(
-      [{ target: 't:dev4', state: 'ready', idleSec: 12 }],
+      [{ target: 'dev4', state: 'ready', idleSec: 12 }],
       {
         readSshConfig: async () => SSH_CFG,
         runner: runnerFor(
@@ -35,7 +35,7 @@ describe('renderRoster (Ruling P19 — attention entry, local-only, zero dialing
     expect(text).toContain('ssh hosts (~/.ssh/config): dev3, mac (+1 wildcard default blocks, not listed)')
     expect(text).toContain('docker containers: corti (running), jellyfin (exited)')
     expect(text).toContain('incus containers: ctr-1 (RUNNING)')
-    expect(text).toContain('live pty sessions: t:dev4 [ready, idle 12s]')
+    expect(text).toContain('live pty sessions: dev4 [ready, idle 12s]')
   })
 
   it('degrades each section honestly — missing config, failed scans, timeout, empty pool', async () => {
