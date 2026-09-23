@@ -1545,6 +1545,8 @@ export function createRemoteTool(driver: RemoteDriver, opts?: { getSessionKey?: 
 ```
 （`defineTool` / `ToolRunContext` 来自 `@deepseek-ai/dsh-tools`，`ContentBlock` 来自 `@deepseek-ai/dsh-llm`——照 RM0 `src/remote/tool.ts` 的 import 面；RM0 文件在 `.worktrees/remote-tool-rm0/better-dsh/src/remote/tool.ts`，结构样板。）
 
+> **Ruling P13（2026-09-23，Task 8 实测裁决）**：本 Task 代码块以"tsc 零新增"门为准做 6 处**类型层** harmonization（RM0 形态）：①value 信封 `cwd?: string` 且**非 null 才置键**（置 `cwd: null` 会越工具自身声明的 output schema——计划原稿 bug）；②guard 后 `args.target as string` / `args.cmd as string`（带注释）；③spec 的 execute 结果 cast（`Promise<unknown>` 面）；④driver 增量 import 补 `type ProbeOptions`。运行时语义与断言逐字不变。
+
 **driver.ts 增量代码（并入 Task 6 骨架）：**
 
 ```ts
