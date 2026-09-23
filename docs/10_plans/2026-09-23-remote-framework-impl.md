@@ -814,6 +814,7 @@ describe('PtySession over script(1)-hosted PTY (BYO-PTY shape)', () => {
     expect(r.exit).toBe(null)
     expect(r.timedOut).toBe(true)
     expect(s.snapshot.pid).toBe(null)
+    await new Promise((r) => setTimeout(r, 1_200)) // 等组长异步收割（zombie 保留 PGID，同 tick 断言必假阴）
     expect(() => process.kill(-pid!, 0)).toThrow()
     await s.dispose()
   }, 20_000)
