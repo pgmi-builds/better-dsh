@@ -58,18 +58,23 @@ export class RemoteDriver {
     try {
       const routing = this.route(params)
       const result = await this.execute(params, routing, callCtx)
-      this.opts.onAudit?.({
+      this.audit({
         target: routing.display, cmd: params.cmd, cwd: result.cwd ?? undefined,
         exit: result.exit, durationMs: Date.now() - started,
       })
       return result
     } catch (error) {
-      this.opts.onAudit?.({
+      this.audit({
         target: params.target ?? params.spawn ?? '?', cmd: params.cmd,
         error: error instanceof Error ? error.message : String(error), durationMs: Date.now() - started,
       })
       throw error
     }
+  }
+
+  /** Ruling 13：审计 best-effort——钩子抛错不得影响命令路径（成功被毒化成失败+双重审计）。 */
+  private audit(r: RemoteAuditRecord): void {
+    try { this.opts.onAudit?.(r) } catch { /* audit hook failure is never the command's failure */ }
   }
 
   private route(params: RemoteCallParams): { mode: 'oneshot' | 'pty'; display: string; plan?: TargetPlan; spawn?: string } {

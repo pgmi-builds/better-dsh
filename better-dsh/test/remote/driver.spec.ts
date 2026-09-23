@@ -59,13 +59,19 @@ describe('RemoteDriver routing', () => {
     expect(r.stdout).toContain('[truncated: showing last 10 of 100 chars]')
     await d.dispose()
   })
-  it('emits one audit record per attempt (success and failure)', async () => {
+  it('emits one audit record per attempt (success, nonzero exit, and error paths)', async () => {
     const audit: RemoteAuditRecord[] = []
     const d = driverWith({ onAudit: (r) => audit.push(r) })
     await d.call({ target: 'dev4', cmd: 'echo ok' })
-    await d.call({ target: 'no-such-host-xyz', cmd: 'echo no' }).catch(() => {})
-    expect(audit.length).toBeGreaterThanOrEqual(1)
-    expect(audit[0]).toMatchObject({ target: 'dev4', cmd: 'echo ok' })
-    await d.dispose()
+    const d255 = new RemoteDriver({
+      onAudit: (r) => audit.push(r),
+      oneshotArgvFor: () => ['bash', '-c', 'exit 255'],
+    })
+    await d255.call({ target: 'no-such-host-xyz', cmd: 'echo no' }).catch(() => {})
+    await expect(d.call({ target: 'a', spawn: 'b', cmd: 'x' })).rejects.toThrow(/E_PARAMS/)
+    expect(audit[0]).toMatchObject({ target: 'dev4', cmd: 'echo ok', exit: 0 })
+    expect(audit[1]).toMatchObject({ target: 'no-such-host-xyz', exit: 255 })
+    expect(audit[2]).toMatchObject({ target: 'a', cmd: 'x', error: expect.stringContaining('E_PARAMS') })
+    await d.dispose(); await d255.dispose()
   })
 })
