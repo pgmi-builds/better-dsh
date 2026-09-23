@@ -101,6 +101,13 @@ describe('PtySession over script(1)-hosted PTY (BYO-PTY shape)', () => {
     expect(r.output.trim()).toBe('real')
     await s.dispose()
   })
+  it('caps dispatch output collection (tail ring) — runaway output cannot eat host memory', async () => {
+    const s = new PtySession({ key: 'k', argv: ['bash'], ...OPTS })
+    const r = await s.dispatch("printf 'x%.0s' $(seq 1 5000000) ; echo ; echo TAILMARK")
+    expect(r.output.length).toBeLessThanOrEqual(4_000_001)
+    expect(r.output.trim().endsWith('TAILMARK')).toBe(true)
+    await s.dispose()
+  }, 30_000)
   it('grace-expiry kill fallback reaps the process group (snapshot pid null, group gone)', async () => {
     const s = new PtySession({ key: 'k', argv: ['bash'], ...OPTS })
     await s.dispatch('echo warm')
