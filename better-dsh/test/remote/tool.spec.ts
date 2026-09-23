@@ -69,4 +69,17 @@ describe('createRemoteTool', () => {
     expect(v.text).toContain('session: none — dials on first exec')
     expect(v.text).not.toContain('offline')
   })
+  it('failed exec attempts append an error audit record before rethrowing', async () => {
+    const tool = createRemoteTool(fakeDriver())
+    const { exec, appended } = fakeExec()
+    await expect(tool.execute!({ target: 'a', spawn: 'b', cmd: 'x' } as never, exec)).rejects.toThrow(/E_PARAMS/)
+    expect(appended).toHaveLength(1)
+    expect(appended[0]![1]).toMatchObject({ target: 'a', cmd: 'x', error: expect.stringContaining('E_PARAMS') })
+  })
+  it('garbage mode and stdin-without-cmd fail loud before any execution', async () => {
+    const tool = createRemoteTool(fakeDriver())
+    const { exec } = fakeExec()
+    await expect(tool.execute!({ target: 'dev4', cmd: 'x', mode: 'pty ' } as never, exec)).rejects.toThrow(/E_BAD_MODE/)
+    await expect(tool.execute!({ target: 'dev4', stdin: 's' } as never, exec)).rejects.toThrow(/E_STDIN_WITHOUT_CMD/)
+  })
 })
