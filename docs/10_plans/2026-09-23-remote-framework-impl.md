@@ -1686,7 +1686,8 @@ interface RemoteToolValue {
   text: string
   exit: number | null
   durationMs: number
-  cwd?: string | null
+  /** P13：schema 推断为 string——非 null 才置键（`cwd: null` 会越 output schema）。 */
+  cwd?: string
   stderr?: string
   timedOut?: boolean
   reconnected?: boolean
@@ -1775,7 +1776,8 @@ export function createRemoteTool(
           { sessionKey: getSessionKey(exec) },
         )
         appendAudit(exec, { target: r.target, cmd: args.cmd, cwd: r.cwd ?? undefined, exit: r.exit, durationMs: r.durationMs })
-        const v: RemoteToolValue = { kind: 'exec', text: r.stdout, exit: r.exit, durationMs: r.durationMs, cwd: r.cwd }
+        const v: RemoteToolValue = { kind: 'exec', text: r.stdout, exit: r.exit, durationMs: r.durationMs }
+        if (r.cwd !== null) v.cwd = r.cwd
         if (r.stderr !== undefined) v.stderr = r.stderr
         if (r.timedOut) v.timedOut = true
         if (r.reconnected) v.reconnected = true
