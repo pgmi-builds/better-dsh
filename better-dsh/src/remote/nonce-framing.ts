@@ -34,13 +34,14 @@ export function tailWindow(text: string, cap: number): { text: string; truncated
 }
 
 export interface FrameParserEvents {
+  /** 输出文本：feed 路径经 normalize（剥 ANSI/规整换行）；flush 路径为**裸放出**（残余字节原样，勿假设已剥洗）。 */
   onOutput?(text: string): void
   onFrame(frame: PtyFrame): void
 }
 
 export interface NonceFrameParser { feed(chunk: string): void; flush(): void }
 
-const FRAME_BODY_RE = /^(\d+);([^;\x07\x1b]*)(?:\x07|\x1b\\)/
+const FRAME_BODY_RE = /^(\d+);([^\x07\x1b]*)(?:\x07|\x1b\\)/ // cwd 是尾字段：合法路径可含 `;`，只有 BEL/ESC 终止它
 
 /**
  * 单 nonce、单帧解析器：一轮 dispatch 一个实例。只认 `\x1b]133;D;<nonce>;`，

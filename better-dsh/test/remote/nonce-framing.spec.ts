@@ -64,6 +64,22 @@ describe('createNonceFrameParser', () => {
     p.feed(`\x1b]133;D;${nonce};7;\x1b\\`)
     expect(frames).toEqual([{ exit: 7, cwd: null }])
   })
+  it('frames a cwd containing ; (terminal field — only BEL/ST end it)', () => {
+    const nonce = genNonce()
+    const frames: Array<{ exit: number; cwd: string | null }> = []
+    const p = createNonceFrameParser(nonce, { onFrame: (f) => frames.push(f) })
+    p.feed(`\x1b]133;D;${nonce};2;/pa;th\x07`)
+    expect(frames).toEqual([{ exit: 2, cwd: '/pa;th' }])
+  })
+  it('the spec\'s literal static 133-D marker (no nonce field) is ordinary output', () => {
+    const nonce = genNonce()
+    const out: string[] = []
+    const frames: Array<{ exit: number; cwd: string | null }> = []
+    const p = createNonceFrameParser(nonce, { onOutput: (t) => out.push(t), onFrame: (f) => frames.push(f) })
+    p.feed(`ok\n\x1b]133;D;0\x07text${MARK(nonce, 0, '/')}`)
+    expect(frames).toEqual([{ exit: 0, cwd: '/' }])
+    expect(out.join('')).toBe('ok\ntext') // 静态 marker 被 ANSI 剥洗当噪音清掉，正文保留
+  })
 
   it('holds back a partial marker prefix at buffer end; flush releases it', () => {
     const nonce = genNonce()
