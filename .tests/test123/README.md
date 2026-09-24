@@ -52,13 +52,25 @@ better-dsh 从 bundles 摘掉、node_modules 移除）；"回到干净"用上面
   发现机制；`dsh.bundle.patch` 是 host 组合入场券。两者缺一不可，改 manifest 后
   重新 pack + remove/add。
 
-## 热插拔（2026-09-24 实测矩阵：**不是进程内热插拔**）
+## 热插拔（2026-09-24 二次实测修正：**真热插拔**，首测结论作废）
 
-| 操作 | 磁盘/bundles | 运行中的实例 |
+首测"不热"是测量事故：只等了 2 秒就下结论——刷新链（chokidar 写入稳定 + 全量 profile 重载 +
+reconcile 的异步 import/dispose）需要 5~15 秒；且 boot graph 是**每请求从活树渲染**的，不是
+boot 快照（用 web-trust 注入的 zoom-guard 脚本作每请求信号验证过）。
+
+| 操作（daemon 全程不重启） | 生效时间 | 证据 |
 |---|---|---|
-| 运行中 `remove` | node_modules 删除、bundles 摘除 ✔ | **完全无感**：boot graph 仍列 better-dsh，client.js 甚至仍 200（daemon 按 boot 时的 artifact rev 从工件缓存服务，不读磁盘）——页面照旧，是"假在场" |
-| `remove` + 重启 | 同上 | graph 归零，干净 DSH ✔ |
-| 运行中 `add` | 物理安装、bundles 晋级 ✔ | **不感知**：graph 仍无 better-dsh |
-| `add` + 重启 | 同上 | graph 回归 ✔ 两行设置面正常 |
+| profile patch YAML 加 disable 行 | ~6s | zoom-guard 脚本从 HTML 消失、graph 归零 |
+| 恢复 YAML（拔掉 disable） | ~8s | 脚本回归、graph=1 |
+| `dsh plugin remove`（manifest+node_modules） | ~15s | graph 归零、磁盘删除 |
+| `dsh plugin add` tarball | **~5s** | graph=1，浏览器实测两行设置面正常（保存✔） |
 
-结论：**插件入场/退场 = 启动插拔**（组合结构 boot 时定死，`dsh plugin` 走 pnpm 改依赖树，进程不重新解析）——与 guides §5.1 预测一致。真正热的是：client bundle 重建+刷新页面、profile 配置（cordis.patch.yml）热重载。注意 remove 后未重启的窗口期，运行实例会继续服务旧插件界面（artifact 缓存），别被"看起来还在"骗了。
+机制（0.1.7 源码）：HMR 同时 watch `profile.patchPath`、home 层 patch、**profile `package.json`**
+（`hmr/src/index.ts:235-236`）；refresh 走 `readProfilePatches`→`loadProfileDirectory` 全量重载
+（含 bundle 层）→ `reconcileProfilePatches` 活树增删（entry 层）。运行时解析表对 profile
+`node_modules` 是**每次 statSync 的活检查**（resolver route:native 分支），新装包即装即解析。
+
+**仍不热的边界**：`node_modules` 内的**代码替换**——HMR module 层 watcher 显式 ignore
+`**/node_modules`；改已装插件的 lib 代码必须重启（或走 profile 内 lib 覆盖 + 刷新只对
+client 半边有效）。installation-scope 重定向集合进程内冻结（`replace()` 对既有条目变更
+直接 throw "requires a process restart"）。
