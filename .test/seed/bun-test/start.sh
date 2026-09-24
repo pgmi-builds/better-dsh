@@ -4,9 +4,10 @@
 # Unlike test123 (source-level rig), the artifact set here is FIXED per build:
 # a single self-contained executable from dashr/dist/. No symlink farms, no
 # plugin installs, no seed regeneration — the rig is just a HOME path.
-# Discipline (user 2026-09-24): ALWAYS clean profile > start new — the home is
-# wiped before every boot (the artifact is the variable under test, not the
-# data). CLEAN=0 escape exists only for restart-persistence experiments.
+# Discipline (user 2026-09-24, refined same day): restarts KEEP the home by
+# default (resume test — sessions survive); CLEAN=1 opts into a clean boot and
+# still preserves the user-config keep-set (.env, settings.yaml[.imported],
+# .credentials.yaml). The artifact remains the variable under test.
 #
 # Usage:  bash .test/seed/bun-test/start.sh                 # default port 4996
 #         PORT=4986 bash .test/seed/bun-test/start.sh       # override
@@ -16,7 +17,8 @@ set -euo pipefail
 
 PORT="${PORT:-4996}"
 LAN="${LAN:-1}"
-CLEAN="${CLEAN:-1}"   # 1 = wipe home before boot (default, user discipline)
+CLEAN="${CLEAN:-0}"   # 0 = keep home (default: resume/restart keeps sessions+config);
+                      #   CLEAN=1 wipes test data, keeps the user-config keep-set below
 UNIT="dsh-${PORT}-bun-test"
 RELAY="bun-test-lan-${PORT}-relay"
 REPO="$HOME/workspaces/dashr"
@@ -38,11 +40,12 @@ if [ "$CLEAN" = "1" ]; then
   # profiles/storages stay disposable per the clean-boot discipline.
   #   .env                   — provider keys (CUSTOM_*/ZHIPU/…), boot-time load
   #   settings.yaml[.imported] — legacy settings the daemon imported/tombstoned
-  for keep in .env settings.yaml settings.yaml.imported; do
+  for keep in .env settings.yaml settings.yaml.imported .credentials.yaml; do
     [ -f "$HOME_DIR/$keep" ] && cp "$HOME_DIR/$keep" "$HOME_DIR.keep-$keep"
   done
   rm -rf "$HOME_DIR"
-  for keep in .env settings.yaml settings.yaml.imported; do
+  mkdir -p "$HOME_DIR"
+  for keep in .env settings.yaml settings.yaml.imported .credentials.yaml; do
     [ -f "$HOME_DIR.keep-$keep" ] && mv "$HOME_DIR.keep-$keep" "$HOME_DIR/$keep"
   done
 fi
