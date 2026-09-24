@@ -11,7 +11,7 @@
 # Usage:  bash .test/seed/bun-test/start.sh                 # default port 4996
 #         PORT=4986 bash .test/seed/bun-test/start.sh       # override
 #         BIN=dashr/dist/dashr-<ver>-linux-x64 bash …       # pin a binary
-#         CLEAN=0 bash …                                    # keep home (escape)
+#         CLEAN=0 bash …                                    # keep home (resume test)
 set -euo pipefail
 
 PORT="${PORT:-4996}"
@@ -34,7 +34,12 @@ if [ -z "${BIN:-}" ] || [ ! -x "$BIN" ]; then
 fi
 
 if [ "$CLEAN" = "1" ]; then
+  # Credentials are user-entered config, not test data: carry .env across the
+  # wipe (sibling file survives the rm). Sessions/profiles/storages stay
+  # disposable per the clean-boot discipline.
+  [ -f "$HOME_DIR/.env" ] && cp "$HOME_DIR/.env" "$HOME_DIR.env.keep"
   rm -rf "$HOME_DIR"
+  [ -f "$HOME_DIR.env.keep" ] && mv "$HOME_DIR.env.keep" "$HOME_DIR/.env"
 fi
 mkdir -p "$HOME_DIR"
 [ -f "$HOME_DIR/.env" ] || cp ~/.dsh/.env "$HOME_DIR/.env" 2>/dev/null || true
