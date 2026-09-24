@@ -42,6 +42,9 @@ Thumbs.db
 # --- local dsh-test instance data (Dev/Test 1; runtime homes stay OUT of .tests/) ---
 .dsh-test*/
 
+# --- plugin-add rig runtime homes (seed/scripts tracked; home/ is runtime) ---
+.tests/*/home/
+
 # --- bun workstream test home (other session) ---
 .dsh-bun-test/
 
