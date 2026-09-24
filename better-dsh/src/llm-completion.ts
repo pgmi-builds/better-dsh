@@ -98,7 +98,9 @@ export function createLlmCompletionTool(deps: LlmCompletionDeps): ToolDefinition
       }
       const messages: Message[] = [createUserMessage({
         content: [{ type: 'text', text: prompt }],
-        source: { kind: 'plugin', plugin: 'better-dsh' },
+        // dsh session format v4 admits only producer-owned source kinds; the
+        // bare `{ kind: 'plugin', plugin }` wrapper was retired in 0.1.7.
+        source: { kind: 'plugin:better-dsh' },
       })]
       const options: GenerateOptions = {
         provider,
