@@ -52,8 +52,13 @@ better-dsh 从 bundles 摘掉、node_modules 移除）；"回到干净"用上面
   发现机制；`dsh.bundle.patch` 是 host 组合入场券。两者缺一不可，改 manifest 后
   重新 pack + remove/add。
 
-## 热插拔边界（沿 guides 草案 §5）
+## 热插拔（2026-09-24 实测矩阵：**不是进程内热插拔**）
 
-- plugin add / remove = 组合结构变化 → **重启 profile**（start.sh）后生效。
-- client 半边（lib/client）重建 + 刷新页面即生效，无需重启。
-- profile 配置（cordis.patch.yml）默认热重载。
+| 操作 | 磁盘/bundles | 运行中的实例 |
+|---|---|---|
+| 运行中 `remove` | node_modules 删除、bundles 摘除 ✔ | **完全无感**：boot graph 仍列 better-dsh，client.js 甚至仍 200（daemon 按 boot 时的 artifact rev 从工件缓存服务，不读磁盘）——页面照旧，是"假在场" |
+| `remove` + 重启 | 同上 | graph 归零，干净 DSH ✔ |
+| 运行中 `add` | 物理安装、bundles 晋级 ✔ | **不感知**：graph 仍无 better-dsh |
+| `add` + 重启 | 同上 | graph 回归 ✔ 两行设置面正常 |
+
+结论：**插件入场/退场 = 启动插拔**（组合结构 boot 时定死，`dsh plugin` 走 pnpm 改依赖树，进程不重新解析）——与 guides §5.1 预测一致。真正热的是：client bundle 重建+刷新页面、profile 配置（cordis.patch.yml）热重载。注意 remove 后未重启的窗口期，运行实例会继续服务旧插件界面（artifact 缓存），别被"看起来还在"骗了。
