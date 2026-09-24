@@ -14,6 +14,14 @@
 /** The settings namespace the General row reads and writes. */
 export const FAILOVER_SETTINGS_NS = 'failover'
 
+/**
+ * The Loader entry id the failover row composes under. dsh 0.1.7 collapsed the
+ * settings namespace onto entry ids: `remote.settings` describe/update address
+ * the row's patch entry, the entry id IS the settings namespace, and edits
+ * persist as a profile-layer patch override through the config editor.
+ */
+export const FAILOVER_SETTINGS_ENTRY = 'dashr-failover'
+
 /** Failure codes that activate a fallback switch. */
 export const FAILOVER_TRIGGER_CODES: Record<string, true> = {
   AUTH: true,

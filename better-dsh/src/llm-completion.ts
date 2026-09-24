@@ -27,6 +27,17 @@ import type { ContentBlock } from '@deepseek-ai/dsh-llm'
 import { BlockAssembler, createUserMessage } from '@deepseek-ai/dsh-llm'
 import type { GenerateOptions, Message, StreamChunk } from '@deepseek-ai/dsh-llm'
 
+// dsh session format v4: producer-owned source kinds — each producer declares
+// its own kind in the merge-extensible MessageSourceMap (no shared catch-all
+// 'plugin' kind; the v3→v4 migration rewrites `{ kind: 'plugin', plugin }`
+// sources to exactly this shape).
+declare module '@deepseek-ai/dsh-llm' {
+  interface MessageSourceMap {
+    /** LLM completion answers produced by the better-dsh plugin. */
+    'plugin:better-dsh': { kind: 'plugin:better-dsh' }
+  }
+}
+
 /** The `ctx.llm` service surface this tool calls (structural mirror of dsh-llm's LlmRuntime.stream). */
 export interface DASHRLlmSurface {
   stream(options: GenerateOptions): AsyncIterable<StreamChunk>

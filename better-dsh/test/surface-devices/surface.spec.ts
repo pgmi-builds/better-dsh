@@ -109,7 +109,7 @@ async function setupSurface(): Promise<Surface> {
     agentCtx: agentScope.ctx,
     neighbor,
     startSession: async () => {
-      agentEvents(ctx, agent).emit('agent/session-start', { source: 'startup' })
+      agentEvents(ctx, agent).emit('agent/created', { source: 'startup' })
       // The agent install effect is async (2026-09-13 orthogonality reshape:
       // installHashline awaits) — flush so the wrapper registrations land
       // before assertions.

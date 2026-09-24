@@ -16,7 +16,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 // Type-only: the `ctx.remote` face with `remote.settings` / `remote.session`.
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
 import type {} from '@deepseek-ai/dsh-settings/types'
-import { FAILOVER_SETTINGS_NS } from '../config.ts'
+import { FAILOVER_SETTINGS_ENTRY } from '../config.ts'
 import { en, NS, zh } from './locales.ts'
 import { FailoverRow, type FailoverRowInjected, type FailoverRowProps } from './FailoverRow.tsx'
 import { setupMobileLayout } from '../../mobile/client/index.ts'
@@ -61,7 +61,7 @@ export function apply(ctx: ClientContext): void {
         loadConfig: async () => {
           const response = await ctx.remote.settings.describe()
           if (!response.ok) throw new Error(`${response.error.code}: ${response.error.message}`)
-          const view = response.value.namespaces.find((entry) => entry.ns === FAILOVER_SETTINGS_NS)
+          const view = response.value.namespaces.find((entry) => entry.ns === FAILOVER_SETTINGS_ENTRY)
           if (view === undefined) return null
           const value = view.value as { fallback1?: unknown; fallback2?: unknown }
           return {
@@ -71,7 +71,7 @@ export function apply(ctx: ClientContext): void {
           }
         },
         save: async (patch, revision) => {
-          const response = await ctx.remote.settings.update(FAILOVER_SETTINGS_NS, patch, revision)
+          const response = await ctx.remote.settings.update(FAILOVER_SETTINGS_ENTRY, patch, revision)
           if (!response.ok) throw new Error(`${response.error.code}: ${response.error.message}`)
           return response.value.revision
         },

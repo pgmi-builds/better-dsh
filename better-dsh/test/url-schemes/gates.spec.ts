@@ -105,7 +105,7 @@ describe('read wrapper delegate shaping', () => {
       description: 'delegate',
       parameters: params as never,
       output: { schema: {} },
-      execute: async (args) => { calls.push(args as Record<string, unknown>); return returns },
+      execute: async (args: unknown) => { calls.push(args as Record<string, unknown>); return returns },
     } as unknown as ToolDefinition
     return { tool, calls }
   }

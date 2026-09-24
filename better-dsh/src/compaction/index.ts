@@ -9,20 +9,15 @@
  * settings page, and the row config is read once, so there is no way to tune it
  * from the UI. This module adds that surface:
  *
- *   - it installs the `compaction-tuning` settings namespace, whose composition
- *     base layer is this module's spec defaults (a deployment may override them
- *     from a `cordis.patch.yml` row) — so a value written from the General row
- *     persists through the ordinary settings provider and survives a restart;
- *   - on install, and on every committed settings change, it re-applies the
- *     resolved value onto the LIVE engine by replacing `ctx.compaction.config`.
- *
- * Replacing that object reference is sufficient and safe: `compactIfNeeded()`
- * and `summarize()` both re-read `this.config` through `resolveTargetPolicy()`
- * on every event, so a new threshold takes effect at the next step boundary
- * with no restart and no engine reload. Every other policy field (modelPolicies,
- * summarization target, retry counts) is carried over verbatim; `retainRatio` is
- * dropped whenever an absolute `retainTokens` is in force, because the engine
- * treats the two as mutually exclusive.
+ *   - the row's entry IS the `compaction-tuning` settings namespace (dsh 0.1.7
+ *     model): the volatile `thresholdRatio` field is form-editable through
+ *     `remote.settings`, the write lands as a profile-layer patch override on
+ *     this row via the config editor, and the runtime rewrites the resolved
+ *     ref in place — no reload, no restart;
+ *   - it hands the LIVE engine a frozen policy view whose `thresholdRatio` /
+ *     `retainTokens` are getters over the resolved refs, so every engine
+ *     re-read (`compactIfNeeded()` / `summarize()` resolve per event) sees the
+ *     current preference with no re-apply step.
  *
  * Scope limit, upstream and NOT fixable here: the manual `/compact` path calls
  * `selectCompactableRange(session, measurement, 0)` with a hard-coded zero
@@ -37,9 +32,10 @@
  */
 
 import { Context } from '@deepseek-ai/cordis'
+import type { Volatile } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import {
-  COMPACTION_SETTINGS_NS, DEFAULT_RETAIN_TOKENS, DEFAULT_THRESHOLD_RATIO,
+  DEFAULT_RETAIN_TOKENS, DEFAULT_THRESHOLD_RATIO,
   THRESHOLD_MAX_RATIO, THRESHOLD_MIN_RATIO,
   defaultCompactionTuningConfig,
   type CompactionTuningConfig,
@@ -56,18 +52,30 @@ export const name = 'dashr-compaction-tuning'
 export const inject: string[] = []
 
 /**
- * The `compaction-tuning` settings schema.
+ * The row settings schema.
  *
- * `thresholdRatio` is the field the General row drives; `retainTokens` is
- * composition-only (see {@link DEFAULT_RETAIN_TOKENS}) but still validated and
- * applied, so the recency window keeps one source of truth.
+ * `thresholdRatio` is the field the General row drives and is volatile (dsh
+ * 0.1.7 settings model): editing it from Settings lands as a profile-layer
+ * patch override on this row and the resolved ref rewrites in place.
+ * `retainTokens` is composition-only (see {@link DEFAULT_RETAIN_TOKENS}) and
+ * stays non-volatile — form writes never touch it, a patch file still can.
  */
 export const Config = z.object({
   thresholdRatio: z.number()
     .step(0.01).min(THRESHOLD_MIN_RATIO).max(THRESHOLD_MAX_RATIO)
-    .default(DEFAULT_THRESHOLD_RATIO),
+    .default(DEFAULT_THRESHOLD_RATIO)
+    .volatile(),
   retainTokens: z.number().step(1).min(0).default(DEFAULT_RETAIN_TOKENS),
 }) as unknown as z<CompactionTuningConfig>
+
+/**
+ * The row config as cordis hands it over post-resolution: the volatile
+ * threshold arrives as a live reference, not a plain number.
+ */
+export interface ResolvedCompactionTuningConfig {
+  thresholdRatio: number | Volatile<number>
+  retainTokens: number
+}
 
 /** The policy object `compaction-basic` keeps on its mounted service instance. */
 interface LiveCompactionPolicy {
@@ -90,26 +98,33 @@ interface CatalogFace {
 }
 
 /**
- * Install the settings namespace and keep the live compaction engine in sync.
+ * Keep the live compaction engine on the user's threshold preference.
  * @param ctx - host context of the row that owns this capability.
- * @param config - composition base layer; schema defaults fill the rest.
+ * @param config - resolved row config; the volatile threshold is a live ref.
  */
 export function installCompactionTuning(
   ctx: Context,
-  config: CompactionTuningConfig = defaultCompactionTuningConfig,
+  config: ResolvedCompactionTuningConfig = defaultCompactionTuningConfig,
 ): void {
   const logger = ctx.logger('compaction-tuning')
-  let source = (): CompactionTuningConfig => Config(config)
+  const live = (): CompactionTuningConfig => ({
+    thresholdRatio: typeof config.thresholdRatio === 'number'
+      ? config.thresholdRatio
+      : config.thresholdRatio.get() ?? DEFAULT_THRESHOLD_RATIO,
+    retainTokens: config.retainTokens,
+  })
 
   /** Smallest routed context window seen so far (advisory guard, best effort). */
   let minWindow: number | undefined
   let probing = false
 
   /**
-   * Learn the routed context windows so a write can be refused when it would
+   * Learn the routed context windows and log when the current pairing would
    * leave `retainTokens >= floor(window x thresholdRatio)` — the condition
    * under which the engine raises `TargetPressureConfigError` per route and
-   * automatic condensation quietly stops for that route.
+   * automatic condensation quietly stops for that route. Advisory only: the
+   * dsh 0.1.7 settings model has no custom write-validation seam, so a bad
+   * pairing surfaces through the engine's own per-route error instead.
    */
   const probeWindows = (): void => {
     if (probing || minWindow !== undefined) return
@@ -129,7 +144,17 @@ export function installCompactionTuning(
         }
         if (smallest !== undefined) {
           minWindow = smallest
-          logger.info(`smallest routed context window: ${smallest} tokens`)
+          const value = live()
+          const thresholdTokens = Math.floor(smallest * value.thresholdRatio)
+          if (value.retainTokens >= thresholdTokens) {
+            logger.warn(
+              `retainTokens (${value.retainTokens}) is at or above the threshold tokens for the `
+              + `smallest routed window (${smallest} x ${value.thresholdRatio} = ${thresholdTokens}); `
+              + `automatic condensation will error per route until the threshold rises`,
+            )
+          } else {
+            logger.info(`smallest routed context window: ${smallest} tokens`)
+          }
         }
       } catch (error: unknown) {
         logger.warn(
@@ -143,69 +168,50 @@ export function installCompactionTuning(
   }
 
   /**
-   * Overwrite only this module's two fields on the engine's current policy and
-   * hand the engine a fresh frozen object.
-   * @param reason - short diagnostic tag for the log line.
+   * Hand the engine a frozen policy view carrying THIS module's two fields as
+   * getters over the live refs: every engine policy re-read (per event) sees
+   * the current General-row value with no re-apply step. Every other policy
+   * field is carried over verbatim; `retainRatio` is dropped whenever the
+   * absolute `retainTokens` is in force, because the engine treats the two as
+   * mutually exclusive. Idempotent — re-run when the engine mounts late.
    */
-  const push = (reason: string): void => {
+  const installLivePolicy = (reason: string): void => {
     const compaction = ctx.get('compaction') as LiveCompactionEngine | undefined
     if (compaction === undefined) return
     const base = compaction.config
     if (base === undefined) return
-    const value = source()
-    const next: LiveCompactionPolicy = {
+    const current = live()
+    const view: LiveCompactionPolicy = {
       ...base,
-      thresholdRatio: value.thresholdRatio,
-      retainTokens: value.retainTokens,
+      get thresholdRatio() { return live().thresholdRatio },
+      get retainTokens() { return live().retainTokens },
     }
-    delete next.retainRatio
-    compaction.config = Object.freeze(next)
+    delete view.retainRatio
+    compaction.config = Object.freeze(view)
     logger.info(
-      `applied (${reason}): thresholdRatio=${value.thresholdRatio} retainTokens=${value.retainTokens}`,
+      `live policy installed (${reason}): thresholdRatio=${current.thresholdRatio} retainTokens=${current.retainTokens}`,
     )
   }
 
-  // The engine may mount after this row, so re-apply once its service appears.
+  // The engine may mount after this row, so install once its service appears.
   ctx.inject(['compaction'], () => {
-    push('compaction-ready')
+    installLivePolicy('compaction-ready')
     probeWindows()
   })
 
-  ctx.inject(['settings'], (settingsCtx) => {
-    // A deployment may already serve this namespace — a path-mounted copy of
-    // this row during development, or a future native surface. The existing
-    // provider wins; failing the whole plugin over an overlap would be worse
-    // than skipping a duplicate install.
-    if (settingsCtx.settings.get(COMPACTION_SETTINGS_NS) !== undefined) {
-      logger.info('settings namespace already served; leaving it to its owner')
-      return
-    }
-    settingsCtx.settings.installSection(ctx, COMPACTION_SETTINGS_NS, Config, Config(config), {
-      setSource: (current) => {
-        source = current
-      },
-      onChange: () => {
-        push('settings-updated')
-      },
-      validate: (value) => {
-        if (minWindow === undefined) return
-        const thresholdTokens = Math.floor(minWindow * value.thresholdRatio)
-        if (value.retainTokens >= thresholdTokens) {
-          throw new Error(
-            `retainTokens (${value.retainTokens}) must stay below the threshold tokens for every `
-            + `routed model; the smallest window here is ${minWindow}, so ${value.thresholdRatio} `
-            + `leaves only ${thresholdTokens}`,
-          )
-        }
-      },
-    })
-    push('settings-installed')
-    probeWindows()
+  // dsh 0.1.7 settings model: the row entry IS the settings namespace. The
+  // volatile threshold above is form-editable through `remote.settings` (the
+  // write lands as a profile-layer patch override via the config editor), and
+  // the getters re-read it live. The native auto-generated form is suppressed
+  // in favor of this plugin's own General row — the same shape upstream
+  // `agent-default-model` uses for its selection surface.
+  ctx.inject(['settings'], (child) => {
+    child.effect(() => child.settings.configure({ auto: false }, ctx.fiber))
   })
 }
 
 /** Mount the tuning as the row's whole apply (the row config is the settings base). */
-export function apply(ctx: Context, config: CompactionTuningConfig | undefined): void {
+export function apply(ctx: Context, config: ResolvedCompactionTuningConfig | undefined): void {
   installCompactionTuning(ctx, config ?? defaultCompactionTuningConfig)
 }
 

@@ -406,8 +406,12 @@ function messageLabel(message: Message): string {
   if (message.role === 'system') {
     return 'system'
   }
-  const first = message.content[0]
-  return first !== undefined && first.type === 'tool-result' ? 'tool result' : 'user'
+  // dsh 0.1.7: a tool result is a role-'tool' message carrying the raw result
+  // blocks plus a message-level `isError` — there is no 'tool-result' block.
+  if (message.role === 'tool') {
+    return message.isError === true ? 'tool result (error)' : 'tool result'
+  }
+  return 'user'
 }
 
 /** Render typed model content to plain text. */
@@ -422,10 +426,6 @@ function renderBlock(block: ContentBlock): string {
       return block.text
     case 'tool-call':
       return `[tool: ${block.name}] ${block.arguments}`
-    case 'tool-result':
-      return block.isError === true
-        ? `[tool error] ${renderBlocks(block.content)}`
-        : renderBlocks(block.content)
     case 'image':
       return '[image]'
     default: {

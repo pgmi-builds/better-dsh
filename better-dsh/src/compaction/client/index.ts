@@ -15,7 +15,7 @@ import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type { } from '@deepseek-ai/dsh-client-ui-settings/client'
 // Type-only: the `ctx.remote` face with `remote.settings`.
 import type { } from '@deepseek-ai/dsh-api-remotes/client'
-import { COMPACTION_SETTINGS_NS, DEFAULT_THRESHOLD_RATIO } from '../config.ts'
+import { COMPACTION_SETTINGS_ENTRY, COMPACTION_SETTINGS_NS, DEFAULT_THRESHOLD_RATIO } from '../config.ts'
 import { en, zh } from './locales.ts'
 import { CompactionRow, type CompactionRowInjected, type CompactionRowProps } from './CompactionRow.tsx'
 
@@ -46,7 +46,7 @@ export function setupCompactionRow(ctx: ClientContext): void {
         loadConfig: async () => {
           const response = await ctx.remote.settings.describe()
           if (!response.ok) throw new Error(`${response.error.code}: ${response.error.message}`)
-          const view = response.value.namespaces.find((entry) => entry.ns === COMPACTION_SETTINGS_NS)
+          const view = response.value.namespaces.find((entry) => entry.ns === COMPACTION_SETTINGS_ENTRY)
           if (view === undefined) return null
           const value = view.value as { thresholdRatio?: unknown }
           return {
@@ -57,7 +57,7 @@ export function setupCompactionRow(ctx: ClientContext): void {
           }
         },
         save: async (patch, revision) => {
-          const response = await ctx.remote.settings.update(COMPACTION_SETTINGS_NS, patch, revision)
+          const response = await ctx.remote.settings.update(COMPACTION_SETTINGS_ENTRY, patch, revision)
           if (!response.ok) throw new Error(`${response.error.code}: ${response.error.message}`)
           return response.value.revision
         },

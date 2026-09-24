@@ -8,6 +8,14 @@ import type { ToolExecutionToken } from '@deepseek-ai/dsh-tools'
 import { createRunCellTool } from '../src/index.ts'
 import { FakeCellRuntime, fakeRuntime, runCell, setupPresentation } from './helpers.ts'
 
+// dsh session format v4: producer-owned source kinds are merge-declared; the
+// test's additional context declares its own producer kind here.
+declare module '@deepseek-ai/dsh-llm' {
+  interface MessageSourceMap {
+    'plugin:test': { kind: 'plugin:test' }
+  }
+}
+
 /**
  * The `eval` dispatch bridge against an in-repo fake `replRuntime` — the
  * same tier upstream `code-mode.spec.ts` runs: serialization, the nested
@@ -373,7 +381,7 @@ describe('the eval dispatch bridge (result shaping)', () => {
           kind: 'accept' as const,
           additionalContexts: [createUserMessage({
             content: [{ type: 'text' as const, text: `context for ${String(exec.callId)}` }],
-            source: { kind: 'plugin' as const, plugin: 'test' },
+            source: { kind: 'plugin:test' },
           })],
         })
       }

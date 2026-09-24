@@ -50,7 +50,7 @@ async function fakeLlm(
           maxTokens: options.maxTokens,
           sessionId: options.sessionId,
           messageCount: options.messages.length,
-          promptText: String((options.messages[0] as { content: { type: string, text?: string }[] }).content.filter(b => b.type === 'text').map(b => b.text).join(' ')),
+          promptText: String((options.messages[0] as { content: readonly { type: string, text?: string }[] }).content.filter(b => b.type === 'text').map(b => b.text).join(' ')),
           tools: options.tools,
           signalPresent: options.signal !== undefined,
         })

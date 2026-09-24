@@ -83,7 +83,7 @@ export interface DASHRSubagentStartRequest extends DASHRSubagentDelegation {
 /** The terminal outcome of a one-shot subagent run, as the bridge reads it. */
 export interface DASHRSubagentResult {
   /** The child's final assistant output content blocks. */
-  readonly output: ContentBlock[]
+  readonly output: readonly ContentBlock[]
   /** Why the run ended (`'completed'` means `output` is complete). */
   readonly stopReason: string
 }

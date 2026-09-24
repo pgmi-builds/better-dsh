@@ -1111,7 +1111,7 @@ export function apply(ctx: Context, config: Config): void {
     // exempt by construction and the capability stays reachable through the
     // captured-definition bridge.
     const wireMasked = new WeakSet<Agent>()
-    runtimeCtx.on('agent/session-start', ({ agent }) => {
+    runtimeCtx.on('agent/created', ({ agent }) => {
       if (wireMasked.has(agent)) return
       wireMasked.add(agent)
       try {

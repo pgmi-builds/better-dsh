@@ -30,7 +30,7 @@ describe('dsh-url-schemes wiring smoke', () => {
 
     const rootCtx = {
       on: (evt: string, cb: (payload: { agent: unknown }) => void) => {
-        if (evt === 'agent/session-start') sessionStart = cb
+        if (evt === 'agent/created') sessionStart = cb
       },
       logger: () => ({ warn: (m: string) => order.push(`warn:${m}`) }),
       skills: { get: async () => undefined },
@@ -132,7 +132,7 @@ describe('dsh-url-schemes wiring smoke', () => {
     const listeners: Record<string, Array<(exec: unknown, result: unknown, next: () => Promise<unknown>) => Promise<unknown>>> = {}
     const rootCtx = {
       on: (evt: string, cb: (payload: { agent: unknown }) => void) => {
-        if (evt === 'agent/session-start') sessionStart2 = cb
+        if (evt === 'agent/created') sessionStart2 = cb
       },
       logger: () => ({ warn: (m: string) => order.push(`warn:${m}`) }),
       skills: { get: async () => undefined },

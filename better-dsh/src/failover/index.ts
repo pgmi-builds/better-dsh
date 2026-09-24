@@ -15,19 +15,20 @@
  *
  * Plugins-page component row `dashr-failover` → `better-dsh/failover`
  * (spec docs/specs/plugins-page-components/spec.md): the row config IS the
- * composition base layer of the settings section (both slots default "not
- * set"); the live values come from the settings scope once composed.
+ * settings base (both slots default "not set"); since dsh 0.1.7 the row's
+ * entry id doubles as the settings namespace and volatile fields re-read live.
  *
  * @module dashr/failover
  */
 
 import { Context } from '@deepseek-ai/cordis'
+import type { Volatile } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { randomUUID } from 'node:crypto'
 import type { LlmCallConfig } from '@deepseek-ai/dsh-llm'
 import { RetryId } from '@deepseek-ai/dsh-llm-retry'
 import {
-  FAILOVER_SETTINGS_NS, FAILOVER_TRIGGER_CODES,
+  FAILOVER_TRIGGER_CODES,
   defaultFailoverConfig, fallbackRoutes, splitRoute,
   type FailoverConfig,
 } from './config.ts'
@@ -42,11 +43,34 @@ export const name = 'dashr-failover'
  */
 export const inject: string[] = []
 
-/** The `failover` settings schema: two optional fallback slots, both default "not set". */
+/**
+ * The row settings schema: two optional fallback slots, both default "not set".
+ *
+ * Both fields are volatile (dsh 0.1.7 settings model): the settings General
+ * row edits them live through `remote.settings` — the write lands as a
+ * profile-layer patch override on THIS row's entry, the runtime rewrites the
+ * resolved refs in place, and every request re-reads them without a reload.
+ */
 export const Config = z.object({
-  fallback1: z.string().default(''),
-  fallback2: z.string().default(''),
+  fallback1: z.string().default('').volatile(),
+  fallback2: z.string().default('').volatile(),
 }) as unknown as z<FailoverConfig>
+
+/**
+ * The row config as cordis hands it over post-resolution: volatile fields are
+ * live references, not plain strings.
+ */
+export interface ResolvedFailoverConfig {
+  fallback1: string | Volatile<string>
+  fallback2: string | Volatile<string>
+}
+
+/** Read one field that may be a plain value (tests, defaults) or a live ref (composed row). */
+function readSlot(slot: string | Volatile<string>): string {
+  if (typeof slot === 'string') return slot
+  const value = slot.get()
+  return typeof value === 'string' ? value : ''
+}
 
 /** Replace provider/model on a request config, dropping the inherited reasoning effort. */
 function overrideConfig(seed: LlmCallConfig, to: { provider: string; model: string }): LlmCallConfig {
@@ -60,20 +84,28 @@ interface TurnLatch {
   fallbackIndex: number
 }
 
-/** Install the failover. A no-op composition degrades gracefully (empty chain = pass-through). */
-export function installFailover(ctx: Context, config: FailoverConfig = defaultFailoverConfig): void {
+/**
+ * Install the failover. A no-op composition degrades gracefully (empty chain = pass-through).
+ *
+ * dsh 0.1.7 settings model: the row entry IS the settings namespace. The
+ * volatile schema fields above make it form-editable through `remote.settings`
+ * (edits persist as a profile-layer patch override via the config editor), the
+ * resolved refs re-read live per request, and the native auto-generated form
+ * is suppressed in favor of this plugin's own General row — the same shape
+ * upstream `agent-default-model` uses for its selection surface.
+ */
+export function installFailover(ctx: Context, config: ResolvedFailoverConfig = defaultFailoverConfig): void {
   const logger = ctx.logger('llm-failover')
 
-  // Live config source: the schema-resolved entry, swapped for the settings
-  // scope's resolved value when a settings service is composed.
-  let source: () => FailoverConfig = () => Config(config)
-  ctx.inject(['settings'], (sctx) => {
-    sctx.settings.installSection(ctx, FAILOVER_SETTINGS_NS, Config, Config(config), {
-      setSource: (current) => {
-        source = current
-      },
-      onChange: () => {},
-    })
+  // Live chain source: re-read the resolved refs on every request/error so a
+  // General-row edit takes effect at the next attempt with no reload.
+  const source = (): FailoverConfig => ({
+    fallback1: readSlot(config.fallback1),
+    fallback2: readSlot(config.fallback2),
+  })
+
+  ctx.inject(['settings'], (child) => {
+    child.effect(() => child.settings.configure({ auto: false }, ctx.fiber))
   })
 
   // Per-agent turn latch; keyed by agent id, cleared on disposal.
@@ -141,7 +173,7 @@ export function installFailover(ctx: Context, config: FailoverConfig = defaultFa
 }
 
 /** Mount the failover as the row's whole apply (the row config is the chain base). */
-export function apply(ctx: Context, config: FailoverConfig | undefined): void {
+export function apply(ctx: Context, config: ResolvedFailoverConfig | undefined): void {
   installFailover(ctx, config ?? defaultFailoverConfig)
 }
 

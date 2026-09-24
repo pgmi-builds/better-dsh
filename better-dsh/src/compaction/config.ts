@@ -13,6 +13,14 @@
 /** The settings namespace the General row reads and writes. */
 export const COMPACTION_SETTINGS_NS = 'compaction-tuning'
 
+/**
+ * The Loader entry id the tuning row composes under. dsh 0.1.7 collapsed the
+ * settings namespace onto entry ids: `remote.settings` describe/update address
+ * the row's patch entry, the entry id IS the settings namespace, and edits
+ * persist as a profile-layer patch override through the config editor.
+ */
+export const COMPACTION_SETTINGS_ENTRY = 'dashr-compaction-tuning'
+
 /** Upstream `compaction-basic`'s own default: condense at 80% of the window. */
 export const DEFAULT_THRESHOLD_RATIO = 0.8
 
