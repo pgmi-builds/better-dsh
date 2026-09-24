@@ -99,11 +99,11 @@ Node 从 better-dsh 的 `lib/index.js` 出发向上走：
 
 整个 harness 从源码跑，dashr 作为 workspace 成员内嵌其中，与 prod 完全隔离。**2026-09-02 已全链路验证。**
 
-### 组成
+### 组成（2026-09-24 重构：干净 harness + plugin-add 交付形态；旧 monorepo 内嵌流已退役）
 
-- Harness: `./upstream/deepseek-harness`，git tag **`dsh-v0.1.7-rc.1`**（2026-09-24 对齐轮从 0.1.6-alpha.2 切换并全链路验证，报告：`docs/50_test-reports/2026-09-24-v0.1.7-rc.1对齐轮-compaction与failover设置面修复实测报告.md`；prod 亦 0.1.7-rc.1 + better-dsh 0.2.4-b）。**tag 间 `pnpm-workspace.yaml` 有实质改动**——本地 patch（unrun devDep / **root vite devDep（rc.1 新增，apps/desktop tsdown config 运行时 import vite，unrun 缓存目录解析不到）** / storeDir+verifyDeps+zeromq+ssh2 / tsdown `resolveRepositoryRoot` / vite preact 三件套）按手解顺序重放，勿盲 stash pop；备份与逐文件 patch 存 `.scratch/patch-backup-016a2/`（升级到下一 tag 时同法重制）。pnpm-lock.yaml 一律 `git checkout HEAD --` 后由 install 重生成。**构建坑**：①vendor 根下不允许存在任何子目录缺 package.json（vendor 文档放 `.scratch/vendor-docs-017/`，旧备份 `.scratch/vendor-docs/`）；②**checkout -f 换 tag 不清 gitignored `lib/`** —— rc.1 删除了 `packages/settings/settings-file`，其残骸 lib 会被 tsdown workspace glob 吞进并硬错（MISSING_EXPORT `SettingsProvider`），换 tag 后须删孤儿目录；③根 package.json 已补 `unrun@^0.3.1` + `vite@^6.0.0` devDeps。**副本同步**：用 `.scratch/sync-better-dsh-copy.sh`（rsync → devDeps 手术 → install → tsdown → build-client → tsc）；手术名单含 **vendor 家族（`@deepseek-ai/cordis` 必须 `workspace:*`** —— registry 4.0.2 与 vendor 4.0.4 是两个声明实例，增补分裂会产生 ~200 假错）；名单文件 `/tmp/workspace-provides.txt`+`/tmp/vendor-provides.txt` 易失，失效先重建。**0.1.7 settings 模型**：settings namespace = Loader entry id（如 `dashr-failover`），`installSection` 已删；better-dsh 组件用 volatile 字段 + `settings.configure({auto:false})` + configEditor 落盘（upstream `agent-default-model` 范式）。
-- dashr 放置: `packages/better-dsh/better-dsh/`（`./better-dsh` 的副本，workspace 成员）。**rsync 后必打 devDeps 手术（2026-09-11 实证）**：副本 package.json 的 devDependencies 注入 14 个 `@deepseek-ai/dsh-*` = `workspace:*`（dashr src/test 实际 import 的名单：dsh-agent/fs/host-webserver/llm/llm-retry/sandbox/scope/session/session-persistence/settings/skill/subagent/system-prompt/tools）。原因：canonical 的 npm-range optional peers（`>=0.1.2-alpha.1 <0.2.0-0`）在 pnpm 11 严格预发布 semver 下不匹配 workspace `0.1.5-rc.2`（元组规则），autoInstallPeers 落 registry `0.1.2-rc.1` → 副本 node_modules 双身份 → tsc 品牌类型互斥报错。canonical 保持 npm range 不动（发布语义）；手术只在副本。stale `dsh-client-runtime` peerDep 已于 0.2.2-a 在源头删除，rsync 不带回。另: `pnpm-workspace.yaml` allowBuilds 需 `zeromq: true`（better-dsh kernel IPC 依赖）。
-- 用户数据: `DSH_HOME=/home/u1/workspaces/dashr/.dsh-test`。profile `web` 在 `.dsh-test/profiles/web/package.json` 声明 bundles `["@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app", "better-dsh"]` **及 `dependencies.better-dsh: "0.2.4"`（2026-09-21 起；0.1.6 plugin-manager 以 profile dependencies 判定"已安装 bundle"，缺 dependencies 条目 = 插件页卡片不出现，勿删）**，其 node_modules symlink 指向 monorepo 的 `packages/bundle/base`、`packages/bundle/web-app`、`packages/better-dsh/better-dsh`（**勿在测试 profile 跑 pnpm install**——会把 symlink 换成 registry 包）。`.env` 从 `~/.dsh/.env` 拷贝（真实 key）。prod `~/.dsh` 完全不动。profile 种子正本（tracked）在 `.tests/dsh-test1/profiles/web/`（2026-09-22 起 `.tests/` 按 rig 分目录，Dev/Test 1 = `dsh-test1/`；再生步骤见 `.tests/dsh-test1/README.md`）。
+- Harness: `./upstream/deepseek-harness`，git tag **`dsh-v0.1.7-rc.1`**（2026-09-24 全新 clone 重建；本地 patch：unrun devDep / root vite devDep（rc.1 新增，apps/desktop tsdown config 运行时 import vite，unrun 缓存目录解析不到）/ storeDir+verifyDeps+zeromq+ssh2 / tsdown `resolveRepositoryRoot` / vite preact 三件套，重放流程与坑见 `docs/50_test-reports/2026-09-24-v0.1.7-rc.1对齐轮-compaction与failover设置面修复实测报告.md` §四）。**upstream 内不允许出现 better-dsh 的任何内容**（旧 `packages/better-dsh/` 内嵌副本 + devDeps 手术 + sync 脚本已于本轮废除）。
+- better-dsh **独立开发**：devDependencies 不含任何 `@deepseek-ai/*`（范围符号在 peerDependencies = 发布契约）；`node_modules/@deepseek-ai/*` 由 `scripts/link-upstream.mjs` 生成 symlink 农场指向 upstream 物理包——upstream 换 tag 后 farm 自动跟随（目录级 symlink），package.json 零改动。`.npmrc` `legacy-peer-deps=true` 防 npm 自动装 optional peers（tuple 规则会解析到三代前的 0.1.5-rc.3）。开发循环：`npm run build` → `tsc --noEmit`（0 错基线）→ `npx vitest run`（600/601）。
+- 测试 rig **`.tests/test123/`**（现行，README 有完整种子再生步骤）：`home/` = DSH_HOME（gitignored，user data 跨重置保留）；`profiles/node_modules/@deepseek-ai/*` = ③ 层 symlink 农场（同一 `link-upstream.mjs --target`，prod 同构）；profile `web` 的 better-dsh 是 **`dsh plugin add <tarball>` 物理安装**（入场一律走 plugin add；`npm pack` 出交付物 → add → 重启；remove→add 一个来回才能刷新 file: tarball 内容）。旧 `.tests/dsh-test1/` 与 `.dsh-test/` 已退役（磁盘保留，勿再用）。**0.1.7 settings 模型**：namespace = Loader entry id（如 `dashr-failover`），`installSection` 已删；volatile 字段 + `settings.configure({auto:false})` + configEditor 落 profile patch 用户层（upstream `agent-default-model` 范式）。
 
 ### harness 本地 patch（该环境必须，缺一 build 即挂）
 
@@ -122,27 +122,19 @@ pnpm run build      # tsc lib/types + tsdown host/client + vite web + client bui
 ### 启动 / 重启
 
 ```bash
-# ⚠ 2026-09-11 起：测试实例一律用 `bash .tests/dsh-test1/start-4999.sh`（PORT=xxxx 可覆盖）。
-#   默认 = 无中继（superd start-4999.sh 模板：纯 systemd-run，loopback）；仅当 user
-#   要求外网/LAN 直达 **且没有 Caddy 可用** 时加 `LAN=1`（用户态 socat 中继）。
-#   机制事实：webserver 配置只收 127.0.0.1|0.0.0.0 两个字面量（zod union）且 startup
-#   硬拒 0.0.0.0（RCE 安全门）→ 直接绑 LAN IP 不可能；LAN=1 的中继只绑 LAN IP 转发
-#   loopback（⚠ 万不可绑 0.0.0.0——与 loopback 同端口 EADDRINUSE）。2026-09-06 port
-#   3098 首创，2026-09-11 固化进脚本。脚本自带：端口占用拒绝（外来进程）、停旧+等
-#   端口真释放（node drain 竞态）、本 boot token 轮询提取（append 日志防串台）。
-# ⚠ 端口现状（2026-09-11 实证）：4997/4998/4999 被 superd multi-context PoC 占用
-#   （~/workspaces/superd/.scratch/multi-context-poc/poc4-v3-e2e.mjs，独立 DSH_HOME，user 在跑实验勿杀）。
-#   对齐轮实例换可用端口（0.1.5-rc.2 轮用了 4988/unit dsh-4988-test）；若 Caddy test.pc 后端指 4999，
-#   域名叫到的是 superd 实例——域名验收前先对齐端口。下例保留 4999 形参，按实际替换：
-# 首选（agent 从沙箱会话重启时必须用这条；user 从自己终端（非沙箱）也可直接跑下面的裸 node 形式）:
-systemctl --user stop dsh-4999-test 2>/dev/null
-systemd-run --user --unit=dsh-4999-test \
+# 2026-09-24 起：测试实例一律用 `bash .tests/test123/start.sh`（PORT=xxxx 可覆盖，默认 4999；
+# LAN 中继默认开——socat 只绑 LAN IP 转发 loopback；webserver 只收 127.0.0.1|0.0.0.0 字面量
+# 且 startup 硬拒 0.0.0.0，直接绑 LAN IP 不可能）。脚本自带：停旧+等端口真释放、
+# 端口外来占用拒绝、本 boot token 轮询提取（append 日志防串台）。
+# 脚本内部即下面的 canonical 命令（unit dsh-4999-test123 + test123-lan-4999-relay）：
+systemctl --user stop dsh-4999-test123 test123-lan-4999-relay 2>/dev/null
+systemd-run --user --unit=dsh-4999-test123 \
   -p WorkingDirectory=/home/u1/workspaces/dashr/upstream/deepseek-harness \
-  -p Environment=DSH_HOME=/home/u1/workspaces/dashr/.dsh-test \
+  -p Environment=DSH_HOME=/home/u1/workspaces/dashr/.tests/test123/home \
   -p 'Environment="DSH_TRUSTED_HOSTS=test.pc.randomhash.app pc.randomhash.app 192.168.31.130"' \
   -p 'UnsetEnvironment=DISPLAY WAYLAND_DISPLAY' \
-  -p StandardOutput=append:/home/u1/workspaces/dashr/.scratch/dsh-4999.log \
-  -p StandardError=append:/home/u1/workspaces/dashr/.scratch/dsh-4999.log \
+  -p StandardOutput=append:/home/u1/workspaces/dashr/.scratch/dsh-4999-test123.log \
+  -p StandardError=append:/home/u1/workspaces/dashr/.scratch/dsh-4999-test123.log \
   "$(which node)" apps/cli/lib/bin.js web --no-open --port 4999
 # ⚠⚠ 2026-09-22 双平面修复起：boot 必须走**构建产物** `apps/cli/lib/bin.js` + 裸 node，
 #   勿再用 `node --import tsx/esm apps/cli/src/bin.ts`（tsx 源码启动）！
@@ -168,29 +160,30 @@ systemd-run --user --unit=dsh-4999-test \
 
 > **勿从 agent 沙箱化 bash 直接拉 daemon（2026-09-03 实证）**：沙箱内启动的 daemon 继承嵌套沙箱环境，其 bwrap 功能探测（`sandbox-local defaultProbeBwrap`）报 `No permissions to create a new namespace` → `SANDBOX_UNAVAILABLE`（agent bash 无沙箱后端）。systemd-run --user 在沙箱外启动（对齐 prod 形态）；沙箱内连 user bus 会被拒，需单命令 `danger-full-access` 升级。stop/日志：`systemctl --user ... dsh-4999-test` / `.scratch/dsh-4999.log`。
 
-- token 每次启动轮换，从 `.scratch/dsh-4999.log`（或 stdout）取 `?token=…` URL；curl 冒烟需 cookie jar: `curl -c jar -L '<token-url>'`（303 重定向靠 cookie 保认证）。
-- 数据只落 `.dsh-test/`（storages/sessions），与 prod 隔离。
+- token 每次启动轮换，从 `.scratch/dsh-4999-test123.log`（或 start.sh 输出）取 `?token=…` URL；curl 冒烟需 cookie jar: `curl -c jar -L '<token-url>'`（303 重定向靠 cookie 保认证）。
+- 数据只落 `.tests/test123/home/`（sessions/storages），与 prod 隔离；重置只动 `profiles/web`，user data 保留。
 
-### 日常回归循环（recurring）
+### 日常回归循环（recurring，2026-09-24 起：交付形态）
 
-canonical src 在 `./better-dsh/src` → rsync 进 monorepo → 只重建 better-dsh 的 node 半边 → 重启：
+canonical 构建 → 验收走 tarball；快速迭代走 profile 内物理 lib 替换（**只碰 profile，永不碰 upstream**）：
 
 ```bash
-rsync -a --delete --exclude node_modules --exclude lib --exclude .venv-kernel --exclude .uv-cache --exclude docs \
-  ~/workspaces/dashr/better-dsh/ ~/workspaces/dashr/upstream/deepseek-harness/packages/better-dsh/better-dsh/
-cd ~/workspaces/dashr/upstream/deepseek-harness
-pnpm --filter better-dsh exec tsdown
-# ⚠ tsdown 默认 clean lib/ —— 会连带抹掉 lib/client/！client 半必须重跑（直跑 tsx，勿 npm/npx，ENOTDIR 陷阱）：
-cd packages/better-dsh/better-dsh && ../../../node_modules/.bin/tsx scripts/build-client.ts && cd ../../..
-# ⚠ 0.1.5-rc.2 起路径为三级 ../..（packages/node_modules 不再生成，../.. 直跑必 127）
-# 然后重启上面的启动命令
+cd ~/workspaces/dashr/better-dsh && npm run build        # tsdown + build-client
+# 快路径（client 半边改动）：直接覆盖 profile 里的物理安装，刷新页面即生效
+rsync -a --delete lib/ ~/workspaces/dashr/.tests/test123/home/profiles/web/node_modules/better-dsh/lib/
+# host 半边改动：同上覆盖后重启（start.sh）
+# 阶段性验收（发布前必走）：npm pack → remove → add → 重启
+cd ~/workspaces/dashr && DSH_HOME=$PWD/.tests/test123/home node upstream/deepseek-harness/apps/cli/lib/bin.js \
+  plugin --profile web remove better-dsh
+DSH_HOME=$PWD/.tests/test123/home node upstream/deepseek-harness/apps/cli/lib/bin.js \
+  plugin --profile web add $PWD/better-dsh/better-dsh-<version>.tgz
+bash .tests/test123/start.sh
 ```
 
-- **⚠ lib/client 清洗陷阱（2026-09-03 实证，曾致 v0.2.1f mobile 特性在 4999 整体消失）**：tsdown 默认清空 outDir（lib/），`lib/client/` 一并被抹；只跑 rsync→tsdown→重启 的循环 = 服务一个没有 client 半的插件（无 mobile CSS/手势/卡片）。**每次 tsdown 后必须 `tsx scripts/build-client.ts`**（monorepo 根的 tsx 直跑）。验证含 client 探针：narrow 下 `[data-sidebar-collapsed]` computed 首列 0px、`style[data-plugin]` 认领在位。
-
-- 勿在副本里 `npm run build`（prebuild 拷 `../docs`，副本无该目录会失败）。
-- 快速迭代也可直接改副本 src 再 `pnpm --filter better-dsh exec tsdown`，但改动须回填 `./better-dsh`。
-- 验证: `DSH_HOME=/home/u1/workspaces/dashr/.dsh-test npm run dsh -- web --dump-config | grep -A2 dashr-repl`。
+- **⚠ file: tarball 内容更新 pnpm 不自动刷新**（同版本同路径 → `added 0`）：改完包必须 remove → add 一个来回，别信 add 幂等。
+- **⚠ lib/client 清洗陷阱仍在**：tsdown 清空 lib/ 会抹掉 lib/client/，`npm run build`（= tsdown && build-client）已串好两步，勿单跑 tsdown。
+- 验证：boot graph 含 `"id":"better-dsh"`；`/plugins/??better-dsh/client.js&rev=…` 200；Settings/General 两行在（compaction stepper + failover selects）。
+- `--dump-config`：`DSH_HOME=… node upstream/deepseek-harness/apps/cli/lib/bin.js web --dump-config | grep -A2 dashr-repl`。
 
 ### 已验证 / 未验证
 
