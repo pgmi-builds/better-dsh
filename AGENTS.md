@@ -25,7 +25,7 @@
 - **tag 命名空间**：`v*` = better-dsh 插件发布（现行）；distro 发行物启用 `dashr-v*`（首个发行物落地时起用）。
 - **边界纪律**（细则见 `dashr/AGENTS.md`）：不跨目录相对路径 import 源码；distro 消费发布产物（registry 精确版本）或内嵌副本手术模式；组件缺陷一律回 `better-dsh/` 修并发版，distro 跟版本。
 - **拆仓保留**：两目录自包含是拆分前提；出现实质分化（访问控制、受众、上游 pin 节奏）时以 `git filter-repo --subdirectory-filter <dir>` 按目录拆分，历史随行。
-- 上游 checkout（`upstream/`，gitignored 独立仓库）、测试资产（`.tests/`）、测试 home（`.dsh-test*/`，gitignored）为本仓两包共用的验证基座，编排归本文件 §二。
+- 上游 checkout（`upstream/`，gitignored 独立仓库）与测试资产（`.test/`：`seed/` 入库、`home/` gitignored）为本仓两包共用的验证基座，编排归本文件 §二。
 
 ---
 
@@ -98,12 +98,13 @@ Node 从 better-dsh 的 `lib/index.js` 出发向上走：
 ## 二、Dev/Test 1：源码级 4999 实例（upstream checkout + 内嵌 dashr）— 推荐回归路径
 
 整个 harness 从源码跑，dashr 作为 workspace 成员内嵌其中，与 prod 完全隔离。**2026-09-02 已全链路验证。**
+插件开发与测试环境的现行规范见仓库根 `Cordis-dsh-dev-test-guides.md`（冲突以其为准）；本节记录本仓拓扑事实，rig 清单（含 bun distro 产物 rig `bun-test`）见 `.test/README.md`。
 
 ### 组成（2026-09-24 重构：干净 harness + plugin-add 交付形态；旧 monorepo 内嵌流已退役）
 
 - Harness: `./upstream/deepseek-harness`，git tag **`dsh-v0.1.7-rc.1`**（2026-09-24 全新 clone 重建；本地 patch：unrun devDep / root vite devDep（rc.1 新增，apps/desktop tsdown config 运行时 import vite，unrun 缓存目录解析不到）/ storeDir+verifyDeps+zeromq+ssh2 / tsdown `resolveRepositoryRoot` / vite preact 三件套，重放流程与坑见 `docs/50_test-reports/2026-09-24-v0.1.7-rc.1对齐轮-compaction与failover设置面修复实测报告.md` §四）。**upstream 内不允许出现 better-dsh 的任何内容**（旧 `packages/better-dsh/` 内嵌副本 + devDeps 手术 + sync 脚本已于本轮废除）。
 - better-dsh **独立开发**：devDependencies 不含任何 `@deepseek-ai/*`（范围符号在 peerDependencies = 发布契约）；`node_modules/@deepseek-ai/*` 由 `scripts/link-upstream.mjs` 生成 symlink 农场指向 upstream 物理包——upstream 换 tag 后 farm 自动跟随（目录级 symlink），package.json 零改动。`.npmrc` `legacy-peer-deps=true` 防 npm 自动装 optional peers（tuple 规则会解析到三代前的 0.1.5-rc.3）。开发循环：`npm run build` → `tsc --noEmit`（0 错基线）→ `npx vitest run`（600/601）。
-- 测试 rig **`.tests/test123/`**（现行，README 有完整种子再生步骤）：`home/` = DSH_HOME（gitignored，user data 跨重置保留）；`profiles/node_modules/@deepseek-ai/*` = ③ 层 symlink 农场（同一 `link-upstream.mjs --target`，prod 同构）；profile `web` 的 better-dsh 是 **`dsh plugin add <tarball>` 物理安装**（入场一律走 plugin add；`npm pack` 出交付物 → add → 重启；remove→add 一个来回才能刷新 file: tarball 内容）。旧 `.tests/dsh-test1/` 与 `.dsh-test/` 已退役（磁盘保留，勿再用）。**0.1.7 settings 模型**：namespace = Loader entry id（如 `dashr-failover`），`installSection` 已删；volatile 字段 + `settings.configure({auto:false})` + configEditor 落 profile patch 用户层（upstream `agent-default-model` 范式）。
+- 测试 rig **`.test/seed/test123/`**（现行，README 有完整种子再生步骤）：home 在 `.test/home/`（guide §3.3 配对——`compat/` 长寿命开发迭代 + `clean/` 可弃干净启动，`RIG_HOME` 选择、默认 compat；gitignored，user data 跨重置保留）；`profiles/node_modules/@deepseek-ai/*` = ③ 层 symlink 农场（同一 `link-upstream.mjs --target`，prod 同构）；profile `web` 的 better-dsh 是 **`dsh plugin add <tarball>` 物理安装**（入场一律走 plugin add；`npm pack` 出交付物 → add → 重启；remove→add 一个来回才能刷新 file: tarball 内容）。旧 `.tests/dsh-test1/` 与 `.dsh-test/` 已删除（2026-09-24 清理，`.test/` 布局落地）。**0.1.7 settings 模型**：namespace = Loader entry id（如 `dashr-failover`），`installSection` 已删；volatile 字段 + `settings.configure({auto:false})` + configEditor 落 profile patch 用户层（upstream `agent-default-model` 范式）。
 
 ### harness 本地 patch（该环境必须，缺一 build 即挂）
 
@@ -122,7 +123,7 @@ pnpm run build      # tsc lib/types + tsdown host/client + vite web + client bui
 ### 启动 / 重启
 
 ```bash
-# 2026-09-24 起：测试实例一律用 `bash .tests/test123/start.sh`（PORT=xxxx 可覆盖，默认 4999；
+# 2026-09-24 起：测试实例一律用 `bash .test/seed/test123/start.sh`（PORT=xxxx 可覆盖，默认 4999；
 # LAN 中继默认开——socat 只绑 LAN IP 转发 loopback；webserver 只收 127.0.0.1|0.0.0.0 字面量
 # 且 startup 硬拒 0.0.0.0，直接绑 LAN IP 不可能）。脚本自带：停旧+等端口真释放、
 # 端口外来占用拒绝、本 boot token 轮询提取（append 日志防串台）。
@@ -130,7 +131,7 @@ pnpm run build      # tsc lib/types + tsdown host/client + vite web + client bui
 systemctl --user stop dsh-4999-test123 test123-lan-4999-relay 2>/dev/null
 systemd-run --user --unit=dsh-4999-test123 \
   -p WorkingDirectory=/home/u1/workspaces/dashr/upstream/deepseek-harness \
-  -p Environment=DSH_HOME=/home/u1/workspaces/dashr/.tests/test123/home \
+  -p Environment=DSH_HOME=/home/u1/workspaces/dashr/.test/home/compat \
   -p 'Environment="DSH_TRUSTED_HOSTS=test.pc.randomhash.app pc.randomhash.app 192.168.31.130"' \
   -p 'UnsetEnvironment=DISPLAY WAYLAND_DISPLAY' \
   -p StandardOutput=append:/home/u1/workspaces/dashr/.scratch/dsh-4999-test123.log \
@@ -153,7 +154,7 @@ systemd-run --user --unit=dsh-4999-test123 \
 #   （prod dsh.service 同款——否则 directory-picker auto 在图形 env 下选 native，zenity
 #   弹在宿主桌面，经 Caddy 远端访问时 Add workspace 表现为无响应后置灰；2026-09-08 实证）
 # user 终端（非沙箱）等价简式:
-# cd ~/workspaces/dashr/upstream/deepseek-harness && DSH_HOME=~/.dsh-test node apps/cli/lib/bin.js web --no-open --port 4999
+# cd ~/workspaces/dashr/upstream/deepseek-harness && DSH_HOME=~/workspaces/dashr/.test/home/compat node apps/cli/lib/bin.js web --no-open --port 4999
 # ⚠ 旧简式 `npm run dsh -- web …`（内部 tsx 源码启动）自 2026-09-22 起禁止用于回归验收——同上双平面必崩
 #   （`--dump-config` 这类 config 面检查不受影响，仍可用 tsx 形态）。
 ```
@@ -161,7 +162,7 @@ systemd-run --user --unit=dsh-4999-test123 \
 > **勿从 agent 沙箱化 bash 直接拉 daemon（2026-09-03 实证）**：沙箱内启动的 daemon 继承嵌套沙箱环境，其 bwrap 功能探测（`sandbox-local defaultProbeBwrap`）报 `No permissions to create a new namespace` → `SANDBOX_UNAVAILABLE`（agent bash 无沙箱后端）。systemd-run --user 在沙箱外启动（对齐 prod 形态）；沙箱内连 user bus 会被拒，需单命令 `danger-full-access` 升级。stop/日志：`systemctl --user ... dsh-4999-test` / `.scratch/dsh-4999.log`。
 
 - token 每次启动轮换，从 `.scratch/dsh-4999-test123.log`（或 start.sh 输出）取 `?token=…` URL；curl 冒烟需 cookie jar: `curl -c jar -L '<token-url>'`（303 重定向靠 cookie 保认证）。
-- 数据只落 `.tests/test123/home/`（sessions/storages），与 prod 隔离；重置只动 `profiles/web`，user data 保留。
+- 数据只落 `.test/home/compat/`（sessions/storages），与 prod 隔离；重置只动 `profiles/web`，user data 保留。
 
 ### 日常回归循环（recurring，2026-09-24 起：交付形态）
 
@@ -170,14 +171,14 @@ canonical 构建 → 验收走 tarball；快速迭代走 profile 内物理 lib �
 ```bash
 cd ~/workspaces/dashr/better-dsh && npm run build        # tsdown + build-client
 # 快路径（client 半边改动）：直接覆盖 profile 里的物理安装，刷新页面即生效
-rsync -a --delete lib/ ~/workspaces/dashr/.tests/test123/home/profiles/web/node_modules/better-dsh/lib/
+rsync -a --delete lib/ ~/workspaces/dashr/.test/home/compat/profiles/web/node_modules/better-dsh/lib/
 # host 半边改动：同上覆盖后重启（start.sh）
 # 阶段性验收（发布前必走）：npm pack → remove → add → 重启
-cd ~/workspaces/dashr && DSH_HOME=$PWD/.tests/test123/home node upstream/deepseek-harness/apps/cli/lib/bin.js \
+cd ~/workspaces/dashr && DSH_HOME=$PWD/.test/home/compat node upstream/deepseek-harness/apps/cli/lib/bin.js \
   plugin --profile web remove better-dsh
-DSH_HOME=$PWD/.tests/test123/home node upstream/deepseek-harness/apps/cli/lib/bin.js \
+DSH_HOME=$PWD/.test/home/compat node upstream/deepseek-harness/apps/cli/lib/bin.js \
   plugin --profile web add $PWD/better-dsh/better-dsh-<version>.tgz
-bash .tests/test123/start.sh
+bash .test/seed/test123/start.sh
 ```
 
 - **⚠ file: tarball 内容更新 pnpm 不自动刷新**（同版本同路径 → `added 0`）：改完包必须 remove → add 一个来回，别信 add 幂等。

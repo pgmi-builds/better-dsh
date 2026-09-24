@@ -7,6 +7,11 @@ node_modules/
 # --- upstream sources (tracked in their own git repos) ---
 upstream/
 
+# --- dashr distro fork (own git repo; outer repo tracks only its contract files) ---
+dashr/*
+!dashr/AGENTS.md
+!dashr/README.md
+
 # --- graphify knowledge-graph output ---
 graphify-out/
 .graphifyignore
@@ -39,14 +44,5 @@ Thumbs.db
 # --- dsh-better-edit runtime artifact (hash store written into cwd) ---
 .dsh_better_edit/
 
-# --- local dsh-test instance data (Dev/Test 1; runtime homes stay OUT of .tests/) ---
-.dsh-test*/
-
-# --- plugin-add rig runtime homes (seed/scripts tracked; home/ is runtime) ---
-.tests/*/home/
-
-# --- bun workstream test home (other session) ---
-.dsh-bun-test/
-
-# --- ACP test home (shared test-profile data) ---
-.dsh-acp/
+# --- test rig runtime homes (.test/seed is tracked; .test/home is runtime state) ---
+.test/home/

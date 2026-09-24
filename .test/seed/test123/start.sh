@@ -3,11 +3,14 @@
 # checkout serving a profile whose plugins are PHYSICAL installs (tarball via
 # `dsh plugin add`), never workspace symlinks.
 #
-# Usage:  bash .tests/test123/start.sh                 # default port 4999
-#         PORT=4988 bash .tests/test123/start.sh       # override
-#         LAN=0 bash .tests/test123/start.sh           # skip the LAN relay (default on)
+# Usage:  bash .test/seed/test123/start.sh                 # default port 4999
+#         PORT=4988 bash .test/seed/test123/start.sh       # override
+#         LAN=0 bash .test/seed/test123/start.sh           # skip the LAN relay (default on)
+#         RIG_HOME=clean bash .test/seed/test123/start.sh  # boot the disposable clean home
 #
-# Shape (see README.md): DSH_HOME=.tests/test123/home, profile `web`.
+# Shape (see README.md): DSH_HOME=.test/home/${RIG_HOME:-compat}, profile `web`.
+# Home pairing per Cordis-dsh-dev-test-guides.md §3.3: compat = long-lived
+# (format compatibility + dev iteration), clean = disposable clean-boot rig.
 # The home's profiles/node_modules is the ③-layer symlink farm into the
 # upstream checkout (regenerate: node better-dsh/scripts/link-upstream.mjs
 # --target <home>/profiles/node_modules). The profile's own node_modules holds
@@ -16,11 +19,12 @@ set -euo pipefail
 
 PORT="${PORT:-4999}"
 LAN="${LAN:-1}"
+RIG_HOME="${RIG_HOME:-compat}"   # compat | clean (guide §3.3 pairing)
 UNIT="dsh-${PORT}-test123"
 RELAY="test123-lan-${PORT}-relay"
 REPO="$HOME/workspaces/dashr"
 HARNESS="$REPO/upstream/deepseek-harness"
-HOME_DIR="$REPO/.tests/test123/home"
+HOME_DIR="$REPO/.test/home/$RIG_HOME"
 LOG="$REPO/.scratch/dsh-${PORT}-test123.log"
 NODE_BIN="$(which node)"
 LAN_IP=$(hostname -I | awk '{print $1}')

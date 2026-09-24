@@ -6,7 +6,7 @@
  *
  * One generator serves both farms:
  *   - better-dsh's own node_modules (dev typecheck / vitest / tsdown dts)
- *   - .tests/<rig>/home/profiles/node_modules (the prod-shaped ③ layer the
+ *   - .test/home/<rig>/profiles/node_modules (the prod-shaped ③ layer the
  *     profile-level plugin resolves its optional peers through)
  *
  * The symlink targets are DIRECTORIES, not versions: when upstream moves to a

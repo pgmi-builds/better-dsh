@@ -8,35 +8,39 @@ Dev/Test 的现行形态：**干净 harness + 交付物插件**。与 prod 完�
 upstream/deepseek-harness     # 纯上游：tag + 本地构建 patch（见 .scratch/rc1-local.patch 流程）
                               #   不含 better-dsh 任何内容
 better-dsh/                   # 插件 canonical：独立开发（symlink 农场供类型），npm pack 出 tarball
-.tests/test123/
-  start.sh                    # 启动/重启（PORT 可覆盖，默认 4999；LAN 中继默认开）
-  home/                       # DSH_HOME（gitignored；user data 跨重启保留）
+.test/seed/test123/
+  start.sh                    # 启动/重启（PORT/LAN/RIG_HOME 可覆盖；默认 4999/开/compat）
+.test/home/                   # DSH_HOME 根（gitignored；guide §3.3 配对）
+  compat/                     # 长寿命：格式兼容 + 开发迭代（跨重启保留）
     profiles/
       node_modules/@deepseek-ai/*   # ③ 层 symlink 农场 → upstream 物理包
       web/                    # profile：better-dsh 为物理安装（tarball 经 plugin add）
     sessions/ storages/ .env ...
+  clean/                      # 可弃：干净启动专用（guide §4.2 真实用户视角；不含开发中插件）
 ```
 
 ## 建立/重建（种子再生）
 
+以 compat 为例（clean 同形：换路径、且第 2 步的 plugin add 按需——干净原生实例不加）：
+
 ```bash
 # 0) 前提：upstream checkout 在目标 tag 上、已 pnpm install + pnpm run build
 # 1) home + ③ 层农场 + .env
-mkdir -p .tests/test123/home/profiles
-node better-dsh/scripts/link-upstream.mjs --target .tests/test123/home/profiles/node_modules
-cp ~/.dsh/.env .tests/test123/home/.env
+mkdir -p .test/home/compat/profiles
+node better-dsh/scripts/link-upstream.mjs --target .test/home/compat/profiles/node_modules
+cp ~/.dsh/.env .test/home/compat/.env
 # 2) profile 由 plugin add 首次使用时自动初始化；zeromq 构建决策点在
 #    home/profiles/web/pnpm-workspace.yaml 的 allowBuilds 填空（set this to true or false → true）
-DSH_HOME=$PWD/.tests/test123/home node upstream/deepseek-harness/apps/cli/lib/bin.js \
+DSH_HOME=$PWD/.test/home/compat node upstream/deepseek-harness/apps/cli/lib/bin.js \
   plugin --profile web add $PWD/better-dsh/better-dsh-0.2.4-b.tgz
 # 3) 启动
-bash .tests/test123/start.sh
+bash .test/seed/test123/start.sh                    # 或 RIG_HOME=clean bash .test/seed/test123/start.sh
 ```
 
 ## 重置（只清源码依赖，不动 user data）
 
 ```bash
-rm -rf .tests/test123/home/profiles/web
+rm -rf .test/home/compat/profiles/web
 # 然后从上面第 2 步重来（农场、sessions、storages、.env 原地不动）
 ```
 
