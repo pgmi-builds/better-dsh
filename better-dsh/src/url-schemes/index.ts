@@ -314,8 +314,8 @@ export function apply(ctx: Context, config: UrlSchemesConfig | undefined): void 
   for (const scheme of HTTP_SCHEMES) resolver.register(scheme, httpHandler)
 
   const registered = new WeakSet<Agent>()
-  ctx.on('agent/created', ({ agent }) => {
-    if (registered.has(agent)) return
+  ctx.on('agent/created', ({ agent }): undefined => {
+    if (registered.has(agent)) return undefined
     registered.add(agent)
     installAgentTools(ctx, agent, resolver, resolveGates(config)).catch((error) => {
       ctx.logger('dsh-url-schemes').warn(

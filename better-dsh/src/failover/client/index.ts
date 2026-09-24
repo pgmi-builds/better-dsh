@@ -16,6 +16,10 @@ import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 // Type-only: the `ctx.remote` face with `remote.settings` / `remote.session`.
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
 import type {} from '@deepseek-ai/dsh-settings/types'
+// Type-only: the `ctx.slots` face (renderer-owned composition registry).
+import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
+// Type-only: the `ctx.locale` face (this half registers its own namespace).
+import type {} from '@deepseek-ai/dsh-client-locale/client'
 import { FAILOVER_SETTINGS_ENTRY } from '../config.ts'
 import { en, NS, zh } from './locales.ts'
 import { FailoverRow, type FailoverRowInjected, type FailoverRowProps } from './FailoverRow.tsx'
@@ -24,6 +28,13 @@ import { setupCompactionRow } from '../../compaction/client/index.ts'
 
 export type { FailoverRowInjected, FailoverRowProps }
 export { FailoverRow }
+
+declare module '@deepseek-ai/dsh-client-ui-slots' {
+  interface LocaleNamespaceMap {
+    /** The failover General row's copy. */
+    'failover': keyof typeof en
+  }
+}
 
 /** Required services (cordis fiber inject). */
 export const inject = ['slots', 'locale', 'remote', 'remote.settings', 'remote.session']

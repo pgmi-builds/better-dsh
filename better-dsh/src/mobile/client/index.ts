@@ -36,7 +36,10 @@
  */
 
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
-import { admitsSwipeStart, classifySwipeProgress, resolveMobileConfig, type PanelState } from '../gesture.ts'
+import {
+  admitsSwipeStart, classifySwipeProgress, resolveMobileConfig,
+  type MobilePageConfig, type PanelState,
+} from '../gesture.ts'
 
 /** Structural layout face (`ctx.layout`): exactly what this feature calls. */
 interface LayoutPanelFace {
@@ -108,14 +111,7 @@ function closeRightPanel(): void {
 
 /** Page global left by the host half's boot script (see `src/web-trust.ts`). */
 interface DashrMobileGlobal {
-  __DASHR_MOBILE__?: {
-    enabled?: boolean
-    swipeDistancePx?: number
-    dominanceRatio?: number
-    leftEdgeBandPx?: number
-    rightZoneRatio?: number
-    swipeVelocityPxPerMs?: number
-  }
+  __DASHR_MOBILE__?: MobilePageConfig
 }
 
 /**

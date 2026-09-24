@@ -1111,8 +1111,8 @@ export function apply(ctx: Context, config: Config): void {
     // exempt by construction and the capability stays reachable through the
     // captured-definition bridge.
     const wireMasked = new WeakSet<Agent>()
-    runtimeCtx.on('agent/created', ({ agent }) => {
-      if (wireMasked.has(agent)) return
+    runtimeCtx.on('agent/created', ({ agent }): undefined => {
+      if (wireMasked.has(agent)) return undefined
       wireMasked.add(agent)
       try {
         // MUST precede the restrict below (see the comment above): freeze
@@ -1121,10 +1121,10 @@ export function apply(ctx: Context, config: Config): void {
         captureAllTools(runtimeCtx, agent)
         const visible = new Set(agent.ctx.tools.schemas(agent).map(schema => schema.name))
         const deny = [...WIRE_MASKED_NAMES].filter(name => visible.has(name))
-        if (deny.length === 0) return
+        if (deny.length === 0) return undefined
         try {
           agent.ctx.tools.restrict({ deny })
-          return
+          return undefined
         } catch {
           // Fall through: at least one named tool sits on a layer the
           // registry refuses to restrict; mask the rest one by one and

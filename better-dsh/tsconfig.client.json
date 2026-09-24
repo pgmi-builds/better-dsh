@@ -1,0 +1,27 @@
+{
+  // Client-half typecheck lane. `tsconfig.json` excludes src/*/client from the
+  // host lane, so before this file existed the three client halves
+  // (failover / compaction / mobile) were never typechecked anywhere. That hole
+  // is exactly how `IconChevronUpOutline14` — an icon name retired upstream by
+  // 4937343a5e ("feat(web): unify the client visual language") — shipped and
+  // rendered as literal "[object Object]" in the General settings row instead
+  // of failing the build.
+  //
+  // Shape mirrors the upstream client packages: `tsconfig.base.client.json`
+  // (browser libs + `jsx: react-jsx`) and their per-package `tsconfig.client.json`.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "lib": ["ES2024", "DOM", "DOM.Iterable"],
+    // The client halves run in the browser and must not lean on node globals.
+    "types": []
+  },
+  "include": [
+    "src/failover/client",
+    "src/compaction/client",
+    "src/mobile/client",
+    "src/css-modules.d.ts"
+  ],
+  // The parent excludes these three directories; the lane exists to re-include them.
+  "exclude": []
+}

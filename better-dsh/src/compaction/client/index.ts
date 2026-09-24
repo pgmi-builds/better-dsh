@@ -13,6 +13,10 @@ import type { Context as ClientContext } from '@deepseek-ai/cordis'
 // Type-only: pulls the `settings.general.item` slot-contract merge (the
 // General page status row's registration target).
 import type { } from '@deepseek-ai/dsh-client-ui-settings/client'
+// Type-only: the `ctx.slots` face (renderer-owned composition registry).
+import type { } from '@deepseek-ai/dsh-client-ui-renderer/client'
+// Type-only: the `ctx.locale` face (this half registers its own namespace).
+import type { } from '@deepseek-ai/dsh-client-locale/client'
 // Type-only: the `ctx.remote` face with `remote.settings`.
 import type { } from '@deepseek-ai/dsh-api-remotes/client'
 import { COMPACTION_SETTINGS_ENTRY, COMPACTION_SETTINGS_NS, DEFAULT_THRESHOLD_RATIO } from '../config.ts'
@@ -21,6 +25,13 @@ import { CompactionRow, type CompactionRowInjected, type CompactionRowProps } fr
 
 export type { CompactionRowInjected, CompactionRowProps }
 export { CompactionRow }
+
+declare module '@deepseek-ai/dsh-client-ui-slots' {
+  interface LocaleNamespaceMap {
+    /** The compaction General row's copy. */
+    'compaction-tuning': keyof typeof en
+  }
+}
 
 /**
  * Register the dictionaries and the General settings row.

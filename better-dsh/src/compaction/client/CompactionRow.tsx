@@ -17,7 +17,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import {
-  IconChevronDownOutline14, IconChevronUpOutline14,
+  IconChevronDownOutlineRegular, IconChevronUpOutlineRegular,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 // Type-only: the `settings.general.item` SlotMap entry (owner props empty).
@@ -136,7 +136,7 @@ export function CompactionRow({ t, loadConfig, save }: CompactionRowProps): Reac
               disabled={percent === null || percent >= THRESHOLD_MAX_PERCENT}
               onClick={() => { step(THRESHOLD_STEP_PERCENT) }}
             >
-              <IconChevronUpOutline14 size={9} />
+              <IconChevronUpOutlineRegular size={9} />
             </button>
             <button
               type="button"
@@ -145,7 +145,7 @@ export function CompactionRow({ t, loadConfig, save }: CompactionRowProps): Reac
               disabled={percent === null || percent <= THRESHOLD_MIN_PERCENT}
               onClick={() => { step(-THRESHOLD_STEP_PERCENT) }}
             >
-              <IconChevronDownOutline14 size={9} />
+              <IconChevronDownOutlineRegular size={9} />
             </button>
           </span>
         </div>
