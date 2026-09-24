@@ -34,12 +34,17 @@ if [ -z "${BIN:-}" ] || [ ! -x "$BIN" ]; then
 fi
 
 if [ "$CLEAN" = "1" ]; then
-  # Credentials are user-entered config, not test data: carry .env across the
-  # wipe (sibling file survives the rm). Sessions/profiles/storages stay
-  # disposable per the clean-boot discipline.
-  [ -f "$HOME_DIR/.env" ] && cp "$HOME_DIR/.env" "$HOME_DIR.env.keep"
+  # User-entered config survives the wipe (sibling keep-files); sessions/
+  # profiles/storages stay disposable per the clean-boot discipline.
+  #   .env                   — provider keys (CUSTOM_*/ZHIPU/…), boot-time load
+  #   settings.yaml[.imported] — legacy settings the daemon imported/tombstoned
+  for keep in .env settings.yaml settings.yaml.imported; do
+    [ -f "$HOME_DIR/$keep" ] && cp "$HOME_DIR/$keep" "$HOME_DIR.keep-$keep"
+  done
   rm -rf "$HOME_DIR"
-  [ -f "$HOME_DIR.env.keep" ] && mv "$HOME_DIR.env.keep" "$HOME_DIR/.env"
+  for keep in .env settings.yaml settings.yaml.imported; do
+    [ -f "$HOME_DIR.keep-$keep" ] && mv "$HOME_DIR.keep-$keep" "$HOME_DIR/$keep"
+  done
 fi
 mkdir -p "$HOME_DIR"
 [ -f "$HOME_DIR/.env" ] || cp ~/.dsh/.env "$HOME_DIR/.env" 2>/dev/null || true
