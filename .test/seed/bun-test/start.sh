@@ -40,14 +40,22 @@ if [ "$CLEAN" = "1" ]; then
   # profiles/storages stay disposable per the clean-boot discipline.
   #   .env                   — provider keys (CUSTOM_*/ZHIPU/…), boot-time load
   #   settings.yaml[.imported] — legacy settings the daemon imported/tombstoned
-  for keep in .env settings.yaml settings.yaml.imported .credentials.yaml; do
-    [ -f "$HOME_DIR/$keep" ] && cp "$HOME_DIR/$keep" "$HOME_DIR.keep-$keep"
+  KEEPS=(.env settings.yaml settings.yaml.imported .credentials.yaml)
+  mkdir -p "$HOME_DIR.keep-dir/profiles/web"
+  for keep in "${KEEPS[@]}"; do
+    [ -f "$HOME_DIR/$keep" ] && cp "$HOME_DIR/$keep" "$HOME_DIR.keep-dir/$keep"
   done
+  # user-layer settings patch: provider profiles + every settings write land here
+  [ -f "$HOME_DIR/profiles/web/cordis.patch.yml" ] && \
+    cp "$HOME_DIR/profiles/web/cordis.patch.yml" "$HOME_DIR.keep-dir/profiles/web/cordis.patch.yml"
   rm -rf "$HOME_DIR"
-  mkdir -p "$HOME_DIR"
-  for keep in .env settings.yaml settings.yaml.imported .credentials.yaml; do
-    [ -f "$HOME_DIR.keep-$keep" ] && mv "$HOME_DIR.keep-$keep" "$HOME_DIR/$keep"
+  mkdir -p "$HOME_DIR/profiles/web"
+  for keep in "${KEEPS[@]}"; do
+    [ -f "$HOME_DIR.keep-dir/$keep" ] && mv "$HOME_DIR.keep-dir/$keep" "$HOME_DIR/$keep"
   done
+  [ -f "$HOME_DIR.keep-dir/profiles/web/cordis.patch.yml" ] && \
+    mv "$HOME_DIR.keep-dir/profiles/web/cordis.patch.yml" "$HOME_DIR/profiles/web/cordis.patch.yml"
+  rm -rf "$HOME_DIR.keep-dir"
 fi
 mkdir -p "$HOME_DIR"
 [ -f "$HOME_DIR/.env" ] || cp ~/.dsh/.env "$HOME_DIR/.env" 2>/dev/null || true
