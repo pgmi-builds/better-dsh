@@ -81,3 +81,7 @@ boot 快照（用 web-trust 注入的 zoom-guard 脚本作每请求信号验证�
 `**/node_modules`；改已装插件的 lib 代码必须重启（或走 profile 内 lib 覆盖 + 刷新只对
 client 半边有效）。installation-scope 重定向集合进程内冻结（`replace()` 对既有条目变更
 直接 throw "requires a process restart"）。
+
+## 端口纪律（2026-09-26 user 裁决，与 superd rig 同款）
+
+用户主要经 LAN 访问。**4999 = 共用测试口**（Caddy `test.pc.randomhash.app` + 默认 LAN relay 双路）；**非 4999 端口必须带 LAN relay**（本 rig 的 `start.sh` 以 `LAN=1` 为默认自动拉起 socat，只绑 LAN IP；`LAN=0` 仅限本机调试）。4999 被外来进程占用时脚本拒绝并列出占用者——处置二选一：① `PORT=<空闲口>` 换口起（relay 自动跟随）；② **user 明确下令放倒占用者**才放倒，绝不静默 kill。脚本幂等重启自身同名 unit（`dsh-<port>-test123` + `test123-lan-<port>-relay`）不在此限。
