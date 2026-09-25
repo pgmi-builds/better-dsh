@@ -1,0 +1,4218 @@
+{
+ "https://hermes-agent.nousresearch.com/docs/api/plugins.json": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/api/skills.json": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/developer-guide": {
+  "status": null,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/developer-guide/acp-internals": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/developer-guide/adding-platform-adapters": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/developer-guide/adding-providers": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/developer-guide/adding-tools": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/developer-guide/architecture": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/developer-guide/billing-lifecycle": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/developer-guide/browser-provider-plugin": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/developer-guide/browser-supervisor": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/developer-guide/chronos-managed-cron-contract": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/developer-guide/codebase-ownership": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/developer-guide/completion-backlog-delivery": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/developer-guide/context-compression-and-caching": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/developer-guide/context-engine-plugin": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/developer-guide/contributing": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/developer-guide/creating-skills": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/developer-guide/cron-internals": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/developer-guide/desktop-plugin-sdk": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/developer-guide/egress-internals": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/developer-guide/extending-the-cli": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/developer-guide/gateway-internals": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/developer-guide/gateway-monitoring": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/developer-guide/gateway-session-lifecycle": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/developer-guide/image-gen-provider-plugin": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/developer-guide/memory-provider-plugin": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/developer-guide/micro-compaction": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/developer-guide/middleware": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/developer-guide/model-provider-plugin": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/developer-guide/multiplexing-gateway": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/developer-guide/observer-hooks": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/developer-guide/plugin-llm-access": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/developer-guide/plugins": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/developer-guide/programmatic-integration": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/developer-guide/prompt-assembly": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/developer-guide/provider-runtime": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/developer-guide/relay-connector-contract": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/developer-guide/relay-shared-metrics": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/developer-guide/secret-source-plugin": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/developer-guide/session-storage": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/developer-guide/state-db-recovery": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/developer-guide/streaming-tts": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/developer-guide/subagent-lifecycle-api": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/developer-guide/terminal-environment-plugin": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/developer-guide/tools-runtime": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/developer-guide/trajectory-format": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/developer-guide/video-gen-provider-plugin": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/developer-guide/web-search-provider-plugin": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/developer-guide/worktree-ui-dev": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/getting-started/installation": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/getting-started/learning-path": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/getting-started/nix-setup": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/getting-started/platform-support": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/getting-started/quickstart": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/getting-started/termux": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/getting-started/updating": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/guides/agent-email-address": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/guides/automate-with-cron": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/guides/automation-blueprints": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/guides/aws-bedrock": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/guides/azure-foundry": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/guides/cron-script-only": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/guides/cron-troubleshooting": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/guides/daily-briefing-bot": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/guides/delegation-patterns": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/guides/github-pr-review-agent": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/guides/google-gemini": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/guides/google-vertex": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/guides/local-llm-on-mac": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/guides/local-ollama-setup": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/guides/manage-hermes-cloud-with-mcp": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/guides/microsoft-graph-app-registration": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/guides/migrate-from-openclaw": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/guides/minimax-oauth": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/guides/oauth-over-ssh": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/guides/operate-teams-meeting-pipeline": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/guides/pipe-script-output": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/guides/python-library": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/guides/run-hermes-with-nous-portal": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/guides/run-nemotron-3-ultra-free": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/guides/team-telegram-assistant": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/guides/tips": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/guides/use-mcp-with-hermes": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/guides/use-soul-with-hermes": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/guides/use-voice-mode-with-hermes": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/guides/webhook-github-pr-review": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/guides/work-with-skills": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/guides/xai-grok-oauth": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/integrations": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/integrations/buzz": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/integrations/nous-portal": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/integrations/providers": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/plugins": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/reference/automation-blueprints-catalog": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/reference/cli-commands": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/reference/cli-symbols": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/reference/environment-variables": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/reference/faq": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/reference/mcp-config-reference": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/reference/model-catalog": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/reference/optional-skills-catalog": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/reference/profile-commands": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/reference/skills-catalog": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/reference/slash-commands": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/reference/tools-reference": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/reference/toolsets-reference": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/skills": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/bot-mode": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/checkpoints-and-rollback": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/cli": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/configuration": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/configuring-models": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/desktop": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/docker": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/egress": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/egress/iron-proxy": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/egress/network-isolation": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/features/acp": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/features/api-server": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/features/batch-processing": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/features/browser": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/features/built-in-plugins": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/features/code-execution": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/features/codex-app-server-runtime": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/features/computer-use": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/features/context-files": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/features/context-references": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/features/credential-pools": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/features/credential-vault": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/features/cron": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/features/curator": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/features/delegation": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/features/deliverable-mode": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/features/document-extraction": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/features/extending-the-dashboard": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/features/fallback-providers": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/features/goals": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/features/heartbeat": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/features/honcho": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/features/hooks": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/features/image-generation": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/features/kanban": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/features/kanban-multi-gateway": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/features/kanban-tutorial": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/features/kanban-worker-lanes": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/features/loops": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/features/lsp": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/features/mcp": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/features/memory": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/features/memory-providers": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/features/mixture-of-agents": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/features/overview": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/features/personality": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/features/pets": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/features/plugin-catalog": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/features/plugins": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/features/provider-routing": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/features/skills": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/features/skins": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/features/spotify": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/features/subscription-proxy": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/features/tool-gateway": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/features/tool-search": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/features/tools": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/features/tts": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/features/vision": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/features/voice-mode": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/features/wake-word": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/features/web-dashboard": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/features/web-search": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/features/x-search": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/git-worktrees": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/import-from-other-agents": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/local-models": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/managed-scope": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/messaging": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/messaging/a2a": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/messaging/bluebubbles": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/messaging/buzz": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/messaging/dingtalk": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/messaging/discord": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/messaging/email": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/messaging/feishu": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/messaging/google_chat": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/messaging/homeassistant": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/messaging/irc": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/messaging/line": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/messaging/matrix": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/messaging/mattermost": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/messaging/msgraph-webhook": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/messaging/ntfy": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/messaging/open-webui": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/messaging/photon": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/messaging/qqbot": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/messaging/raft": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/messaging/relay": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/messaging/signal": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/messaging/simplex": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/messaging/slack": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/messaging/sms": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/messaging/teams": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/messaging/teams-meetings": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/messaging/telegram": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/messaging/webhooks": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/messaging/wecom": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/messaging/wecom-callback": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/messaging/weixin": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/messaging/whatsapp": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/messaging/whatsapp-cloud": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/messaging/yuanbao": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/multi-connection-desktop": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/multi-profile-gateways": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/profile-distributions": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/profiles": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/secrets": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/secrets/bitwarden": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/secrets/command": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/secrets/onepassword": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/security": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/sessions": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/apple/apple-apple-notes": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/apple/apple-apple-reminders": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/apple/apple-findmy": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/apple/apple-imessage": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-claude-code": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-codex": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-computer-use": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-hermes-agent": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-opencode": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/creative/creative-architecture-diagram": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/creative/creative-ascii-art": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/creative/creative-ascii-video": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/creative/creative-baoyu-infographic": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/creative/creative-claude-design": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/creative/creative-comfyui": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/creative/creative-design-md": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/creative/creative-excalidraw": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/creative/creative-humanizer": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/creative/creative-manim-video": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/creative/creative-p5js": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/creative/creative-popular-web-designs": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/creative/creative-pretext": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/creative/creative-sketch": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/creative/creative-songwriting-and-ai-music": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/devops/devops-sdlc-review": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/email/email-email-inbox-triage": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/email/email-himalaya": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/github/github-codebase-inspection": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/github/github-github-auth": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/github/github-github-code-review": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/github/github-github-issues": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/github/github-github-pr-workflow": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/github/github-github-repo-management": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/media/media-gif-search": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/media/media-songsee": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/media/media-youtube-content": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/mlops/mlops-evaluation-evaluating-llms-harness": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/mlops/mlops-evaluation-weights-and-biases": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/mlops/mlops-huggingface-hub": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/mlops/mlops-inference-llama-cpp": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/mlops/mlops-inference-serving-llms-vllm": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/note-taking/note-taking-obsidian": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/productivity/productivity-airtable": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/productivity/productivity-box": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/productivity/productivity-document-to-action-items": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/productivity/productivity-docx": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/productivity/productivity-google-workspace": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/productivity/productivity-maps": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/productivity/productivity-meeting-action-items": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/productivity/productivity-nano-pdf": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/productivity/productivity-notion": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/productivity/productivity-ocr-and-documents": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/productivity/productivity-pdf": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/productivity/productivity-powerpoint": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/productivity/productivity-product-price-monitor": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/productivity/productivity-teams-meeting-pipeline": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/productivity/productivity-weekly-review-planning": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/productivity/productivity-xlsx": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/research/research-arxiv": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/research/research-blogwatcher": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/research/research-competitor-news-monitor": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/research/research-grounded-citations": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/research/research-llm-wiki": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/research/research-research-paper-writing": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/smart-home/smart-home-openhue": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/social-media/social-media-xurl": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/software-development/software-development-codebase-inspection": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/software-development/software-development-dogfood": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/software-development/software-development-github": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/software-development/software-development-hermes-agent-skill-authoring": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/software-development/software-development-inspecting-hermes-desktop-dom": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/software-development/software-development-node-inspect-debugger": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/software-development/software-development-python-debugpy": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/software-development/software-development-requesting-code-review": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/software-development/software-development-simplify-code": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/software-development/software-development-spike": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/software-development/software-development-systematic-debugging": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/software-development/software-development-test-driven-development": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/web/web-blocked-page-recovery": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/autonomous-ai-agents/autonomous-ai-agents-agent-merge-conflict-arbiter": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/autonomous-ai-agents/autonomous-ai-agents-antigravity-cli": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/autonomous-ai-agents/autonomous-ai-agents-blackbox": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/autonomous-ai-agents/autonomous-ai-agents-dynamic-workflow": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/autonomous-ai-agents/autonomous-ai-agents-grok": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/autonomous-ai-agents/autonomous-ai-agents-honcho": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/autonomous-ai-agents/autonomous-ai-agents-openhands": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/blockchain/blockchain-evm": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/blockchain/blockchain-hyperliquid": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/blockchain/blockchain-solana": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/communication/communication-one-three-one-rule": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/creative/creative-ai-presenter-video": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/creative/creative-archify": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/creative/creative-ascii-art": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/creative/creative-audiocraft-audio-generation": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/creative/creative-auteur": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/creative/creative-baoyu-article-illustrator": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/creative/creative-baoyu-comic": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/creative/creative-comfyui": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/creative/creative-concept-diagrams": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/creative/creative-creative-ideation": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/creative/creative-draw-your-font": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/creative/creative-dream-loop": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/creative/creative-excalidraw": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/creative/creative-heartmula": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/creative/creative-hyperframes": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/creative/creative-impeccable": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/creative/creative-ip-as-logo": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/creative/creative-kanban-video-orchestrator": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/creative/creative-meme-generation": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/creative/creative-mono-color": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/creative/creative-pixel-art": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/creative/creative-pretext": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/creative/creative-simple-english": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/creative/creative-sketch": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/creative/creative-social-media-content-calendar": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/creative/creative-system-atlas": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/creative/creative-tldraw-offline": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/creative/creative-unreal-mcp": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/data-science/data-science-jupyter-notebook": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/devops/devops-actual-setup": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/devops/devops-docker-management": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/devops/devops-hermes-s6-container-supervision": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/devops/devops-inference-sh-cli": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/devops/devops-pinggy-tunnel": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/devops/devops-setup-wizard-generator": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/devops/devops-watchers": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/dogfood/dogfood-adversarial-ux-test": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/email/email-agentmail": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/finance/finance-3-statement-model": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/finance/finance-comps-analysis": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/finance/finance-dcf-model": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/finance/finance-excel-author": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/finance/finance-lbo-model": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/finance/finance-merger-model": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/finance/finance-polymarket": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/finance/finance-pptx-author": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/finance/finance-stocks": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/gaming/gaming-minecraft-modpack-server": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/gaming/gaming-pokemon-player": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/health/health-fitness-nutrition": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/health/health-neuroskill-bci": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mcp/mcp-fastmcp": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mcp/mcp-mcp-oauth-remote-gateway": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mcp/mcp-mcporter": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/migration/migration-openclaw-migration": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-accelerate": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-chroma": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-clip": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-evaluation-evaluating-llms-harness": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-evaluation-weights-and-biases": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-faiss": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-flash-attention": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-guidance": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-huggingface-tokenizers": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-inference-llama-cpp": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-inference-outlines": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-inference-serving-llms-vllm": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-instructor": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-lambda-labs": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-llava": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-modal": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-models-huggingface-hub": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-models-segment-anything-model": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-nemo-curator": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-obliteratus": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-peft": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-pinecone": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-pytorch-fsdp": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-pytorch-lightning": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-qdrant": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-research-dspy": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-saelens": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-simpo": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-slime": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-stable-diffusion": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-tensorrt-llm": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-torchtitan": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-training-axolotl": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-training-trl-fine-tuning": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-training-unsloth": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-whisper": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/payments/payments-mpp-agent": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/payments/payments-stripe-link-cli": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/payments/payments-stripe-projects": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/productivity/productivity-canvas": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/productivity/productivity-decision-questionnaire": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/productivity/productivity-here-now": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/productivity/productivity-live-dashboard": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/productivity/productivity-memento-flashcards": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/productivity/productivity-property-listings": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/productivity/productivity-shop": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/productivity/productivity-shopify": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/productivity/productivity-siyuan": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/productivity/productivity-telephony": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/research/research-bioinformatics": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/research/research-blogwatcher": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/research/research-darwinian-evolver": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/research/research-domain-intel": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/research/research-drug-discovery": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/research/research-duckduckgo-search": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/research/research-gitnexus-explorer": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/research/research-osint-investigation": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/research/research-parallel-cli": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/research/research-pinecone-research": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/research/research-qmd": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/research/research-research-paper-writing": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/research/research-rss-feeds": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/research/research-scrapling": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/research/research-searxng-search": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/security/security-1password": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/security/security-godmode": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/security/security-oss-forensics": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/security/security-sherlock": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/security/security-unbroker": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/security/security-web-pentest": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/smart-home/smart-home-openhue": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/social-media/social-media-reddit-reading": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/software-development/software-development-ast-grep": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/software-development/software-development-code-wiki": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/software-development/software-development-grill-me": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/software-development/software-development-pr-lens": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/software-development/software-development-rest-graphql-debug": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/software-development/software-development-subagent-driven-development": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/web-development/web-development-cloudflare-temporary-deploy": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/web-development/web-development-har-derived-api-client": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/web-development/web-development-page-agent": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/web-development/web-development-publish-site": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/web-development/web-development-scrollcraft": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/yuanbao/yuanbao-yuanbao": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/tui": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/windows-native": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/windows-wsl-quickstart": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-stories": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/acp-internals": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/acp-internals.md": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/adding-platform-adapters": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/adding-platform-adapters.md": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/adding-providers": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/adding-providers.md": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/adding-tools": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/adding-tools.md": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/agent-loop": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/agent-loop.md": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/architecture": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/billing-lifecycle": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/browser-provider-plugin": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/browser-supervisor": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/browser-supervisor.md": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/chronos-managed-cron-contract": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/codebase-ownership": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/completion-backlog-delivery": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/context-compression-and-caching": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/context-compression-and-caching.md": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/context-engine-plugin": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/contributing": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/contributing.md": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/creating-skills": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/creating-skills.md": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/cron-internals": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/cron-internals.md": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/desktop-plugin-sdk": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/egress-internals": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/extending-the-cli": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/extending-the-cli.md": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/gateway-internals": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/gateway-internals.md": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/gateway-monitoring": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/gateway-session-lifecycle": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/image-gen-provider-plugin": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/memory-provider-plugin": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/micro-compaction": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/middleware": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/model-provider-plugin": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/model-provider-plugin.md": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/multiplexing-gateway": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/observer-hooks": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/plugin-llm-access": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/plugins": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/plugins/index.md": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/programmatic-integration": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/prompt-assembly": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/prompt-assembly.md": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/provider-runtime": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/provider-runtime.md": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/relay-connector-contract": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/relay-shared-metrics": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/secret-source-plugin": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/session-storage": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/session-storage.md": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/state-db-recovery": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/streaming-tts": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/subagent-lifecycle-api": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/terminal-environment-plugin": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/tools-runtime": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/tools-runtime.md": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/trajectory-format": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/video-gen-provider-plugin": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/web-search-provider-plugin": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/worktree-ui-dev": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-claude-code": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-codex": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-hermes-agent": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-opencode": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/creative/creative-architecture-diagram": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/creative/creative-baoyu-infographic": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/creative/creative-claude-design": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/creative/creative-design-md": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/creative/creative-humanizer": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/creative/creative-manim-video": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/creative/creative-p5js": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/creative/creative-popular-web-designs": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/email/email-email-inbox-triage": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/email/email-himalaya": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/media/media-youtube-content": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/note-taking/note-taking-obsidian": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/productivity/productivity-airtable": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/productivity/productivity-document-to-action-items": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/productivity/productivity-docx": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/productivity/productivity-google-workspace": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/productivity/productivity-maps": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/productivity/productivity-meeting-action-items": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/productivity/productivity-notion": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/productivity/productivity-pdf": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/productivity/productivity-powerpoint": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/productivity/productivity-product-price-monitor": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/productivity/productivity-teams-meeting-pipeline": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/productivity/productivity-xlsx": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/research/research-arxiv": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/research/research-competitor-news-monitor": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/research/research-grounded-citations": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/social-media/social-media-xurl": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/software-development/software-development-codebase-inspection": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/software-development/software-development-dogfood": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/software-development/software-development-github": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/software-development/software-development-node-inspect-debugger": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/software-development/software-development-requesting-code-review": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/software-development/software-development-simplify-code": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/software-development/software-development-spike": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/software-development/software-development-systematic-debugging": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/software-development/software-development-test-driven-development": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/web/web-blocked-page-recovery": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/optional/autonomous-ai-agents/autonomous-ai-agents-grok": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/optional/creative/creative-comfyui": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/optional/creative/creative-concept-diagrams": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/optional/creative/creative-excalidraw": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/optional/creative/creative-hyperframes": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/optional/creative/creative-kanban-video-orchestrator": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/optional/creative/creative-meme-generation": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/optional/creative/creative-pixel-art": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/optional/email/email-agentmail": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/optional/mcp/mcp-fastmcp": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/optional/mcp/mcp-mcporter": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/optional/mlops/mlops-huggingface-tokenizers": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/optional/mlops/mlops-inference-llama-cpp": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/optional/mlops/mlops-inference-serving-llms-vllm": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/optional/mlops/mlops-obliteratus": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/optional/mlops/mlops-stable-diffusion": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/optional/payments/payments-mpp-agent": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/optional/payments/payments-stripe-link-cli": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/optional/payments/payments-stripe-projects": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/optional/research/research-blogwatcher": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/optional/research/research-osint-investigation": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/optional/research/research-rss-feeds": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/optional/research/research-scrapling": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/optional/social-media/social-media-reddit-reading": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/optional/software-development/software-development-subagent-driven-development": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/getting-started/installation": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/getting-started/installation.md": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/getting-started/learning-path": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/getting-started/nix-setup": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/getting-started/nix-setup.md": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/getting-started/platform-support": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/getting-started/quickstart": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/getting-started/termux": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/getting-started/termux.md": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/getting-started/updating": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/agent-email-address": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/automate-with-cron": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/automate-with-cron.md": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/automation-blueprints": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/aws-bedrock": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/azure-foundry": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/cron-script-only": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/cron-troubleshooting": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/daily-briefing-bot": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/delegation-patterns": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/github-pr-review-agent": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/google-gemini": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/google-vertex": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/local-llm-on-mac": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/local-ollama-setup": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/manage-hermes-cloud-with-mcp": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/microsoft-graph-app-registration": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/migrate-from-openclaw": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/migrate-from-openclaw.md": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/minimax-oauth": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/oauth-over-ssh": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/operate-teams-meeting-pipeline": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/pipe-script-output": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/python-library": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/run-hermes-with-nous-portal": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/run-nemotron-3-ultra-free": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/team-telegram-assistant": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/tips": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/use-mcp-with-hermes": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/use-soul-with-hermes": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/use-voice-mode-with-hermes": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/webhook-github-pr-review": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/work-with-skills": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/xai-grok-oauth": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/integrations": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/integrations/buzz": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/integrations/nous-portal": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/integrations/providers": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/plugins": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/reference/automation-blueprints-catalog": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/reference/cli-commands": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/reference/cli-commands.md": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/reference/cli-symbols": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/reference/environment-variables": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/reference/environment-variables.md": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/reference/faq": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/reference/mcp-config-reference": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/reference/model-catalog": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/reference/optional-skills-catalog": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/reference/profile-commands": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/reference/profile-commands.md": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/reference/skills-catalog": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/reference/slash-commands": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/reference/tools-reference": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/reference/toolsets-reference": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/skills": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/bot-mode": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/checkpoints-and-rollback": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/cli": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/cli.md": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/configuration": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/configuration.md": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/configuring-models": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/desktop": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/docker": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/docker.md": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/egress": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/egress/iron-proxy": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/egress/network-isolation": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/acp": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/api-server": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/batch-processing": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/browser": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/built-in-plugins": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/built-in-plugins.md": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/code-execution": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/codex-app-server-runtime": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/computer-use": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/context-files": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/context-references": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/credential-pools": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/credential-vault": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/cron": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/cron.md": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/curator": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/delegation": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/delegation.md": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/deliverable-mode": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/document-extraction": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/extending-the-dashboard": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/extending-the-dashboard.md": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/fallback-providers": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/goals": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/goals.md": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/heartbeat": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/honcho": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/hooks": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/image-generation": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/kanban": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/kanban-multi-gateway": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/kanban-tutorial": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/kanban-worker-lanes": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/kanban.md": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/loops": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/lsp": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/mcp": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/memory": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/memory-providers": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/memory.md": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/mixture-of-agents": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/overview": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/personality": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/pets": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/plugin-catalog": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/plugins": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/plugins.md": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/provider-routing": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/rl-training": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/rl-training.md": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/skills": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/skills.md": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/skins": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/skins.md": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/spotify": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/subscription-proxy": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/tool-gateway": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/tool-search": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/tools": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/tts": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/vision": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/voice-mode": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/voice-mode.md": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/wake-word": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/web-dashboard": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/web-dashboard.md": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/web-search": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/x-search": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/git-worktrees": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/git-worktrees.md": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/import-from-other-agents": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/local-models": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/managed-scope": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/a2a": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/bluebubbles": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/buzz": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/dingtalk": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/discord": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/email": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/email.md": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/feishu": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/google_chat": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/homeassistant": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/index.md": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/irc": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/line": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/matrix": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/mattermost": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/msgraph-webhook": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/ntfy": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/open-webui": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/photon": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/qqbot": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/raft": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/relay": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/signal": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/simplex": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/slack": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/sms": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/teams": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/teams-meetings": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/telegram": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/webhooks": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/wecom": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/wecom-callback": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/weixin": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/whatsapp": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/whatsapp-cloud": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/whatsapp.md": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/yuanbao": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/multi-connection-desktop": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/multi-profile-gateways": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/profile-distributions": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/profile-distributions.md": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/profiles": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/profiles.md": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/secrets": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/secrets/bitwarden": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/secrets/command": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/secrets/onepassword": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/security": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/security.md": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/sessions": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/apple/apple-apple-notes": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/apple/apple-apple-reminders": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/apple/apple-findmy": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/apple/apple-imessage": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/apple/apple-macos-computer-use": {
+  "status": null,
+  "lang": "zh-Hans",
+  "source": "verify_orphans",
+  "llms": false
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-claude-code": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-codex": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-computer-use": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-hermes-agent": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-hermes-agent.md": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-opencode": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/creative/creative-architecture-diagram": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/creative/creative-ascii-art": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/creative/creative-ascii-video": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/creative/creative-baoyu-comic": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/creative/creative-baoyu-infographic": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/creative/creative-claude-design": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/creative/creative-comfyui": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/creative/creative-design-md": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/creative/creative-excalidraw": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/creative/creative-humanizer": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/creative/creative-manim-video": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/creative/creative-p5js": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/creative/creative-pixel-art": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/creative/creative-popular-web-designs": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/creative/creative-pretext": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/creative/creative-sketch": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/creative/creative-songwriting-and-ai-music": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/devops/devops-sdlc-review": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/email/email-email-inbox-triage": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/email/email-himalaya": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/email/email-himalaya.md": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/github/github-codebase-inspection": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/github/github-github-auth": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/github/github-github-code-review": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/github/github-github-issues": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/github/github-github-pr-workflow": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/github/github-github-repo-management": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/media/media-gif-search": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/media/media-songsee": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/media/media-youtube-content": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/mlops/mlops-evaluation-evaluating-llms-harness": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/mlops/mlops-evaluation-weights-and-biases": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/mlops/mlops-huggingface-hub": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/mlops/mlops-inference-llama-cpp": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/mlops/mlops-inference-serving-llms-vllm": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/note-taking/note-taking-obsidian": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/productivity/productivity-airtable": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/productivity/productivity-box": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/productivity/productivity-document-to-action-items": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/productivity/productivity-docx": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/productivity/productivity-google-workspace": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/productivity/productivity-maps": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/productivity/productivity-meeting-action-items": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/productivity/productivity-nano-pdf": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/productivity/productivity-notion": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/productivity/productivity-ocr-and-documents": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/productivity/productivity-pdf": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/productivity/productivity-powerpoint": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/productivity/productivity-product-price-monitor": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/productivity/productivity-teams-meeting-pipeline": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/productivity/productivity-weekly-review-planning": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/productivity/productivity-xlsx": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/research/research-arxiv": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/research/research-blogwatcher": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/research/research-competitor-news-monitor": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/research/research-grounded-citations": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/research/research-llm-wiki": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/research/research-research-paper-writing": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/smart-home/smart-home-openhue": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/social-media/social-media-xurl": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/software-development/software-development-codebase-inspection": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/software-development/software-development-dogfood": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/software-development/software-development-github": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/software-development/software-development-hermes-agent-skill-authoring": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/software-development/software-development-inspecting-hermes-desktop-dom": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/software-development/software-development-node-inspect-debugger": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/software-development/software-development-python-debugpy": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/software-development/software-development-requesting-code-review": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/software-development/software-development-simplify-code": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/software-development/software-development-spike": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/software-development/software-development-subagent-driven-development": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/software-development/software-development-systematic-debugging": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/software-development/software-development-test-driven-development": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/software-development/software-development-writing-plans": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/web/web-blocked-page-recovery": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/autonomous-ai-agents/autonomous-ai-agents-agent-merge-conflict-arbiter": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/autonomous-ai-agents/autonomous-ai-agents-antigravity-cli": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/autonomous-ai-agents/autonomous-ai-agents-blackbox": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/autonomous-ai-agents/autonomous-ai-agents-dynamic-workflow": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/autonomous-ai-agents/autonomous-ai-agents-grok": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/autonomous-ai-agents/autonomous-ai-agents-honcho": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/autonomous-ai-agents/autonomous-ai-agents-openhands": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/blockchain/blockchain-evm": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/blockchain/blockchain-hyperliquid": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/blockchain/blockchain-solana": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/communication/communication-one-three-one-rule": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/creative/creative-ai-presenter-video": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/creative/creative-archify": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/creative/creative-ascii-art": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/creative/creative-audiocraft-audio-generation": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/creative/creative-auteur": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/creative/creative-baoyu-article-illustrator": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/creative/creative-baoyu-comic": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/creative/creative-comfyui": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/creative/creative-concept-diagrams": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/creative/creative-creative-ideation": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/creative/creative-draw-your-font": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/creative/creative-dream-loop": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/creative/creative-excalidraw": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/creative/creative-heartmula": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/creative/creative-hyperframes": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/creative/creative-impeccable": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/creative/creative-ip-as-logo": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/creative/creative-kanban-video-orchestrator": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/creative/creative-meme-generation": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/creative/creative-mono-color": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/creative/creative-pixel-art": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/creative/creative-pretext": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/creative/creative-simple-english": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/creative/creative-sketch": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/creative/creative-social-media-content-calendar": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/creative/creative-system-atlas": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/creative/creative-tldraw-offline": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/creative/creative-unreal-mcp": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/data-science/data-science-jupyter-notebook": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/devops/devops-actual-setup": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/devops/devops-cli": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/devops/devops-docker-management": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/devops/devops-hermes-s6-container-supervision": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/devops/devops-inference-sh-cli": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/devops/devops-pinggy-tunnel": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/devops/devops-setup-wizard-generator": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/devops/devops-watchers": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/dogfood/dogfood-adversarial-ux-test": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/email/email-agentmail": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/finance/finance-3-statement-model": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/finance/finance-comps-analysis": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/finance/finance-dcf-model": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/finance/finance-excel-author": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/finance/finance-lbo-model": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/finance/finance-merger-model": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/finance/finance-polymarket": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/finance/finance-pptx-author": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/finance/finance-stocks": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/gaming/gaming-minecraft-modpack-server": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/gaming/gaming-pokemon-player": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/health/health-fitness-nutrition": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/health/health-neuroskill-bci": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mcp/mcp-fastmcp": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mcp/mcp-mcp-oauth-remote-gateway": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mcp/mcp-mcporter": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/migration/migration-openclaw-migration": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-accelerate": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-chroma": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-clip": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-evaluation-evaluating-llms-harness": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-evaluation-weights-and-biases": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-faiss": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-flash-attention": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-guidance": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-huggingface-tokenizers": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-inference-llama-cpp": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-inference-outlines": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-inference-serving-llms-vllm": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-instructor": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-lambda-labs": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-llava": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-modal": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-models-huggingface-hub": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-models-segment-anything-model": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-nemo-curator": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-obliteratus": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-peft": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-pinecone": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-pytorch-fsdp": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-pytorch-lightning": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-qdrant": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-research-dspy": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-saelens": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-simpo": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-slime": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-stable-diffusion": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-tensorrt-llm": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-torchtitan": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-training-axolotl": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-training-trl-fine-tuning": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-training-unsloth": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-whisper": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/payments/payments-mpp-agent": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/payments/payments-stripe-link-cli": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/payments/payments-stripe-projects": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/productivity/productivity-canvas": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/productivity/productivity-decision-questionnaire": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/productivity/productivity-here-now": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/productivity/productivity-live-dashboard": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/productivity/productivity-memento-flashcards": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/productivity/productivity-property-listings": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/productivity/productivity-shop": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/productivity/productivity-shopify": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/productivity/productivity-siyuan": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/productivity/productivity-telephony": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/research/research-bioinformatics": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/research/research-blogwatcher": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/research/research-darwinian-evolver": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/research/research-domain-intel": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/research/research-drug-discovery": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/research/research-duckduckgo-search": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/research/research-gitnexus-explorer": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/research/research-osint-investigation": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/research/research-parallel-cli": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/research/research-pinecone-research": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/research/research-qmd": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/research/research-research-paper-writing": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/research/research-rss-feeds": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/research/research-scrapling": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/research/research-searxng-search": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/security/security-1password": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/security/security-godmode": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/security/security-oss-forensics": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/security/security-sherlock": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/security/security-unbroker": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/security/security-web-pentest": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/smart-home/smart-home-openhue": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/social-media/social-media-reddit-reading": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/software-development/software-development-ast-grep": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/software-development/software-development-code-wiki": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/software-development/software-development-grill-me": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/software-development/software-development-pr-lens": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/software-development/software-development-rest-graphql-debug": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/software-development/software-development-subagent-driven-development": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/web-development/web-development-cloudflare-temporary-deploy": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/web-development/web-development-har-derived-api-client": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/web-development/web-development-page-agent": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/web-development/web-development-publish-site": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/web-development/web-development-scrollcraft": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/yuanbao/yuanbao-yuanbao": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/tui": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/tui.md": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/windows-native": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/windows-native.md": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/windows-wsl-quickstart": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/windows-wsl-quickstart.md": {
+  "status": null,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-stories": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs": {
+  "status": 200,
+  "lang": "en"
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans": {
+  "status": 200,
+  "lang": "zh-Hans"
+ },
+ "https://hermes-agent.nousresearch.com/docs/developer-guide/cli-internals": {
+  "status": 200,
+  "lang": "en",
+  "source": "verify_orphans",
+  "llms": true
+ },
+ "https://hermes-agent.nousresearch.com/docs/guides/desktop-native-signin": {
+  "status": 200,
+  "lang": "en",
+  "source": "verify_orphans",
+  "llms": true
+ },
+ "https://hermes-agent.nousresearch.com/docs/guides/secure-hermes-on-a-work-machine": {
+  "status": 200,
+  "lang": "en",
+  "source": "verify_orphans",
+  "llms": true
+ },
+ "https://hermes-agent.nousresearch.com/docs/guides/troubleshooting-agent-quality": {
+  "status": 200,
+  "lang": "en",
+  "source": "verify_orphans",
+  "llms": true
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-merge-reconciler": {
+  "status": 200,
+  "lang": "en",
+  "source": "verify_orphans",
+  "llms": false
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/github/github-github-issue-to-pr": {
+  "status": 200,
+  "lang": "en",
+  "source": "verify_orphans",
+  "llms": false
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/productivity/productivity-session-librarian": {
+  "status": 200,
+  "lang": "en",
+  "source": "verify_orphans",
+  "llms": false
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/research/research-blocked-page-recovery": {
+  "status": 200,
+  "lang": "en",
+  "source": "verify_orphans",
+  "llms": false
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/skills/google-workspace": {
+  "status": 200,
+  "lang": "en",
+  "source": "verify_orphans",
+  "llms": true
+ },
+ "https://hermes-agent.nousresearch.com/docs/user-guide/which-file-does-what": {
+  "status": 200,
+  "lang": "en",
+  "source": "verify_orphans",
+  "llms": true
+ },
+ "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/google-workspace": {
+  "status": 200,
+  "lang": "zh-Hans",
+  "source": "verify_orphans",
+  "llms": false
+ }
+}

@@ -1,0 +1,305 @@
+{
+ "ok": [],
+ "bad": [
+  [
+   "https://hermes-agent.nousresearch.com/docs/developer-guide",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-claude-code",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-codex",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-hermes-agent",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-opencode",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/creative/creative-architecture-diagram",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/creative/creative-baoyu-infographic",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/creative/creative-claude-design",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/creative/creative-design-md",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/creative/creative-humanizer",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/creative/creative-manim-video",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/creative/creative-p5js",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/creative/creative-popular-web-designs",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/email/email-email-inbox-triage",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/email/email-himalaya",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/media/media-youtube-content",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/note-taking/note-taking-obsidian",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/productivity/productivity-airtable",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/productivity/productivity-document-to-action-items",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/productivity/productivity-docx",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/productivity/productivity-google-workspace",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/productivity/productivity-maps",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/productivity/productivity-meeting-action-items",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/productivity/productivity-notion",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/productivity/productivity-pdf",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/productivity/productivity-powerpoint",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/productivity/productivity-product-price-monitor",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/productivity/productivity-teams-meeting-pipeline",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/productivity/productivity-xlsx",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/research/research-arxiv",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/research/research-competitor-news-monitor",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/research/research-grounded-citations",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/social-media/social-media-xurl",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/software-development/software-development-codebase-inspection",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/software-development/software-development-dogfood",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/software-development/software-development-github",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/software-development/software-development-node-inspect-debugger",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/software-development/software-development-requesting-code-review",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/software-development/software-development-simplify-code",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/software-development/software-development-spike",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/software-development/software-development-systematic-debugging",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/software-development/software-development-test-driven-development",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/bundled/web/web-blocked-page-recovery",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/optional/autonomous-ai-agents/autonomous-ai-agents-grok",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/optional/creative/creative-comfyui",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/optional/creative/creative-concept-diagrams",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/optional/creative/creative-excalidraw",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/optional/creative/creative-hyperframes",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/optional/creative/creative-kanban-video-orchestrator",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/optional/creative/creative-meme-generation",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/optional/creative/creative-pixel-art",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/optional/email/email-agentmail",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/optional/mcp/mcp-fastmcp",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/optional/mcp/mcp-mcporter",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/optional/mlops/mlops-huggingface-tokenizers",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/optional/mlops/mlops-inference-llama-cpp",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/optional/mlops/mlops-inference-serving-llms-vllm",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/optional/mlops/mlops-obliteratus",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/optional/mlops/mlops-stable-diffusion",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/optional/payments/payments-mpp-agent",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/optional/payments/payments-stripe-link-cli",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/optional/payments/payments-stripe-projects",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/optional/research/research-blogwatcher",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/optional/research/research-osint-investigation",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/optional/research/research-rss-feeds",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/optional/research/research-scrapling",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/optional/social-media/social-media-reddit-reading",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/skills/optional/software-development/software-development-subagent-driven-development",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/rl-training",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/apple/apple-macos-computer-use",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/creative/creative-baoyu-comic",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/creative/creative-pixel-art",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/software-development/software-development-subagent-driven-development",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/software-development/software-development-writing-plans",
+   "HTTP Error 404: Not Found"
+  ],
+  [
+   "https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/devops/devops-cli",
+   "HTTP Error 404: Not Found"
+  ]
+ ]
+}

@@ -13,11 +13,15 @@ better-dsh/                   # 插件 canonical：独立开发（symlink 农场
 .test/home/                   # DSH_HOME 根（gitignored；guide §3.3 配对）
   compat/                     # 长寿命：格式兼容 + 开发迭代（跨重启保留）
     profiles/
-      node_modules/@deepseek-ai/*   # ③ 层 symlink 农场 → upstream 物理包
       web/                    # profile：better-dsh 为物理安装（tarball 经 plugin add）
     sessions/ storages/ .env ...
   clean/                      # 可弃：干净启动专用（guide §4.2 真实用户视角；不含开发中插件）
 ```
+
+解析模型 = 0.1.7 官方契约，与 prod 同构：harness 包由 **loader 安装域拦截**供给
+（installation scope = upstream checkout，进程内冻结）；profile 树只装插件与其真实依赖。
+`profiles/node_modules` symlink 农场**已废除**（2026-09-26 删除——拦截已供给全部 harness
+面，农场是 0.1.6 时代装置；插件的 optional peers 走拦截，无需任何投影层）。
 
 ## 建立/重建（种子再生）
 
@@ -25,9 +29,8 @@ better-dsh/                   # 插件 canonical：独立开发（symlink 农场
 
 ```bash
 # 0) 前提：upstream checkout 在目标 tag 上、已 pnpm install + pnpm run build
-# 1) home + ③ 层农场 + .env
+# 1) home + .env
 mkdir -p .test/home/compat/profiles
-node better-dsh/scripts/link-upstream.mjs --target .test/home/compat/profiles/node_modules
 cp ~/.dsh/.env .test/home/compat/.env
 # 2) profile 由 plugin add 首次使用时自动初始化；zeromq 构建决策点在
 #    home/profiles/web/pnpm-workspace.yaml 的 allowBuilds 填空（set this to true or false → true）
@@ -41,7 +44,7 @@ bash .test/seed/test123/start.sh                    # 或 RIG_HOME=clean bash .t
 
 ```bash
 rm -rf .test/home/compat/profiles/web
-# 然后从上面第 2 步重来（农场、sessions、storages、.env 原地不动）
+# 然后从上面第 2 步重来（sessions、storages、.env 原地不动）
 ```
 
 专门测卸载语义时才走 `plugin --profile web remove better-dsh`（reconcile 自动把

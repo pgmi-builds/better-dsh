@@ -1,0 +1,928 @@
+# Live Hermes docs pages (HTTP 200): 919
+# resolved to a local file: 911  (of which zh->EN fallback: 138)
+# no single source file (see tail of this file): 8
+
+https://hermes-agent.nousresearch.com/docs	-> src/docs/index.mdx
+https://hermes-agent.nousresearch.com/docs/developer-guide/acp-internals	-> src/docs/developer-guide/acp-internals.md
+https://hermes-agent.nousresearch.com/docs/developer-guide/adding-platform-adapters	-> src/docs/developer-guide/adding-platform-adapters.md
+https://hermes-agent.nousresearch.com/docs/developer-guide/adding-providers	-> src/docs/developer-guide/adding-providers.md
+https://hermes-agent.nousresearch.com/docs/developer-guide/adding-tools	-> src/docs/developer-guide/adding-tools.md
+https://hermes-agent.nousresearch.com/docs/developer-guide/agent-loop	-> src/docs/developer-guide/agent-loop.md
+https://hermes-agent.nousresearch.com/docs/developer-guide/architecture	-> src/docs/developer-guide/architecture.md
+https://hermes-agent.nousresearch.com/docs/developer-guide/billing-lifecycle	-> src/docs/developer-guide/billing-lifecycle.md
+https://hermes-agent.nousresearch.com/docs/developer-guide/browser-provider-plugin	-> src/docs/developer-guide/browser-provider-plugin.md
+https://hermes-agent.nousresearch.com/docs/developer-guide/browser-supervisor	-> src/docs/developer-guide/browser-supervisor.md
+https://hermes-agent.nousresearch.com/docs/developer-guide/chronos-managed-cron-contract	-> src/docs/developer-guide/chronos-managed-cron-contract.md
+https://hermes-agent.nousresearch.com/docs/developer-guide/cli-internals	-> src/docs/developer-guide/cli-internals.md
+https://hermes-agent.nousresearch.com/docs/developer-guide/codebase-ownership	-> src/docs/developer-guide/codebase-ownership.md
+https://hermes-agent.nousresearch.com/docs/developer-guide/completion-backlog-delivery	-> src/docs/developer-guide/completion-backlog-delivery.md
+https://hermes-agent.nousresearch.com/docs/developer-guide/context-compression-and-caching	-> src/docs/developer-guide/context-compression-and-caching.md
+https://hermes-agent.nousresearch.com/docs/developer-guide/context-engine-plugin	-> src/docs/developer-guide/context-engine-plugin.md
+https://hermes-agent.nousresearch.com/docs/developer-guide/contributing	-> src/docs/developer-guide/contributing.md
+https://hermes-agent.nousresearch.com/docs/developer-guide/creating-skills	-> src/docs/developer-guide/creating-skills.md
+https://hermes-agent.nousresearch.com/docs/developer-guide/cron-internals	-> src/docs/developer-guide/cron-internals.md
+https://hermes-agent.nousresearch.com/docs/developer-guide/desktop-plugin-sdk	-> src/docs/developer-guide/desktop-plugin-sdk.md
+https://hermes-agent.nousresearch.com/docs/developer-guide/egress-internals	-> src/docs/developer-guide/egress-internals.md
+https://hermes-agent.nousresearch.com/docs/developer-guide/extending-the-cli	-> src/docs/developer-guide/extending-the-cli.md
+https://hermes-agent.nousresearch.com/docs/developer-guide/gateway-internals	-> src/docs/developer-guide/gateway-internals.md
+https://hermes-agent.nousresearch.com/docs/developer-guide/gateway-monitoring	-> src/docs/developer-guide/gateway-monitoring.md
+https://hermes-agent.nousresearch.com/docs/developer-guide/gateway-session-lifecycle	-> src/docs/developer-guide/gateway-session-lifecycle.md
+https://hermes-agent.nousresearch.com/docs/developer-guide/image-gen-provider-plugin	-> src/docs/developer-guide/image-gen-provider-plugin.md
+https://hermes-agent.nousresearch.com/docs/developer-guide/memory-provider-plugin	-> src/docs/developer-guide/memory-provider-plugin.md
+https://hermes-agent.nousresearch.com/docs/developer-guide/micro-compaction	-> src/docs/developer-guide/micro-compaction.md
+https://hermes-agent.nousresearch.com/docs/developer-guide/middleware	-> src/docs/developer-guide/middleware.md
+https://hermes-agent.nousresearch.com/docs/developer-guide/model-provider-plugin	-> src/docs/developer-guide/model-provider-plugin.md
+https://hermes-agent.nousresearch.com/docs/developer-guide/multiplexing-gateway	-> src/docs/developer-guide/multiplexing-gateway.md
+https://hermes-agent.nousresearch.com/docs/developer-guide/observer-hooks	-> src/docs/developer-guide/observer-hooks.md
+https://hermes-agent.nousresearch.com/docs/developer-guide/plugin-llm-access	-> src/docs/developer-guide/plugin-llm-access.md
+https://hermes-agent.nousresearch.com/docs/developer-guide/plugins	-> src/docs/developer-guide/plugins/index.md
+https://hermes-agent.nousresearch.com/docs/developer-guide/programmatic-integration	-> src/docs/developer-guide/programmatic-integration.md
+https://hermes-agent.nousresearch.com/docs/developer-guide/prompt-assembly	-> src/docs/developer-guide/prompt-assembly.md
+https://hermes-agent.nousresearch.com/docs/developer-guide/provider-runtime	-> src/docs/developer-guide/provider-runtime.md
+https://hermes-agent.nousresearch.com/docs/developer-guide/relay-connector-contract	-> src/docs/developer-guide/relay-connector-contract.md
+https://hermes-agent.nousresearch.com/docs/developer-guide/relay-shared-metrics	-> src/docs/developer-guide/relay-shared-metrics.md
+https://hermes-agent.nousresearch.com/docs/developer-guide/secret-source-plugin	-> src/docs/developer-guide/secret-source-plugin.md
+https://hermes-agent.nousresearch.com/docs/developer-guide/session-storage	-> src/docs/developer-guide/session-storage.md
+https://hermes-agent.nousresearch.com/docs/developer-guide/state-db-recovery	-> src/docs/developer-guide/state-db-recovery.md
+https://hermes-agent.nousresearch.com/docs/developer-guide/streaming-tts	-> src/docs/developer-guide/streaming-tts.md
+https://hermes-agent.nousresearch.com/docs/developer-guide/subagent-lifecycle-api	-> src/docs/developer-guide/subagent-lifecycle-api.md
+https://hermes-agent.nousresearch.com/docs/developer-guide/terminal-environment-plugin	-> src/docs/developer-guide/terminal-environment-plugin.md
+https://hermes-agent.nousresearch.com/docs/developer-guide/tools-runtime	-> src/docs/developer-guide/tools-runtime.md
+https://hermes-agent.nousresearch.com/docs/developer-guide/trajectory-format	-> src/docs/developer-guide/trajectory-format.md
+https://hermes-agent.nousresearch.com/docs/developer-guide/video-gen-provider-plugin	-> src/docs/developer-guide/video-gen-provider-plugin.md
+https://hermes-agent.nousresearch.com/docs/developer-guide/web-search-provider-plugin	-> src/docs/developer-guide/web-search-provider-plugin.md
+https://hermes-agent.nousresearch.com/docs/developer-guide/worktree-ui-dev	-> src/docs/developer-guide/worktree-ui-dev.md
+https://hermes-agent.nousresearch.com/docs/getting-started/installation	-> src/docs/getting-started/installation.md
+https://hermes-agent.nousresearch.com/docs/getting-started/learning-path	-> src/docs/getting-started/learning-path.md
+https://hermes-agent.nousresearch.com/docs/getting-started/nix-setup	-> src/docs/getting-started/nix-setup.md
+https://hermes-agent.nousresearch.com/docs/getting-started/platform-support	-> src/docs/getting-started/platform-support.md
+https://hermes-agent.nousresearch.com/docs/getting-started/quickstart	-> src/docs/getting-started/quickstart.md
+https://hermes-agent.nousresearch.com/docs/getting-started/termux	-> src/docs/getting-started/termux.md
+https://hermes-agent.nousresearch.com/docs/getting-started/updating	-> src/docs/getting-started/updating.md
+https://hermes-agent.nousresearch.com/docs/guides/agent-email-address	-> src/docs/guides/agent-email-address.md
+https://hermes-agent.nousresearch.com/docs/guides/automate-with-cron	-> src/docs/guides/automate-with-cron.md
+https://hermes-agent.nousresearch.com/docs/guides/automation-blueprints	-> src/docs/guides/automation-blueprints.md
+https://hermes-agent.nousresearch.com/docs/guides/aws-bedrock	-> src/docs/guides/aws-bedrock.md
+https://hermes-agent.nousresearch.com/docs/guides/azure-foundry	-> src/docs/guides/azure-foundry.md
+https://hermes-agent.nousresearch.com/docs/guides/cron-script-only	-> src/docs/guides/cron-script-only.md
+https://hermes-agent.nousresearch.com/docs/guides/cron-troubleshooting	-> src/docs/guides/cron-troubleshooting.md
+https://hermes-agent.nousresearch.com/docs/guides/daily-briefing-bot	-> src/docs/guides/daily-briefing-bot.md
+https://hermes-agent.nousresearch.com/docs/guides/delegation-patterns	-> src/docs/guides/delegation-patterns.md
+https://hermes-agent.nousresearch.com/docs/guides/desktop-native-signin	-> src/docs/guides/desktop-native-signin.md
+https://hermes-agent.nousresearch.com/docs/guides/github-pr-review-agent	-> src/docs/guides/github-pr-review-agent.md
+https://hermes-agent.nousresearch.com/docs/guides/google-gemini	-> src/docs/guides/google-gemini.md
+https://hermes-agent.nousresearch.com/docs/guides/google-vertex	-> src/docs/guides/google-vertex.md
+https://hermes-agent.nousresearch.com/docs/guides/local-llm-on-mac	-> src/docs/guides/local-llm-on-mac.md
+https://hermes-agent.nousresearch.com/docs/guides/local-ollama-setup	-> src/docs/guides/local-ollama-setup.md
+https://hermes-agent.nousresearch.com/docs/guides/manage-hermes-cloud-with-mcp	-> src/docs/guides/manage-hermes-cloud-with-mcp.md
+https://hermes-agent.nousresearch.com/docs/guides/microsoft-graph-app-registration	-> src/docs/guides/microsoft-graph-app-registration.md
+https://hermes-agent.nousresearch.com/docs/guides/migrate-from-openclaw	-> src/docs/guides/migrate-from-openclaw.md
+https://hermes-agent.nousresearch.com/docs/guides/minimax-oauth	-> src/docs/guides/minimax-oauth.md
+https://hermes-agent.nousresearch.com/docs/guides/oauth-over-ssh	-> src/docs/guides/oauth-over-ssh.md
+https://hermes-agent.nousresearch.com/docs/guides/operate-teams-meeting-pipeline	-> src/docs/guides/operate-teams-meeting-pipeline.md
+https://hermes-agent.nousresearch.com/docs/guides/pipe-script-output	-> src/docs/guides/pipe-script-output.md
+https://hermes-agent.nousresearch.com/docs/guides/python-library	-> src/docs/guides/python-library.md
+https://hermes-agent.nousresearch.com/docs/guides/run-hermes-with-nous-portal	-> src/docs/guides/run-hermes-with-nous-portal.md
+https://hermes-agent.nousresearch.com/docs/guides/run-nemotron-3-ultra-free	-> src/docs/guides/run-nemotron-3-ultra-free.md
+https://hermes-agent.nousresearch.com/docs/guides/secure-hermes-on-a-work-machine	-> src/docs/guides/secure-hermes-on-a-work-machine.md
+https://hermes-agent.nousresearch.com/docs/guides/team-telegram-assistant	-> src/docs/guides/team-telegram-assistant.md
+https://hermes-agent.nousresearch.com/docs/guides/tips	-> src/docs/guides/tips.md
+https://hermes-agent.nousresearch.com/docs/guides/troubleshooting-agent-quality	-> src/docs/guides/troubleshooting-agent-quality.md
+https://hermes-agent.nousresearch.com/docs/guides/use-mcp-with-hermes	-> src/docs/guides/use-mcp-with-hermes.md
+https://hermes-agent.nousresearch.com/docs/guides/use-soul-with-hermes	-> src/docs/guides/use-soul-with-hermes.md
+https://hermes-agent.nousresearch.com/docs/guides/use-voice-mode-with-hermes	-> src/docs/guides/use-voice-mode-with-hermes.md
+https://hermes-agent.nousresearch.com/docs/guides/webhook-github-pr-review	-> src/docs/guides/webhook-github-pr-review.md
+https://hermes-agent.nousresearch.com/docs/guides/work-with-skills	-> src/docs/guides/work-with-skills.md
+https://hermes-agent.nousresearch.com/docs/guides/xai-grok-oauth	-> src/docs/guides/xai-grok-oauth.md
+https://hermes-agent.nousresearch.com/docs/integrations	-> src/docs/integrations/index.md
+https://hermes-agent.nousresearch.com/docs/integrations/buzz	-> src/docs/integrations/buzz.md
+https://hermes-agent.nousresearch.com/docs/integrations/nous-portal	-> src/docs/integrations/nous-portal.md
+https://hermes-agent.nousresearch.com/docs/integrations/providers	-> src/docs/integrations/providers.md
+https://hermes-agent.nousresearch.com/docs/reference/automation-blueprints-catalog	-> src/docs/reference/automation-blueprints-catalog.mdx
+https://hermes-agent.nousresearch.com/docs/reference/cli-commands	-> src/docs/reference/cli-commands.md
+https://hermes-agent.nousresearch.com/docs/reference/cli-symbols	-> src/docs/reference/cli-symbols.md
+https://hermes-agent.nousresearch.com/docs/reference/environment-variables	-> src/docs/reference/environment-variables.md
+https://hermes-agent.nousresearch.com/docs/reference/faq	-> src/docs/reference/faq.md
+https://hermes-agent.nousresearch.com/docs/reference/mcp-config-reference	-> src/docs/reference/mcp-config-reference.md
+https://hermes-agent.nousresearch.com/docs/reference/model-catalog	-> src/docs/reference/model-catalog.md
+https://hermes-agent.nousresearch.com/docs/reference/optional-skills-catalog	-> src/docs/reference/optional-skills-catalog.md
+https://hermes-agent.nousresearch.com/docs/reference/profile-commands	-> src/docs/reference/profile-commands.md
+https://hermes-agent.nousresearch.com/docs/reference/skills-catalog	-> src/docs/reference/skills-catalog.md
+https://hermes-agent.nousresearch.com/docs/reference/slash-commands	-> src/docs/reference/slash-commands.md
+https://hermes-agent.nousresearch.com/docs/reference/tools-reference	-> src/docs/reference/tools-reference.md
+https://hermes-agent.nousresearch.com/docs/reference/toolsets-reference	-> src/docs/reference/toolsets-reference.md
+https://hermes-agent.nousresearch.com/docs/user-guide/bot-mode	-> src/docs/user-guide/bot-mode.md
+https://hermes-agent.nousresearch.com/docs/user-guide/checkpoints-and-rollback	-> src/docs/user-guide/checkpoints-and-rollback.md
+https://hermes-agent.nousresearch.com/docs/user-guide/cli	-> src/docs/user-guide/cli.md
+https://hermes-agent.nousresearch.com/docs/user-guide/configuration	-> src/docs/user-guide/configuration.md
+https://hermes-agent.nousresearch.com/docs/user-guide/configuring-models	-> src/docs/user-guide/configuring-models.md
+https://hermes-agent.nousresearch.com/docs/user-guide/desktop	-> src/docs/user-guide/desktop.md
+https://hermes-agent.nousresearch.com/docs/user-guide/docker	-> src/docs/user-guide/docker.md
+https://hermes-agent.nousresearch.com/docs/user-guide/egress	-> src/docs/user-guide/egress/index.md
+https://hermes-agent.nousresearch.com/docs/user-guide/egress/iron-proxy	-> src/docs/user-guide/egress/iron-proxy.md
+https://hermes-agent.nousresearch.com/docs/user-guide/egress/network-isolation	-> src/docs/user-guide/egress/network-isolation.md
+https://hermes-agent.nousresearch.com/docs/user-guide/features/acp	-> src/docs/user-guide/features/acp.md
+https://hermes-agent.nousresearch.com/docs/user-guide/features/api-server	-> src/docs/user-guide/features/api-server.md
+https://hermes-agent.nousresearch.com/docs/user-guide/features/batch-processing	-> src/docs/user-guide/features/batch-processing.md
+https://hermes-agent.nousresearch.com/docs/user-guide/features/browser	-> src/docs/user-guide/features/browser.md
+https://hermes-agent.nousresearch.com/docs/user-guide/features/built-in-plugins	-> src/docs/user-guide/features/built-in-plugins.md
+https://hermes-agent.nousresearch.com/docs/user-guide/features/code-execution	-> src/docs/user-guide/features/code-execution.md
+https://hermes-agent.nousresearch.com/docs/user-guide/features/codex-app-server-runtime	-> src/docs/user-guide/features/codex-app-server-runtime.md
+https://hermes-agent.nousresearch.com/docs/user-guide/features/computer-use	-> src/docs/user-guide/features/computer-use.md
+https://hermes-agent.nousresearch.com/docs/user-guide/features/context-files	-> src/docs/user-guide/features/context-files.md
+https://hermes-agent.nousresearch.com/docs/user-guide/features/context-references	-> src/docs/user-guide/features/context-references.md
+https://hermes-agent.nousresearch.com/docs/user-guide/features/credential-pools	-> src/docs/user-guide/features/credential-pools.md
+https://hermes-agent.nousresearch.com/docs/user-guide/features/credential-vault	-> src/docs/user-guide/features/credential-vault.md
+https://hermes-agent.nousresearch.com/docs/user-guide/features/cron	-> src/docs/user-guide/features/cron.md
+https://hermes-agent.nousresearch.com/docs/user-guide/features/curator	-> src/docs/user-guide/features/curator.md
+https://hermes-agent.nousresearch.com/docs/user-guide/features/delegation	-> src/docs/user-guide/features/delegation.md
+https://hermes-agent.nousresearch.com/docs/user-guide/features/deliverable-mode	-> src/docs/user-guide/features/deliverable-mode.md
+https://hermes-agent.nousresearch.com/docs/user-guide/features/document-extraction	-> src/docs/user-guide/features/document-extraction.md
+https://hermes-agent.nousresearch.com/docs/user-guide/features/extending-the-dashboard	-> src/docs/user-guide/features/extending-the-dashboard.md
+https://hermes-agent.nousresearch.com/docs/user-guide/features/fallback-providers	-> src/docs/user-guide/features/fallback-providers.md
+https://hermes-agent.nousresearch.com/docs/user-guide/features/goals	-> src/docs/user-guide/features/goals.md
+https://hermes-agent.nousresearch.com/docs/user-guide/features/heartbeat	-> src/docs/user-guide/features/heartbeat.md
+https://hermes-agent.nousresearch.com/docs/user-guide/features/honcho	-> src/docs/user-guide/features/honcho.md
+https://hermes-agent.nousresearch.com/docs/user-guide/features/hooks	-> src/docs/user-guide/features/hooks.md
+https://hermes-agent.nousresearch.com/docs/user-guide/features/image-generation	-> src/docs/user-guide/features/image-generation.md
+https://hermes-agent.nousresearch.com/docs/user-guide/features/kanban	-> src/docs/user-guide/features/kanban.md
+https://hermes-agent.nousresearch.com/docs/user-guide/features/kanban-multi-gateway	-> src/docs/user-guide/features/kanban-multi-gateway.md
+https://hermes-agent.nousresearch.com/docs/user-guide/features/kanban-tutorial	-> src/docs/user-guide/features/kanban-tutorial.md
+https://hermes-agent.nousresearch.com/docs/user-guide/features/kanban-worker-lanes	-> src/docs/user-guide/features/kanban-worker-lanes.md
+https://hermes-agent.nousresearch.com/docs/user-guide/features/loops	-> src/docs/user-guide/features/loops.md
+https://hermes-agent.nousresearch.com/docs/user-guide/features/lsp	-> src/docs/user-guide/features/lsp.md
+https://hermes-agent.nousresearch.com/docs/user-guide/features/mcp	-> src/docs/user-guide/features/mcp.md
+https://hermes-agent.nousresearch.com/docs/user-guide/features/memory	-> src/docs/user-guide/features/memory.md
+https://hermes-agent.nousresearch.com/docs/user-guide/features/memory-providers	-> src/docs/user-guide/features/memory-providers.md
+https://hermes-agent.nousresearch.com/docs/user-guide/features/mixture-of-agents	-> src/docs/user-guide/features/mixture-of-agents.md
+https://hermes-agent.nousresearch.com/docs/user-guide/features/overview	-> src/docs/user-guide/features/overview.md
+https://hermes-agent.nousresearch.com/docs/user-guide/features/personality	-> src/docs/user-guide/features/personality.md
+https://hermes-agent.nousresearch.com/docs/user-guide/features/pets	-> src/docs/user-guide/features/pets.md
+https://hermes-agent.nousresearch.com/docs/user-guide/features/plugin-catalog	-> src/docs/user-guide/features/plugin-catalog.md
+https://hermes-agent.nousresearch.com/docs/user-guide/features/plugins	-> src/docs/user-guide/features/plugins.md
+https://hermes-agent.nousresearch.com/docs/user-guide/features/provider-routing	-> src/docs/user-guide/features/provider-routing.md
+https://hermes-agent.nousresearch.com/docs/user-guide/features/skills	-> src/docs/user-guide/features/skills.md
+https://hermes-agent.nousresearch.com/docs/user-guide/features/skins	-> src/docs/user-guide/features/skins.md
+https://hermes-agent.nousresearch.com/docs/user-guide/features/spotify	-> src/docs/user-guide/features/spotify.md
+https://hermes-agent.nousresearch.com/docs/user-guide/features/subscription-proxy	-> src/docs/user-guide/features/subscription-proxy.md
+https://hermes-agent.nousresearch.com/docs/user-guide/features/tool-gateway	-> src/docs/user-guide/features/tool-gateway.md
+https://hermes-agent.nousresearch.com/docs/user-guide/features/tool-search	-> src/docs/user-guide/features/tool-search.md
+https://hermes-agent.nousresearch.com/docs/user-guide/features/tools	-> src/docs/user-guide/features/tools.md
+https://hermes-agent.nousresearch.com/docs/user-guide/features/tts	-> src/docs/user-guide/features/tts.md
+https://hermes-agent.nousresearch.com/docs/user-guide/features/vision	-> src/docs/user-guide/features/vision.md
+https://hermes-agent.nousresearch.com/docs/user-guide/features/voice-mode	-> src/docs/user-guide/features/voice-mode.md
+https://hermes-agent.nousresearch.com/docs/user-guide/features/wake-word	-> src/docs/user-guide/features/wake-word.md
+https://hermes-agent.nousresearch.com/docs/user-guide/features/web-dashboard	-> src/docs/user-guide/features/web-dashboard.md
+https://hermes-agent.nousresearch.com/docs/user-guide/features/web-search	-> src/docs/user-guide/features/web-search.md
+https://hermes-agent.nousresearch.com/docs/user-guide/features/x-search	-> src/docs/user-guide/features/x-search.md
+https://hermes-agent.nousresearch.com/docs/user-guide/git-worktrees	-> src/docs/user-guide/git-worktrees.md
+https://hermes-agent.nousresearch.com/docs/user-guide/import-from-other-agents	-> src/docs/user-guide/import-from-other-agents.md
+https://hermes-agent.nousresearch.com/docs/user-guide/local-models	-> src/docs/user-guide/local-models.md
+https://hermes-agent.nousresearch.com/docs/user-guide/managed-scope	-> src/docs/user-guide/managed-scope.md
+https://hermes-agent.nousresearch.com/docs/user-guide/messaging	-> src/docs/user-guide/messaging/index.md
+https://hermes-agent.nousresearch.com/docs/user-guide/messaging/a2a	-> src/docs/user-guide/messaging/a2a.md
+https://hermes-agent.nousresearch.com/docs/user-guide/messaging/bluebubbles	-> src/docs/user-guide/messaging/bluebubbles.md
+https://hermes-agent.nousresearch.com/docs/user-guide/messaging/buzz	-> src/docs/user-guide/messaging/buzz.md
+https://hermes-agent.nousresearch.com/docs/user-guide/messaging/dingtalk	-> src/docs/user-guide/messaging/dingtalk.md
+https://hermes-agent.nousresearch.com/docs/user-guide/messaging/discord	-> src/docs/user-guide/messaging/discord.md
+https://hermes-agent.nousresearch.com/docs/user-guide/messaging/email	-> src/docs/user-guide/messaging/email.md
+https://hermes-agent.nousresearch.com/docs/user-guide/messaging/feishu	-> src/docs/user-guide/messaging/feishu.md
+https://hermes-agent.nousresearch.com/docs/user-guide/messaging/google_chat	-> src/docs/user-guide/messaging/google_chat.md
+https://hermes-agent.nousresearch.com/docs/user-guide/messaging/homeassistant	-> src/docs/user-guide/messaging/homeassistant.md
+https://hermes-agent.nousresearch.com/docs/user-guide/messaging/irc	-> src/docs/user-guide/messaging/irc.md
+https://hermes-agent.nousresearch.com/docs/user-guide/messaging/line	-> src/docs/user-guide/messaging/line.md
+https://hermes-agent.nousresearch.com/docs/user-guide/messaging/matrix	-> src/docs/user-guide/messaging/matrix.md
+https://hermes-agent.nousresearch.com/docs/user-guide/messaging/mattermost	-> src/docs/user-guide/messaging/mattermost.md
+https://hermes-agent.nousresearch.com/docs/user-guide/messaging/msgraph-webhook	-> src/docs/user-guide/messaging/msgraph-webhook.md
+https://hermes-agent.nousresearch.com/docs/user-guide/messaging/ntfy	-> src/docs/user-guide/messaging/ntfy.md
+https://hermes-agent.nousresearch.com/docs/user-guide/messaging/open-webui	-> src/docs/user-guide/messaging/open-webui.md
+https://hermes-agent.nousresearch.com/docs/user-guide/messaging/photon	-> src/docs/user-guide/messaging/photon.md
+https://hermes-agent.nousresearch.com/docs/user-guide/messaging/qqbot	-> src/docs/user-guide/messaging/qqbot.md
+https://hermes-agent.nousresearch.com/docs/user-guide/messaging/raft	-> src/docs/user-guide/messaging/raft.md
+https://hermes-agent.nousresearch.com/docs/user-guide/messaging/relay	-> src/docs/user-guide/messaging/relay.md
+https://hermes-agent.nousresearch.com/docs/user-guide/messaging/signal	-> src/docs/user-guide/messaging/signal.md
+https://hermes-agent.nousresearch.com/docs/user-guide/messaging/simplex	-> src/docs/user-guide/messaging/simplex.md
+https://hermes-agent.nousresearch.com/docs/user-guide/messaging/slack	-> src/docs/user-guide/messaging/slack.md
+https://hermes-agent.nousresearch.com/docs/user-guide/messaging/sms	-> src/docs/user-guide/messaging/sms.md
+https://hermes-agent.nousresearch.com/docs/user-guide/messaging/teams	-> src/docs/user-guide/messaging/teams.md
+https://hermes-agent.nousresearch.com/docs/user-guide/messaging/teams-meetings	-> src/docs/user-guide/messaging/teams-meetings.md
+https://hermes-agent.nousresearch.com/docs/user-guide/messaging/telegram	-> src/docs/user-guide/messaging/telegram.md
+https://hermes-agent.nousresearch.com/docs/user-guide/messaging/webhooks	-> src/docs/user-guide/messaging/webhooks.md
+https://hermes-agent.nousresearch.com/docs/user-guide/messaging/wecom	-> src/docs/user-guide/messaging/wecom.md
+https://hermes-agent.nousresearch.com/docs/user-guide/messaging/wecom-callback	-> src/docs/user-guide/messaging/wecom-callback.md
+https://hermes-agent.nousresearch.com/docs/user-guide/messaging/weixin	-> src/docs/user-guide/messaging/weixin.md
+https://hermes-agent.nousresearch.com/docs/user-guide/messaging/whatsapp	-> src/docs/user-guide/messaging/whatsapp.md
+https://hermes-agent.nousresearch.com/docs/user-guide/messaging/whatsapp-cloud	-> src/docs/user-guide/messaging/whatsapp-cloud.md
+https://hermes-agent.nousresearch.com/docs/user-guide/messaging/yuanbao	-> src/docs/user-guide/messaging/yuanbao.md
+https://hermes-agent.nousresearch.com/docs/user-guide/multi-connection-desktop	-> src/docs/user-guide/multi-connection-desktop.md
+https://hermes-agent.nousresearch.com/docs/user-guide/multi-profile-gateways	-> src/docs/user-guide/multi-profile-gateways.md
+https://hermes-agent.nousresearch.com/docs/user-guide/profile-distributions	-> src/docs/user-guide/profile-distributions.md
+https://hermes-agent.nousresearch.com/docs/user-guide/profiles	-> src/docs/user-guide/profiles.md
+https://hermes-agent.nousresearch.com/docs/user-guide/secrets	-> src/docs/user-guide/secrets/index.md
+https://hermes-agent.nousresearch.com/docs/user-guide/secrets/bitwarden	-> src/docs/user-guide/secrets/bitwarden.md
+https://hermes-agent.nousresearch.com/docs/user-guide/secrets/command	-> src/docs/user-guide/secrets/command.md
+https://hermes-agent.nousresearch.com/docs/user-guide/secrets/onepassword	-> src/docs/user-guide/secrets/onepassword.md
+https://hermes-agent.nousresearch.com/docs/user-guide/security	-> src/docs/user-guide/security.md
+https://hermes-agent.nousresearch.com/docs/user-guide/sessions	-> src/docs/user-guide/sessions.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/apple/apple-apple-notes	-> src/docs/user-guide/skills/bundled/apple/apple-apple-notes.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/apple/apple-apple-reminders	-> src/docs/user-guide/skills/bundled/apple/apple-apple-reminders.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/apple/apple-findmy	-> src/docs/user-guide/skills/bundled/apple/apple-findmy.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/apple/apple-imessage	-> src/docs/user-guide/skills/bundled/apple/apple-imessage.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-claude-code	-> src/docs/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-claude-code.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-codex	-> src/docs/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-codex.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-computer-use	-> src/docs/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-computer-use.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-hermes-agent	-> src/docs/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-hermes-agent.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-merge-reconciler	-> src/docs/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-merge-reconciler.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-opencode	-> src/docs/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-opencode.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/creative/creative-architecture-diagram	-> src/docs/user-guide/skills/bundled/creative/creative-architecture-diagram.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/creative/creative-ascii-art	-> src/docs/user-guide/skills/bundled/creative/creative-ascii-art.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/creative/creative-ascii-video	-> src/docs/user-guide/skills/bundled/creative/creative-ascii-video.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/creative/creative-baoyu-infographic	-> src/docs/user-guide/skills/bundled/creative/creative-baoyu-infographic.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/creative/creative-claude-design	-> src/docs/user-guide/skills/bundled/creative/creative-claude-design.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/creative/creative-comfyui	-> src/docs/user-guide/skills/bundled/creative/creative-comfyui.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/creative/creative-design-md	-> src/docs/user-guide/skills/bundled/creative/creative-design-md.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/creative/creative-excalidraw	-> src/docs/user-guide/skills/bundled/creative/creative-excalidraw.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/creative/creative-humanizer	-> src/docs/user-guide/skills/bundled/creative/creative-humanizer.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/creative/creative-manim-video	-> src/docs/user-guide/skills/bundled/creative/creative-manim-video.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/creative/creative-p5js	-> src/docs/user-guide/skills/bundled/creative/creative-p5js.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/creative/creative-popular-web-designs	-> src/docs/user-guide/skills/bundled/creative/creative-popular-web-designs.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/creative/creative-pretext	-> src/docs/user-guide/skills/bundled/creative/creative-pretext.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/creative/creative-sketch	-> src/docs/user-guide/skills/bundled/creative/creative-sketch.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/creative/creative-songwriting-and-ai-music	-> src/docs/user-guide/skills/bundled/creative/creative-songwriting-and-ai-music.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/devops/devops-sdlc-review	-> src/docs/user-guide/skills/bundled/devops/devops-sdlc-review.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/email/email-email-inbox-triage	-> src/docs/user-guide/skills/bundled/email/email-email-inbox-triage.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/email/email-himalaya	-> src/docs/user-guide/skills/bundled/email/email-himalaya.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/github/github-codebase-inspection	-> src/docs/user-guide/skills/bundled/github/github-codebase-inspection.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/github/github-github-auth	-> src/docs/user-guide/skills/bundled/github/github-github-auth.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/github/github-github-code-review	-> src/docs/user-guide/skills/bundled/github/github-github-code-review.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/github/github-github-issue-to-pr	-> src/docs/user-guide/skills/bundled/github/github-github-issue-to-pr.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/github/github-github-issues	-> src/docs/user-guide/skills/bundled/github/github-github-issues.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/github/github-github-pr-workflow	-> src/docs/user-guide/skills/bundled/github/github-github-pr-workflow.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/github/github-github-repo-management	-> src/docs/user-guide/skills/bundled/github/github-github-repo-management.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/media/media-gif-search	-> src/docs/user-guide/skills/bundled/media/media-gif-search.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/media/media-songsee	-> src/docs/user-guide/skills/bundled/media/media-songsee.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/media/media-youtube-content	-> src/docs/user-guide/skills/bundled/media/media-youtube-content.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/mlops/mlops-evaluation-evaluating-llms-harness	-> src/docs/user-guide/skills/bundled/mlops/mlops-evaluation-evaluating-llms-harness.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/mlops/mlops-evaluation-weights-and-biases	-> src/docs/user-guide/skills/bundled/mlops/mlops-evaluation-weights-and-biases.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/mlops/mlops-huggingface-hub	-> src/docs/user-guide/skills/bundled/mlops/mlops-huggingface-hub.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/mlops/mlops-inference-llama-cpp	-> src/docs/user-guide/skills/bundled/mlops/mlops-inference-llama-cpp.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/mlops/mlops-inference-serving-llms-vllm	-> src/docs/user-guide/skills/bundled/mlops/mlops-inference-serving-llms-vllm.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/note-taking/note-taking-obsidian	-> src/docs/user-guide/skills/bundled/note-taking/note-taking-obsidian.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/productivity/productivity-airtable	-> src/docs/user-guide/skills/bundled/productivity/productivity-airtable.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/productivity/productivity-box	-> src/docs/user-guide/skills/bundled/productivity/productivity-box.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/productivity/productivity-document-to-action-items	-> src/docs/user-guide/skills/bundled/productivity/productivity-document-to-action-items.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/productivity/productivity-docx	-> src/docs/user-guide/skills/bundled/productivity/productivity-docx.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/productivity/productivity-google-workspace	-> src/docs/user-guide/skills/bundled/productivity/productivity-google-workspace.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/productivity/productivity-maps	-> src/docs/user-guide/skills/bundled/productivity/productivity-maps.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/productivity/productivity-meeting-action-items	-> src/docs/user-guide/skills/bundled/productivity/productivity-meeting-action-items.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/productivity/productivity-nano-pdf	-> src/docs/user-guide/skills/bundled/productivity/productivity-nano-pdf.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/productivity/productivity-notion	-> src/docs/user-guide/skills/bundled/productivity/productivity-notion.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/productivity/productivity-ocr-and-documents	-> src/docs/user-guide/skills/bundled/productivity/productivity-ocr-and-documents.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/productivity/productivity-pdf	-> src/docs/user-guide/skills/bundled/productivity/productivity-pdf.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/productivity/productivity-powerpoint	-> src/docs/user-guide/skills/bundled/productivity/productivity-powerpoint.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/productivity/productivity-product-price-monitor	-> src/docs/user-guide/skills/bundled/productivity/productivity-product-price-monitor.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/productivity/productivity-session-librarian	-> src/docs/user-guide/skills/bundled/productivity/productivity-session-librarian.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/productivity/productivity-teams-meeting-pipeline	-> src/docs/user-guide/skills/bundled/productivity/productivity-teams-meeting-pipeline.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/productivity/productivity-weekly-review-planning	-> src/docs/user-guide/skills/bundled/productivity/productivity-weekly-review-planning.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/productivity/productivity-xlsx	-> src/docs/user-guide/skills/bundled/productivity/productivity-xlsx.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/research/research-arxiv	-> src/docs/user-guide/skills/bundled/research/research-arxiv.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/research/research-blocked-page-recovery	-> src/docs/user-guide/skills/bundled/research/research-blocked-page-recovery.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/research/research-blogwatcher	-> src/docs/user-guide/skills/bundled/research/research-blogwatcher.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/research/research-competitor-news-monitor	-> src/docs/user-guide/skills/bundled/research/research-competitor-news-monitor.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/research/research-grounded-citations	-> src/docs/user-guide/skills/bundled/research/research-grounded-citations.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/research/research-llm-wiki	-> src/docs/user-guide/skills/bundled/research/research-llm-wiki.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/research/research-research-paper-writing	-> src/docs/user-guide/skills/bundled/research/research-research-paper-writing.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/smart-home/smart-home-openhue	-> src/docs/user-guide/skills/bundled/smart-home/smart-home-openhue.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/social-media/social-media-xurl	-> src/docs/user-guide/skills/bundled/social-media/social-media-xurl.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/software-development/software-development-codebase-inspection	-> src/docs/user-guide/skills/bundled/software-development/software-development-codebase-inspection.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/software-development/software-development-dogfood	-> src/docs/user-guide/skills/bundled/software-development/software-development-dogfood.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/software-development/software-development-github	-> src/docs/user-guide/skills/bundled/software-development/software-development-github.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/software-development/software-development-hermes-agent-skill-authoring	-> src/docs/user-guide/skills/bundled/software-development/software-development-hermes-agent-skill-authoring.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/software-development/software-development-inspecting-hermes-desktop-dom	-> src/docs/user-guide/skills/bundled/software-development/software-development-inspecting-hermes-desktop-dom.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/software-development/software-development-node-inspect-debugger	-> src/docs/user-guide/skills/bundled/software-development/software-development-node-inspect-debugger.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/software-development/software-development-python-debugpy	-> src/docs/user-guide/skills/bundled/software-development/software-development-python-debugpy.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/software-development/software-development-requesting-code-review	-> src/docs/user-guide/skills/bundled/software-development/software-development-requesting-code-review.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/software-development/software-development-simplify-code	-> src/docs/user-guide/skills/bundled/software-development/software-development-simplify-code.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/software-development/software-development-spike	-> src/docs/user-guide/skills/bundled/software-development/software-development-spike.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/software-development/software-development-systematic-debugging	-> src/docs/user-guide/skills/bundled/software-development/software-development-systematic-debugging.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/software-development/software-development-test-driven-development	-> src/docs/user-guide/skills/bundled/software-development/software-development-test-driven-development.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/web/web-blocked-page-recovery	-> src/docs/user-guide/skills/bundled/web/web-blocked-page-recovery.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/google-workspace	-> src/docs/user-guide/skills/google-workspace.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/autonomous-ai-agents/autonomous-ai-agents-antigravity-cli	-> src/docs/user-guide/skills/optional/autonomous-ai-agents/autonomous-ai-agents-antigravity-cli.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/autonomous-ai-agents/autonomous-ai-agents-blackbox	-> src/docs/user-guide/skills/optional/autonomous-ai-agents/autonomous-ai-agents-blackbox.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/autonomous-ai-agents/autonomous-ai-agents-dynamic-workflow	-> src/docs/user-guide/skills/optional/autonomous-ai-agents/autonomous-ai-agents-dynamic-workflow.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/autonomous-ai-agents/autonomous-ai-agents-grok	-> src/docs/user-guide/skills/optional/autonomous-ai-agents/autonomous-ai-agents-grok.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/autonomous-ai-agents/autonomous-ai-agents-honcho	-> src/docs/user-guide/skills/optional/autonomous-ai-agents/autonomous-ai-agents-honcho.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/autonomous-ai-agents/autonomous-ai-agents-openhands	-> src/docs/user-guide/skills/optional/autonomous-ai-agents/autonomous-ai-agents-openhands.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/blockchain/blockchain-evm	-> src/docs/user-guide/skills/optional/blockchain/blockchain-evm.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/blockchain/blockchain-hyperliquid	-> src/docs/user-guide/skills/optional/blockchain/blockchain-hyperliquid.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/blockchain/blockchain-solana	-> src/docs/user-guide/skills/optional/blockchain/blockchain-solana.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/communication/communication-one-three-one-rule	-> src/docs/user-guide/skills/optional/communication/communication-one-three-one-rule.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/creative/creative-ai-presenter-video	-> src/docs/user-guide/skills/optional/creative/creative-ai-presenter-video.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/creative/creative-archify	-> src/docs/user-guide/skills/optional/creative/creative-archify.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/creative/creative-ascii-art	-> src/docs/user-guide/skills/optional/creative/creative-ascii-art.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/creative/creative-audiocraft-audio-generation	-> src/docs/user-guide/skills/optional/creative/creative-audiocraft-audio-generation.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/creative/creative-auteur	-> src/docs/user-guide/skills/optional/creative/creative-auteur.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/creative/creative-baoyu-article-illustrator	-> src/docs/user-guide/skills/optional/creative/creative-baoyu-article-illustrator.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/creative/creative-baoyu-comic	-> src/docs/user-guide/skills/optional/creative/creative-baoyu-comic.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/creative/creative-comfyui	-> src/docs/user-guide/skills/optional/creative/creative-comfyui.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/creative/creative-concept-diagrams	-> src/docs/user-guide/skills/optional/creative/creative-concept-diagrams.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/creative/creative-creative-ideation	-> src/docs/user-guide/skills/optional/creative/creative-creative-ideation.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/creative/creative-draw-your-font	-> src/docs/user-guide/skills/optional/creative/creative-draw-your-font.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/creative/creative-dream-loop	-> src/docs/user-guide/skills/optional/creative/creative-dream-loop.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/creative/creative-excalidraw	-> src/docs/user-guide/skills/optional/creative/creative-excalidraw.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/creative/creative-heartmula	-> src/docs/user-guide/skills/optional/creative/creative-heartmula.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/creative/creative-hyperframes	-> src/docs/user-guide/skills/optional/creative/creative-hyperframes.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/creative/creative-impeccable	-> src/docs/user-guide/skills/optional/creative/creative-impeccable.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/creative/creative-ip-as-logo	-> src/docs/user-guide/skills/optional/creative/creative-ip-as-logo.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/creative/creative-kanban-video-orchestrator	-> src/docs/user-guide/skills/optional/creative/creative-kanban-video-orchestrator.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/creative/creative-meme-generation	-> src/docs/user-guide/skills/optional/creative/creative-meme-generation.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/creative/creative-mono-color	-> src/docs/user-guide/skills/optional/creative/creative-mono-color.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/creative/creative-pixel-art	-> src/docs/user-guide/skills/optional/creative/creative-pixel-art.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/creative/creative-pretext	-> src/docs/user-guide/skills/optional/creative/creative-pretext.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/creative/creative-simple-english	-> src/docs/user-guide/skills/optional/creative/creative-simple-english.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/creative/creative-sketch	-> src/docs/user-guide/skills/optional/creative/creative-sketch.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/creative/creative-social-media-content-calendar	-> src/docs/user-guide/skills/optional/creative/creative-social-media-content-calendar.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/creative/creative-system-atlas	-> src/docs/user-guide/skills/optional/creative/creative-system-atlas.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/creative/creative-tldraw-offline	-> src/docs/user-guide/skills/optional/creative/creative-tldraw-offline.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/creative/creative-unreal-mcp	-> src/docs/user-guide/skills/optional/creative/creative-unreal-mcp.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/data-science/data-science-jupyter-notebook	-> src/docs/user-guide/skills/optional/data-science/data-science-jupyter-notebook.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/devops/devops-actual-setup	-> src/docs/user-guide/skills/optional/devops/devops-actual-setup.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/devops/devops-docker-management	-> src/docs/user-guide/skills/optional/devops/devops-docker-management.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/devops/devops-hermes-s6-container-supervision	-> src/docs/user-guide/skills/optional/devops/devops-hermes-s6-container-supervision.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/devops/devops-inference-sh-cli	-> src/docs/user-guide/skills/optional/devops/devops-inference-sh-cli.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/devops/devops-pinggy-tunnel	-> src/docs/user-guide/skills/optional/devops/devops-pinggy-tunnel.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/devops/devops-setup-wizard-generator	-> src/docs/user-guide/skills/optional/devops/devops-setup-wizard-generator.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/devops/devops-watchers	-> src/docs/user-guide/skills/optional/devops/devops-watchers.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/dogfood/dogfood-adversarial-ux-test	-> src/docs/user-guide/skills/optional/dogfood/dogfood-adversarial-ux-test.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/email/email-agentmail	-> src/docs/user-guide/skills/optional/email/email-agentmail.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/finance/finance-3-statement-model	-> src/docs/user-guide/skills/optional/finance/finance-3-statement-model.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/finance/finance-comps-analysis	-> src/docs/user-guide/skills/optional/finance/finance-comps-analysis.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/finance/finance-dcf-model	-> src/docs/user-guide/skills/optional/finance/finance-dcf-model.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/finance/finance-excel-author	-> src/docs/user-guide/skills/optional/finance/finance-excel-author.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/finance/finance-lbo-model	-> src/docs/user-guide/skills/optional/finance/finance-lbo-model.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/finance/finance-merger-model	-> src/docs/user-guide/skills/optional/finance/finance-merger-model.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/finance/finance-polymarket	-> src/docs/user-guide/skills/optional/finance/finance-polymarket.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/finance/finance-pptx-author	-> src/docs/user-guide/skills/optional/finance/finance-pptx-author.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/finance/finance-stocks	-> src/docs/user-guide/skills/optional/finance/finance-stocks.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/gaming/gaming-minecraft-modpack-server	-> src/docs/user-guide/skills/optional/gaming/gaming-minecraft-modpack-server.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/gaming/gaming-pokemon-player	-> src/docs/user-guide/skills/optional/gaming/gaming-pokemon-player.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/health/health-fitness-nutrition	-> src/docs/user-guide/skills/optional/health/health-fitness-nutrition.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/health/health-neuroskill-bci	-> src/docs/user-guide/skills/optional/health/health-neuroskill-bci.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mcp/mcp-fastmcp	-> src/docs/user-guide/skills/optional/mcp/mcp-fastmcp.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mcp/mcp-mcp-oauth-remote-gateway	-> src/docs/user-guide/skills/optional/mcp/mcp-mcp-oauth-remote-gateway.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mcp/mcp-mcporter	-> src/docs/user-guide/skills/optional/mcp/mcp-mcporter.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/migration/migration-openclaw-migration	-> src/docs/user-guide/skills/optional/migration/migration-openclaw-migration.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-accelerate	-> src/docs/user-guide/skills/optional/mlops/mlops-accelerate.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-chroma	-> src/docs/user-guide/skills/optional/mlops/mlops-chroma.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-clip	-> src/docs/user-guide/skills/optional/mlops/mlops-clip.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-evaluation-evaluating-llms-harness	-> src/docs/user-guide/skills/optional/mlops/mlops-evaluation-evaluating-llms-harness.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-evaluation-weights-and-biases	-> src/docs/user-guide/skills/optional/mlops/mlops-evaluation-weights-and-biases.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-faiss	-> src/docs/user-guide/skills/optional/mlops/mlops-faiss.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-flash-attention	-> src/docs/user-guide/skills/optional/mlops/mlops-flash-attention.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-guidance	-> src/docs/user-guide/skills/optional/mlops/mlops-guidance.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-huggingface-tokenizers	-> src/docs/user-guide/skills/optional/mlops/mlops-huggingface-tokenizers.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-inference-llama-cpp	-> src/docs/user-guide/skills/optional/mlops/mlops-inference-llama-cpp.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-inference-outlines	-> src/docs/user-guide/skills/optional/mlops/mlops-inference-outlines.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-inference-serving-llms-vllm	-> src/docs/user-guide/skills/optional/mlops/mlops-inference-serving-llms-vllm.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-instructor	-> src/docs/user-guide/skills/optional/mlops/mlops-instructor.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-lambda-labs	-> src/docs/user-guide/skills/optional/mlops/mlops-lambda-labs.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-llava	-> src/docs/user-guide/skills/optional/mlops/mlops-llava.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-modal	-> src/docs/user-guide/skills/optional/mlops/mlops-modal.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-models-huggingface-hub	-> src/docs/user-guide/skills/optional/mlops/mlops-models-huggingface-hub.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-models-segment-anything-model	-> src/docs/user-guide/skills/optional/mlops/mlops-models-segment-anything-model.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-nemo-curator	-> src/docs/user-guide/skills/optional/mlops/mlops-nemo-curator.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-obliteratus	-> src/docs/user-guide/skills/optional/mlops/mlops-obliteratus.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-peft	-> src/docs/user-guide/skills/optional/mlops/mlops-peft.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-pinecone	-> src/docs/user-guide/skills/optional/mlops/mlops-pinecone.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-pytorch-fsdp	-> src/docs/user-guide/skills/optional/mlops/mlops-pytorch-fsdp.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-pytorch-lightning	-> src/docs/user-guide/skills/optional/mlops/mlops-pytorch-lightning.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-qdrant	-> src/docs/user-guide/skills/optional/mlops/mlops-qdrant.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-research-dspy	-> src/docs/user-guide/skills/optional/mlops/mlops-research-dspy.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-saelens	-> src/docs/user-guide/skills/optional/mlops/mlops-saelens.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-simpo	-> src/docs/user-guide/skills/optional/mlops/mlops-simpo.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-slime	-> src/docs/user-guide/skills/optional/mlops/mlops-slime.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-stable-diffusion	-> src/docs/user-guide/skills/optional/mlops/mlops-stable-diffusion.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-tensorrt-llm	-> src/docs/user-guide/skills/optional/mlops/mlops-tensorrt-llm.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-torchtitan	-> src/docs/user-guide/skills/optional/mlops/mlops-torchtitan.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-training-axolotl	-> src/docs/user-guide/skills/optional/mlops/mlops-training-axolotl.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-training-trl-fine-tuning	-> src/docs/user-guide/skills/optional/mlops/mlops-training-trl-fine-tuning.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-training-unsloth	-> src/docs/user-guide/skills/optional/mlops/mlops-training-unsloth.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mlops/mlops-whisper	-> src/docs/user-guide/skills/optional/mlops/mlops-whisper.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/payments/payments-mpp-agent	-> src/docs/user-guide/skills/optional/payments/payments-mpp-agent.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/payments/payments-stripe-link-cli	-> src/docs/user-guide/skills/optional/payments/payments-stripe-link-cli.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/payments/payments-stripe-projects	-> src/docs/user-guide/skills/optional/payments/payments-stripe-projects.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/productivity/productivity-canvas	-> src/docs/user-guide/skills/optional/productivity/productivity-canvas.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/productivity/productivity-decision-questionnaire	-> src/docs/user-guide/skills/optional/productivity/productivity-decision-questionnaire.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/productivity/productivity-here-now	-> src/docs/user-guide/skills/optional/productivity/productivity-here-now.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/productivity/productivity-live-dashboard	-> src/docs/user-guide/skills/optional/productivity/productivity-live-dashboard.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/productivity/productivity-memento-flashcards	-> src/docs/user-guide/skills/optional/productivity/productivity-memento-flashcards.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/productivity/productivity-property-listings	-> src/docs/user-guide/skills/optional/productivity/productivity-property-listings.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/productivity/productivity-shop	-> src/docs/user-guide/skills/optional/productivity/productivity-shop.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/productivity/productivity-shopify	-> src/docs/user-guide/skills/optional/productivity/productivity-shopify.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/productivity/productivity-siyuan	-> src/docs/user-guide/skills/optional/productivity/productivity-siyuan.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/productivity/productivity-telephony	-> src/docs/user-guide/skills/optional/productivity/productivity-telephony.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/research/research-bioinformatics	-> src/docs/user-guide/skills/optional/research/research-bioinformatics.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/research/research-blogwatcher	-> src/docs/user-guide/skills/optional/research/research-blogwatcher.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/research/research-darwinian-evolver	-> src/docs/user-guide/skills/optional/research/research-darwinian-evolver.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/research/research-domain-intel	-> src/docs/user-guide/skills/optional/research/research-domain-intel.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/research/research-drug-discovery	-> src/docs/user-guide/skills/optional/research/research-drug-discovery.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/research/research-duckduckgo-search	-> src/docs/user-guide/skills/optional/research/research-duckduckgo-search.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/research/research-gitnexus-explorer	-> src/docs/user-guide/skills/optional/research/research-gitnexus-explorer.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/research/research-osint-investigation	-> src/docs/user-guide/skills/optional/research/research-osint-investigation.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/research/research-parallel-cli	-> src/docs/user-guide/skills/optional/research/research-parallel-cli.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/research/research-pinecone-research	-> src/docs/user-guide/skills/optional/research/research-pinecone-research.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/research/research-qmd	-> src/docs/user-guide/skills/optional/research/research-qmd.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/research/research-research-paper-writing	-> src/docs/user-guide/skills/optional/research/research-research-paper-writing.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/research/research-rss-feeds	-> src/docs/user-guide/skills/optional/research/research-rss-feeds.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/research/research-scrapling	-> src/docs/user-guide/skills/optional/research/research-scrapling.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/research/research-searxng-search	-> src/docs/user-guide/skills/optional/research/research-searxng-search.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/security/security-1password	-> src/docs/user-guide/skills/optional/security/security-1password.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/security/security-godmode	-> src/docs/user-guide/skills/optional/security/security-godmode.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/security/security-oss-forensics	-> src/docs/user-guide/skills/optional/security/security-oss-forensics.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/security/security-sherlock	-> src/docs/user-guide/skills/optional/security/security-sherlock.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/security/security-unbroker	-> src/docs/user-guide/skills/optional/security/security-unbroker.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/security/security-web-pentest	-> src/docs/user-guide/skills/optional/security/security-web-pentest.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/smart-home/smart-home-openhue	-> src/docs/user-guide/skills/optional/smart-home/smart-home-openhue.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/social-media/social-media-reddit-reading	-> src/docs/user-guide/skills/optional/social-media/social-media-reddit-reading.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/software-development/software-development-ast-grep	-> src/docs/user-guide/skills/optional/software-development/software-development-ast-grep.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/software-development/software-development-code-wiki	-> src/docs/user-guide/skills/optional/software-development/software-development-code-wiki.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/software-development/software-development-grill-me	-> src/docs/user-guide/skills/optional/software-development/software-development-grill-me.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/software-development/software-development-pr-lens	-> src/docs/user-guide/skills/optional/software-development/software-development-pr-lens.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/software-development/software-development-rest-graphql-debug	-> src/docs/user-guide/skills/optional/software-development/software-development-rest-graphql-debug.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/software-development/software-development-subagent-driven-development	-> src/docs/user-guide/skills/optional/software-development/software-development-subagent-driven-development.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/web-development/web-development-cloudflare-temporary-deploy	-> src/docs/user-guide/skills/optional/web-development/web-development-cloudflare-temporary-deploy.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/web-development/web-development-har-derived-api-client	-> src/docs/user-guide/skills/optional/web-development/web-development-har-derived-api-client.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/web-development/web-development-page-agent	-> src/docs/user-guide/skills/optional/web-development/web-development-page-agent.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/web-development/web-development-publish-site	-> src/docs/user-guide/skills/optional/web-development/web-development-publish-site.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/web-development/web-development-scrollcraft	-> src/docs/user-guide/skills/optional/web-development/web-development-scrollcraft.md
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/yuanbao/yuanbao-yuanbao	-> src/docs/user-guide/skills/optional/yuanbao/yuanbao-yuanbao.md
+https://hermes-agent.nousresearch.com/docs/user-guide/tui	-> src/docs/user-guide/tui.md
+https://hermes-agent.nousresearch.com/docs/user-guide/which-file-does-what	-> src/docs/user-guide/which-file-does-what.md
+https://hermes-agent.nousresearch.com/docs/user-guide/windows-native	-> src/docs/user-guide/windows-native.md
+https://hermes-agent.nousresearch.com/docs/user-guide/windows-wsl-quickstart	-> src/docs/user-guide/windows-wsl-quickstart.md
+https://hermes-agent.nousresearch.com/docs/user-stories	-> src/docs/user-stories.mdx
+https://hermes-agent.nousresearch.com/docs/zh-Hans	-> src/i18n/zh-Hans/index.mdx
+https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/acp-internals	-> src/i18n/zh-Hans/developer-guide/acp-internals.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/adding-platform-adapters	-> src/i18n/zh-Hans/developer-guide/adding-platform-adapters.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/adding-providers	-> src/i18n/zh-Hans/developer-guide/adding-providers.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/adding-tools	-> src/i18n/zh-Hans/developer-guide/adding-tools.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/agent-loop	-> src/i18n/zh-Hans/developer-guide/agent-loop.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/architecture	-> src/i18n/zh-Hans/developer-guide/architecture.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/billing-lifecycle	-> src/docs/developer-guide/billing-lifecycle.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/browser-provider-plugin	-> src/docs/developer-guide/browser-provider-plugin.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/browser-supervisor	-> src/i18n/zh-Hans/developer-guide/browser-supervisor.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/chronos-managed-cron-contract	-> src/docs/developer-guide/chronos-managed-cron-contract.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/codebase-ownership	-> src/docs/developer-guide/codebase-ownership.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/completion-backlog-delivery	-> src/docs/developer-guide/completion-backlog-delivery.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/context-compression-and-caching	-> src/i18n/zh-Hans/developer-guide/context-compression-and-caching.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/context-engine-plugin	-> src/i18n/zh-Hans/developer-guide/context-engine-plugin.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/contributing	-> src/i18n/zh-Hans/developer-guide/contributing.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/creating-skills	-> src/i18n/zh-Hans/developer-guide/creating-skills.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/cron-internals	-> src/i18n/zh-Hans/developer-guide/cron-internals.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/desktop-plugin-sdk	-> src/docs/developer-guide/desktop-plugin-sdk.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/egress-internals	-> src/docs/developer-guide/egress-internals.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/extending-the-cli	-> src/i18n/zh-Hans/developer-guide/extending-the-cli.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/gateway-internals	-> src/i18n/zh-Hans/developer-guide/gateway-internals.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/gateway-monitoring	-> src/docs/developer-guide/gateway-monitoring.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/gateway-session-lifecycle	-> src/docs/developer-guide/gateway-session-lifecycle.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/image-gen-provider-plugin	-> src/i18n/zh-Hans/developer-guide/image-gen-provider-plugin.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/memory-provider-plugin	-> src/i18n/zh-Hans/developer-guide/memory-provider-plugin.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/micro-compaction	-> src/docs/developer-guide/micro-compaction.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/middleware	-> src/docs/developer-guide/middleware.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/model-provider-plugin	-> src/i18n/zh-Hans/developer-guide/model-provider-plugin.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/multiplexing-gateway	-> src/docs/developer-guide/multiplexing-gateway.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/observer-hooks	-> src/docs/developer-guide/observer-hooks.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/plugin-llm-access	-> src/i18n/zh-Hans/developer-guide/plugin-llm-access.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/plugins	-> src/i18n/zh-Hans/developer-guide/plugins/index.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/programmatic-integration	-> src/i18n/zh-Hans/developer-guide/programmatic-integration.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/prompt-assembly	-> src/i18n/zh-Hans/developer-guide/prompt-assembly.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/provider-runtime	-> src/i18n/zh-Hans/developer-guide/provider-runtime.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/relay-connector-contract	-> src/docs/developer-guide/relay-connector-contract.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/relay-shared-metrics	-> src/docs/developer-guide/relay-shared-metrics.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/secret-source-plugin	-> src/docs/developer-guide/secret-source-plugin.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/session-storage	-> src/i18n/zh-Hans/developer-guide/session-storage.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/state-db-recovery	-> src/docs/developer-guide/state-db-recovery.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/streaming-tts	-> src/docs/developer-guide/streaming-tts.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/subagent-lifecycle-api	-> src/docs/developer-guide/subagent-lifecycle-api.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/terminal-environment-plugin	-> src/docs/developer-guide/terminal-environment-plugin.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/tools-runtime	-> src/i18n/zh-Hans/developer-guide/tools-runtime.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/trajectory-format	-> src/i18n/zh-Hans/developer-guide/trajectory-format.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/video-gen-provider-plugin	-> src/i18n/zh-Hans/developer-guide/video-gen-provider-plugin.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/web-search-provider-plugin	-> src/i18n/zh-Hans/developer-guide/web-search-provider-plugin.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/worktree-ui-dev	-> src/docs/developer-guide/worktree-ui-dev.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/getting-started/installation	-> src/i18n/zh-Hans/getting-started/installation.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/getting-started/learning-path	-> src/i18n/zh-Hans/getting-started/learning-path.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/getting-started/nix-setup	-> src/i18n/zh-Hans/getting-started/nix-setup.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/getting-started/platform-support	-> src/docs/getting-started/platform-support.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/getting-started/quickstart	-> src/i18n/zh-Hans/getting-started/quickstart.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/getting-started/termux	-> src/i18n/zh-Hans/getting-started/termux.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/getting-started/updating	-> src/i18n/zh-Hans/getting-started/updating.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/agent-email-address	-> src/docs/guides/agent-email-address.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/automate-with-cron	-> src/i18n/zh-Hans/guides/automate-with-cron.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/automation-blueprints	-> src/i18n/zh-Hans/guides/automation-blueprints.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/aws-bedrock	-> src/i18n/zh-Hans/guides/aws-bedrock.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/azure-foundry	-> src/i18n/zh-Hans/guides/azure-foundry.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/cron-script-only	-> src/i18n/zh-Hans/guides/cron-script-only.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/cron-troubleshooting	-> src/i18n/zh-Hans/guides/cron-troubleshooting.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/daily-briefing-bot	-> src/i18n/zh-Hans/guides/daily-briefing-bot.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/delegation-patterns	-> src/i18n/zh-Hans/guides/delegation-patterns.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/github-pr-review-agent	-> src/i18n/zh-Hans/guides/github-pr-review-agent.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/google-gemini	-> src/i18n/zh-Hans/guides/google-gemini.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/google-vertex	-> src/docs/guides/google-vertex.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/local-llm-on-mac	-> src/i18n/zh-Hans/guides/local-llm-on-mac.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/local-ollama-setup	-> src/i18n/zh-Hans/guides/local-ollama-setup.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/manage-hermes-cloud-with-mcp	-> src/docs/guides/manage-hermes-cloud-with-mcp.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/microsoft-graph-app-registration	-> src/i18n/zh-Hans/guides/microsoft-graph-app-registration.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/migrate-from-openclaw	-> src/i18n/zh-Hans/guides/migrate-from-openclaw.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/minimax-oauth	-> src/i18n/zh-Hans/guides/minimax-oauth.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/oauth-over-ssh	-> src/i18n/zh-Hans/guides/oauth-over-ssh.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/operate-teams-meeting-pipeline	-> src/i18n/zh-Hans/guides/operate-teams-meeting-pipeline.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/pipe-script-output	-> src/i18n/zh-Hans/guides/pipe-script-output.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/python-library	-> src/i18n/zh-Hans/guides/python-library.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/run-hermes-with-nous-portal	-> src/i18n/zh-Hans/guides/run-hermes-with-nous-portal.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/run-nemotron-3-ultra-free	-> src/docs/guides/run-nemotron-3-ultra-free.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/team-telegram-assistant	-> src/i18n/zh-Hans/guides/team-telegram-assistant.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/tips	-> src/i18n/zh-Hans/guides/tips.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/use-mcp-with-hermes	-> src/i18n/zh-Hans/guides/use-mcp-with-hermes.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/use-soul-with-hermes	-> src/i18n/zh-Hans/guides/use-soul-with-hermes.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/use-voice-mode-with-hermes	-> src/i18n/zh-Hans/guides/use-voice-mode-with-hermes.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/webhook-github-pr-review	-> src/i18n/zh-Hans/guides/webhook-github-pr-review.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/work-with-skills	-> src/i18n/zh-Hans/guides/work-with-skills.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/xai-grok-oauth	-> src/i18n/zh-Hans/guides/xai-grok-oauth.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/integrations	-> src/i18n/zh-Hans/integrations/index.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/integrations/buzz	-> src/i18n/zh-Hans/integrations/buzz.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/integrations/nous-portal	-> src/i18n/zh-Hans/integrations/nous-portal.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/integrations/providers	-> src/i18n/zh-Hans/integrations/providers.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/reference/automation-blueprints-catalog	-> src/docs/reference/automation-blueprints-catalog.mdx   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/reference/cli-commands	-> src/i18n/zh-Hans/reference/cli-commands.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/reference/cli-symbols	-> src/docs/reference/cli-symbols.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/reference/environment-variables	-> src/i18n/zh-Hans/reference/environment-variables.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/reference/faq	-> src/i18n/zh-Hans/reference/faq.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/reference/mcp-config-reference	-> src/i18n/zh-Hans/reference/mcp-config-reference.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/reference/model-catalog	-> src/i18n/zh-Hans/reference/model-catalog.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/reference/optional-skills-catalog	-> src/i18n/zh-Hans/reference/optional-skills-catalog.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/reference/profile-commands	-> src/i18n/zh-Hans/reference/profile-commands.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/reference/skills-catalog	-> src/i18n/zh-Hans/reference/skills-catalog.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/reference/slash-commands	-> src/i18n/zh-Hans/reference/slash-commands.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/reference/tools-reference	-> src/i18n/zh-Hans/reference/tools-reference.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/reference/toolsets-reference	-> src/i18n/zh-Hans/reference/toolsets-reference.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/bot-mode	-> src/docs/user-guide/bot-mode.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/checkpoints-and-rollback	-> src/i18n/zh-Hans/user-guide/checkpoints-and-rollback.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/cli	-> src/i18n/zh-Hans/user-guide/cli.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/configuration	-> src/i18n/zh-Hans/user-guide/configuration.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/configuring-models	-> src/i18n/zh-Hans/user-guide/configuring-models.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/desktop	-> src/docs/user-guide/desktop.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/docker	-> src/i18n/zh-Hans/user-guide/docker.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/egress	-> src/docs/user-guide/egress/index.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/egress/iron-proxy	-> src/docs/user-guide/egress/iron-proxy.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/egress/network-isolation	-> src/docs/user-guide/egress/network-isolation.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/acp	-> src/i18n/zh-Hans/user-guide/features/acp.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/api-server	-> src/i18n/zh-Hans/user-guide/features/api-server.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/batch-processing	-> src/i18n/zh-Hans/user-guide/features/batch-processing.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/browser	-> src/i18n/zh-Hans/user-guide/features/browser.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/built-in-plugins	-> src/i18n/zh-Hans/user-guide/features/built-in-plugins.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/code-execution	-> src/i18n/zh-Hans/user-guide/features/code-execution.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/codex-app-server-runtime	-> src/i18n/zh-Hans/user-guide/features/codex-app-server-runtime.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/computer-use	-> src/i18n/zh-Hans/user-guide/features/computer-use.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/context-files	-> src/i18n/zh-Hans/user-guide/features/context-files.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/context-references	-> src/i18n/zh-Hans/user-guide/features/context-references.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/credential-pools	-> src/i18n/zh-Hans/user-guide/features/credential-pools.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/credential-vault	-> src/docs/user-guide/features/credential-vault.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/cron	-> src/i18n/zh-Hans/user-guide/features/cron.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/curator	-> src/i18n/zh-Hans/user-guide/features/curator.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/delegation	-> src/i18n/zh-Hans/user-guide/features/delegation.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/deliverable-mode	-> src/i18n/zh-Hans/user-guide/features/deliverable-mode.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/document-extraction	-> src/docs/user-guide/features/document-extraction.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/extending-the-dashboard	-> src/i18n/zh-Hans/user-guide/features/extending-the-dashboard.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/fallback-providers	-> src/i18n/zh-Hans/user-guide/features/fallback-providers.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/goals	-> src/i18n/zh-Hans/user-guide/features/goals.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/heartbeat	-> src/docs/user-guide/features/heartbeat.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/honcho	-> src/i18n/zh-Hans/user-guide/features/honcho.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/hooks	-> src/i18n/zh-Hans/user-guide/features/hooks.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/image-generation	-> src/i18n/zh-Hans/user-guide/features/image-generation.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/kanban	-> src/i18n/zh-Hans/user-guide/features/kanban.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/kanban-multi-gateway	-> src/docs/user-guide/features/kanban-multi-gateway.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/kanban-tutorial	-> src/i18n/zh-Hans/user-guide/features/kanban-tutorial.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/kanban-worker-lanes	-> src/i18n/zh-Hans/user-guide/features/kanban-worker-lanes.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/loops	-> src/docs/user-guide/features/loops.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/lsp	-> src/i18n/zh-Hans/user-guide/features/lsp.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/mcp	-> src/i18n/zh-Hans/user-guide/features/mcp.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/memory	-> src/i18n/zh-Hans/user-guide/features/memory.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/memory-providers	-> src/i18n/zh-Hans/user-guide/features/memory-providers.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/mixture-of-agents	-> src/docs/user-guide/features/mixture-of-agents.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/overview	-> src/i18n/zh-Hans/user-guide/features/overview.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/personality	-> src/i18n/zh-Hans/user-guide/features/personality.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/pets	-> src/docs/user-guide/features/pets.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/plugin-catalog	-> src/docs/user-guide/features/plugin-catalog.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/plugins	-> src/i18n/zh-Hans/user-guide/features/plugins.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/provider-routing	-> src/i18n/zh-Hans/user-guide/features/provider-routing.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/skills	-> src/i18n/zh-Hans/user-guide/features/skills.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/skins	-> src/i18n/zh-Hans/user-guide/features/skins.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/spotify	-> src/i18n/zh-Hans/user-guide/features/spotify.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/subscription-proxy	-> src/i18n/zh-Hans/user-guide/features/subscription-proxy.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/tool-gateway	-> src/i18n/zh-Hans/user-guide/features/tool-gateway.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/tool-search	-> src/docs/user-guide/features/tool-search.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/tools	-> src/i18n/zh-Hans/user-guide/features/tools.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/tts	-> src/i18n/zh-Hans/user-guide/features/tts.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/vision	-> src/i18n/zh-Hans/user-guide/features/vision.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/voice-mode	-> src/i18n/zh-Hans/user-guide/features/voice-mode.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/wake-word	-> src/docs/user-guide/features/wake-word.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/web-dashboard	-> src/i18n/zh-Hans/user-guide/features/web-dashboard.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/web-search	-> src/i18n/zh-Hans/user-guide/features/web-search.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/x-search	-> src/i18n/zh-Hans/user-guide/features/x-search.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/git-worktrees	-> src/i18n/zh-Hans/user-guide/git-worktrees.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/import-from-other-agents	-> src/docs/user-guide/import-from-other-agents.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/local-models	-> src/docs/user-guide/local-models.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/managed-scope	-> src/docs/user-guide/managed-scope.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging	-> src/i18n/zh-Hans/user-guide/messaging/index.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/a2a	-> src/docs/user-guide/messaging/a2a.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/bluebubbles	-> src/i18n/zh-Hans/user-guide/messaging/bluebubbles.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/buzz	-> src/docs/user-guide/messaging/buzz.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/dingtalk	-> src/i18n/zh-Hans/user-guide/messaging/dingtalk.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/discord	-> src/i18n/zh-Hans/user-guide/messaging/discord.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/email	-> src/i18n/zh-Hans/user-guide/messaging/email.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/feishu	-> src/i18n/zh-Hans/user-guide/messaging/feishu.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/google_chat	-> src/i18n/zh-Hans/user-guide/messaging/google_chat.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/homeassistant	-> src/i18n/zh-Hans/user-guide/messaging/homeassistant.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/irc	-> src/docs/user-guide/messaging/irc.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/line	-> src/i18n/zh-Hans/user-guide/messaging/line.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/matrix	-> src/i18n/zh-Hans/user-guide/messaging/matrix.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/mattermost	-> src/i18n/zh-Hans/user-guide/messaging/mattermost.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/msgraph-webhook	-> src/i18n/zh-Hans/user-guide/messaging/msgraph-webhook.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/ntfy	-> src/i18n/zh-Hans/user-guide/messaging/ntfy.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/open-webui	-> src/i18n/zh-Hans/user-guide/messaging/open-webui.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/photon	-> src/docs/user-guide/messaging/photon.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/qqbot	-> src/i18n/zh-Hans/user-guide/messaging/qqbot.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/raft	-> src/docs/user-guide/messaging/raft.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/relay	-> src/docs/user-guide/messaging/relay.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/signal	-> src/i18n/zh-Hans/user-guide/messaging/signal.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/simplex	-> src/i18n/zh-Hans/user-guide/messaging/simplex.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/slack	-> src/i18n/zh-Hans/user-guide/messaging/slack.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/sms	-> src/i18n/zh-Hans/user-guide/messaging/sms.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/teams	-> src/i18n/zh-Hans/user-guide/messaging/teams.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/teams-meetings	-> src/i18n/zh-Hans/user-guide/messaging/teams-meetings.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/telegram	-> src/i18n/zh-Hans/user-guide/messaging/telegram.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/webhooks	-> src/i18n/zh-Hans/user-guide/messaging/webhooks.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/wecom	-> src/i18n/zh-Hans/user-guide/messaging/wecom.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/wecom-callback	-> src/i18n/zh-Hans/user-guide/messaging/wecom-callback.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/weixin	-> src/i18n/zh-Hans/user-guide/messaging/weixin.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/whatsapp	-> src/i18n/zh-Hans/user-guide/messaging/whatsapp.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/whatsapp-cloud	-> src/docs/user-guide/messaging/whatsapp-cloud.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/yuanbao	-> src/i18n/zh-Hans/user-guide/messaging/yuanbao.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/multi-connection-desktop	-> src/docs/user-guide/multi-connection-desktop.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/multi-profile-gateways	-> src/docs/user-guide/multi-profile-gateways.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/profile-distributions	-> src/i18n/zh-Hans/user-guide/profile-distributions.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/profiles	-> src/i18n/zh-Hans/user-guide/profiles.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/secrets	-> src/i18n/zh-Hans/user-guide/secrets/index.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/secrets/bitwarden	-> src/i18n/zh-Hans/user-guide/secrets/bitwarden.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/secrets/command	-> src/docs/user-guide/secrets/command.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/secrets/onepassword	-> src/docs/user-guide/secrets/onepassword.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/security	-> src/i18n/zh-Hans/user-guide/security.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/sessions	-> src/i18n/zh-Hans/user-guide/sessions.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/apple/apple-apple-notes	-> src/i18n/zh-Hans/user-guide/skills/bundled/apple/apple-apple-notes.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/apple/apple-apple-reminders	-> src/i18n/zh-Hans/user-guide/skills/bundled/apple/apple-apple-reminders.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/apple/apple-findmy	-> src/i18n/zh-Hans/user-guide/skills/bundled/apple/apple-findmy.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/apple/apple-imessage	-> src/i18n/zh-Hans/user-guide/skills/bundled/apple/apple-imessage.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-claude-code	-> src/i18n/zh-Hans/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-claude-code.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-codex	-> src/i18n/zh-Hans/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-codex.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-computer-use	-> src/docs/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-computer-use.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-hermes-agent	-> src/i18n/zh-Hans/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-hermes-agent.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-opencode	-> src/i18n/zh-Hans/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-opencode.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/creative/creative-architecture-diagram	-> src/i18n/zh-Hans/user-guide/skills/bundled/creative/creative-architecture-diagram.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/creative/creative-ascii-art	-> src/i18n/zh-Hans/user-guide/skills/bundled/creative/creative-ascii-art.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/creative/creative-ascii-video	-> src/i18n/zh-Hans/user-guide/skills/bundled/creative/creative-ascii-video.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/creative/creative-baoyu-infographic	-> src/i18n/zh-Hans/user-guide/skills/bundled/creative/creative-baoyu-infographic.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/creative/creative-claude-design	-> src/i18n/zh-Hans/user-guide/skills/bundled/creative/creative-claude-design.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/creative/creative-comfyui	-> src/i18n/zh-Hans/user-guide/skills/bundled/creative/creative-comfyui.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/creative/creative-design-md	-> src/i18n/zh-Hans/user-guide/skills/bundled/creative/creative-design-md.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/creative/creative-excalidraw	-> src/i18n/zh-Hans/user-guide/skills/bundled/creative/creative-excalidraw.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/creative/creative-humanizer	-> src/i18n/zh-Hans/user-guide/skills/bundled/creative/creative-humanizer.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/creative/creative-manim-video	-> src/i18n/zh-Hans/user-guide/skills/bundled/creative/creative-manim-video.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/creative/creative-p5js	-> src/i18n/zh-Hans/user-guide/skills/bundled/creative/creative-p5js.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/creative/creative-popular-web-designs	-> src/i18n/zh-Hans/user-guide/skills/bundled/creative/creative-popular-web-designs.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/creative/creative-pretext	-> src/i18n/zh-Hans/user-guide/skills/bundled/creative/creative-pretext.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/creative/creative-sketch	-> src/i18n/zh-Hans/user-guide/skills/bundled/creative/creative-sketch.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/creative/creative-songwriting-and-ai-music	-> src/i18n/zh-Hans/user-guide/skills/bundled/creative/creative-songwriting-and-ai-music.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/devops/devops-sdlc-review	-> src/docs/user-guide/skills/bundled/devops/devops-sdlc-review.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/email/email-email-inbox-triage	-> src/docs/user-guide/skills/bundled/email/email-email-inbox-triage.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/email/email-himalaya	-> src/i18n/zh-Hans/user-guide/skills/bundled/email/email-himalaya.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/github/github-codebase-inspection	-> src/i18n/zh-Hans/user-guide/skills/bundled/github/github-codebase-inspection.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/github/github-github-auth	-> src/i18n/zh-Hans/user-guide/skills/bundled/github/github-github-auth.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/github/github-github-code-review	-> src/i18n/zh-Hans/user-guide/skills/bundled/github/github-github-code-review.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/github/github-github-issues	-> src/i18n/zh-Hans/user-guide/skills/bundled/github/github-github-issues.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/github/github-github-pr-workflow	-> src/i18n/zh-Hans/user-guide/skills/bundled/github/github-github-pr-workflow.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/github/github-github-repo-management	-> src/i18n/zh-Hans/user-guide/skills/bundled/github/github-github-repo-management.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/media/media-gif-search	-> src/i18n/zh-Hans/user-guide/skills/bundled/media/media-gif-search.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/media/media-songsee	-> src/i18n/zh-Hans/user-guide/skills/bundled/media/media-songsee.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/media/media-youtube-content	-> src/i18n/zh-Hans/user-guide/skills/bundled/media/media-youtube-content.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/mlops/mlops-evaluation-evaluating-llms-harness	-> src/i18n/zh-Hans/user-guide/skills/bundled/mlops/mlops-evaluation-evaluating-llms-harness.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/mlops/mlops-evaluation-weights-and-biases	-> src/i18n/zh-Hans/user-guide/skills/bundled/mlops/mlops-evaluation-weights-and-biases.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/mlops/mlops-huggingface-hub	-> src/i18n/zh-Hans/user-guide/skills/bundled/mlops/mlops-huggingface-hub.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/mlops/mlops-inference-llama-cpp	-> src/i18n/zh-Hans/user-guide/skills/bundled/mlops/mlops-inference-llama-cpp.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/mlops/mlops-inference-serving-llms-vllm	-> src/i18n/zh-Hans/user-guide/skills/bundled/mlops/mlops-inference-serving-llms-vllm.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/note-taking/note-taking-obsidian	-> src/i18n/zh-Hans/user-guide/skills/bundled/note-taking/note-taking-obsidian.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/productivity/productivity-airtable	-> src/i18n/zh-Hans/user-guide/skills/bundled/productivity/productivity-airtable.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/productivity/productivity-box	-> src/docs/user-guide/skills/bundled/productivity/productivity-box.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/productivity/productivity-document-to-action-items	-> src/docs/user-guide/skills/bundled/productivity/productivity-document-to-action-items.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/productivity/productivity-docx	-> src/docs/user-guide/skills/bundled/productivity/productivity-docx.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/productivity/productivity-google-workspace	-> src/i18n/zh-Hans/user-guide/skills/bundled/productivity/productivity-google-workspace.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/productivity/productivity-maps	-> src/i18n/zh-Hans/user-guide/skills/bundled/productivity/productivity-maps.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/productivity/productivity-meeting-action-items	-> src/docs/user-guide/skills/bundled/productivity/productivity-meeting-action-items.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/productivity/productivity-nano-pdf	-> src/i18n/zh-Hans/user-guide/skills/bundled/productivity/productivity-nano-pdf.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/productivity/productivity-notion	-> src/i18n/zh-Hans/user-guide/skills/bundled/productivity/productivity-notion.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/productivity/productivity-ocr-and-documents	-> src/i18n/zh-Hans/user-guide/skills/bundled/productivity/productivity-ocr-and-documents.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/productivity/productivity-pdf	-> src/docs/user-guide/skills/bundled/productivity/productivity-pdf.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/productivity/productivity-powerpoint	-> src/i18n/zh-Hans/user-guide/skills/bundled/productivity/productivity-powerpoint.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/productivity/productivity-product-price-monitor	-> src/docs/user-guide/skills/bundled/productivity/productivity-product-price-monitor.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/productivity/productivity-teams-meeting-pipeline	-> src/i18n/zh-Hans/user-guide/skills/bundled/productivity/productivity-teams-meeting-pipeline.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/productivity/productivity-weekly-review-planning	-> src/docs/user-guide/skills/bundled/productivity/productivity-weekly-review-planning.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/productivity/productivity-xlsx	-> src/docs/user-guide/skills/bundled/productivity/productivity-xlsx.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/research/research-arxiv	-> src/i18n/zh-Hans/user-guide/skills/bundled/research/research-arxiv.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/research/research-blogwatcher	-> src/i18n/zh-Hans/user-guide/skills/bundled/research/research-blogwatcher.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/research/research-competitor-news-monitor	-> src/docs/user-guide/skills/bundled/research/research-competitor-news-monitor.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/research/research-grounded-citations	-> src/docs/user-guide/skills/bundled/research/research-grounded-citations.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/research/research-llm-wiki	-> src/i18n/zh-Hans/user-guide/skills/bundled/research/research-llm-wiki.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/research/research-research-paper-writing	-> src/i18n/zh-Hans/user-guide/skills/bundled/research/research-research-paper-writing.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/smart-home/smart-home-openhue	-> src/i18n/zh-Hans/user-guide/skills/bundled/smart-home/smart-home-openhue.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/social-media/social-media-xurl	-> src/i18n/zh-Hans/user-guide/skills/bundled/social-media/social-media-xurl.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/software-development/software-development-codebase-inspection	-> src/docs/user-guide/skills/bundled/software-development/software-development-codebase-inspection.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/software-development/software-development-dogfood	-> src/i18n/zh-Hans/user-guide/skills/bundled/software-development/software-development-dogfood.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/software-development/software-development-github	-> src/docs/user-guide/skills/bundled/software-development/software-development-github.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/software-development/software-development-hermes-agent-skill-authoring	-> src/i18n/zh-Hans/user-guide/skills/bundled/software-development/software-development-hermes-agent-skill-authoring.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/software-development/software-development-inspecting-hermes-desktop-dom	-> src/docs/user-guide/skills/bundled/software-development/software-development-inspecting-hermes-desktop-dom.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/software-development/software-development-node-inspect-debugger	-> src/i18n/zh-Hans/user-guide/skills/bundled/software-development/software-development-node-inspect-debugger.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/software-development/software-development-python-debugpy	-> src/i18n/zh-Hans/user-guide/skills/bundled/software-development/software-development-python-debugpy.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/software-development/software-development-requesting-code-review	-> src/i18n/zh-Hans/user-guide/skills/bundled/software-development/software-development-requesting-code-review.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/software-development/software-development-simplify-code	-> src/docs/user-guide/skills/bundled/software-development/software-development-simplify-code.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/software-development/software-development-spike	-> src/i18n/zh-Hans/user-guide/skills/bundled/software-development/software-development-spike.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/software-development/software-development-systematic-debugging	-> src/i18n/zh-Hans/user-guide/skills/bundled/software-development/software-development-systematic-debugging.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/software-development/software-development-test-driven-development	-> src/i18n/zh-Hans/user-guide/skills/bundled/software-development/software-development-test-driven-development.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/web/web-blocked-page-recovery	-> src/docs/user-guide/skills/bundled/web/web-blocked-page-recovery.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/google-workspace	-> src/i18n/zh-Hans/user-guide/skills/google-workspace.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/autonomous-ai-agents/autonomous-ai-agents-antigravity-cli	-> src/docs/user-guide/skills/optional/autonomous-ai-agents/autonomous-ai-agents-antigravity-cli.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/autonomous-ai-agents/autonomous-ai-agents-blackbox	-> src/i18n/zh-Hans/user-guide/skills/optional/autonomous-ai-agents/autonomous-ai-agents-blackbox.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/autonomous-ai-agents/autonomous-ai-agents-dynamic-workflow	-> src/docs/user-guide/skills/optional/autonomous-ai-agents/autonomous-ai-agents-dynamic-workflow.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/autonomous-ai-agents/autonomous-ai-agents-grok	-> src/docs/user-guide/skills/optional/autonomous-ai-agents/autonomous-ai-agents-grok.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/autonomous-ai-agents/autonomous-ai-agents-honcho	-> src/i18n/zh-Hans/user-guide/skills/optional/autonomous-ai-agents/autonomous-ai-agents-honcho.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/autonomous-ai-agents/autonomous-ai-agents-openhands	-> src/docs/user-guide/skills/optional/autonomous-ai-agents/autonomous-ai-agents-openhands.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/blockchain/blockchain-evm	-> src/i18n/zh-Hans/user-guide/skills/optional/blockchain/blockchain-evm.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/blockchain/blockchain-hyperliquid	-> src/i18n/zh-Hans/user-guide/skills/optional/blockchain/blockchain-hyperliquid.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/blockchain/blockchain-solana	-> src/i18n/zh-Hans/user-guide/skills/optional/blockchain/blockchain-solana.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/communication/communication-one-three-one-rule	-> src/i18n/zh-Hans/user-guide/skills/optional/communication/communication-one-three-one-rule.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/creative/creative-ai-presenter-video	-> src/docs/user-guide/skills/optional/creative/creative-ai-presenter-video.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/creative/creative-archify	-> src/docs/user-guide/skills/optional/creative/creative-archify.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/creative/creative-ascii-art	-> src/docs/user-guide/skills/optional/creative/creative-ascii-art.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/creative/creative-audiocraft-audio-generation	-> src/i18n/zh-Hans/user-guide/skills/optional/creative/creative-audiocraft-audio-generation.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/creative/creative-auteur	-> src/docs/user-guide/skills/optional/creative/creative-auteur.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/creative/creative-baoyu-article-illustrator	-> src/docs/user-guide/skills/optional/creative/creative-baoyu-article-illustrator.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/creative/creative-baoyu-comic	-> src/docs/user-guide/skills/optional/creative/creative-baoyu-comic.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/creative/creative-comfyui	-> src/docs/user-guide/skills/optional/creative/creative-comfyui.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/creative/creative-concept-diagrams	-> src/i18n/zh-Hans/user-guide/skills/optional/creative/creative-concept-diagrams.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/creative/creative-creative-ideation	-> src/docs/user-guide/skills/optional/creative/creative-creative-ideation.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/creative/creative-draw-your-font	-> src/docs/user-guide/skills/optional/creative/creative-draw-your-font.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/creative/creative-dream-loop	-> src/docs/user-guide/skills/optional/creative/creative-dream-loop.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/creative/creative-excalidraw	-> src/docs/user-guide/skills/optional/creative/creative-excalidraw.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/creative/creative-heartmula	-> src/i18n/zh-Hans/user-guide/skills/optional/creative/creative-heartmula.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/creative/creative-hyperframes	-> src/i18n/zh-Hans/user-guide/skills/optional/creative/creative-hyperframes.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/creative/creative-impeccable	-> src/docs/user-guide/skills/optional/creative/creative-impeccable.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/creative/creative-ip-as-logo	-> src/docs/user-guide/skills/optional/creative/creative-ip-as-logo.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/creative/creative-kanban-video-orchestrator	-> src/i18n/zh-Hans/user-guide/skills/optional/creative/creative-kanban-video-orchestrator.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/creative/creative-meme-generation	-> src/i18n/zh-Hans/user-guide/skills/optional/creative/creative-meme-generation.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/creative/creative-mono-color	-> src/docs/user-guide/skills/optional/creative/creative-mono-color.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/creative/creative-pixel-art	-> src/docs/user-guide/skills/optional/creative/creative-pixel-art.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/creative/creative-pretext	-> src/docs/user-guide/skills/optional/creative/creative-pretext.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/creative/creative-simple-english	-> src/docs/user-guide/skills/optional/creative/creative-simple-english.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/creative/creative-sketch	-> src/docs/user-guide/skills/optional/creative/creative-sketch.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/creative/creative-social-media-content-calendar	-> src/docs/user-guide/skills/optional/creative/creative-social-media-content-calendar.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/creative/creative-system-atlas	-> src/docs/user-guide/skills/optional/creative/creative-system-atlas.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/creative/creative-tldraw-offline	-> src/docs/user-guide/skills/optional/creative/creative-tldraw-offline.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/creative/creative-unreal-mcp	-> src/docs/user-guide/skills/optional/creative/creative-unreal-mcp.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/data-science/data-science-jupyter-notebook	-> src/i18n/zh-Hans/user-guide/skills/optional/data-science/data-science-jupyter-notebook.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/devops/devops-actual-setup	-> src/docs/user-guide/skills/optional/devops/devops-actual-setup.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/devops/devops-docker-management	-> src/i18n/zh-Hans/user-guide/skills/optional/devops/devops-docker-management.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/devops/devops-hermes-s6-container-supervision	-> src/docs/user-guide/skills/optional/devops/devops-hermes-s6-container-supervision.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/devops/devops-inference-sh-cli	-> src/i18n/zh-Hans/user-guide/skills/optional/devops/devops-inference-sh-cli.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/devops/devops-pinggy-tunnel	-> src/i18n/zh-Hans/user-guide/skills/optional/devops/devops-pinggy-tunnel.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/devops/devops-setup-wizard-generator	-> src/docs/user-guide/skills/optional/devops/devops-setup-wizard-generator.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/devops/devops-watchers	-> src/i18n/zh-Hans/user-guide/skills/optional/devops/devops-watchers.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/dogfood/dogfood-adversarial-ux-test	-> src/i18n/zh-Hans/user-guide/skills/optional/dogfood/dogfood-adversarial-ux-test.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/email/email-agentmail	-> src/i18n/zh-Hans/user-guide/skills/optional/email/email-agentmail.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/finance/finance-3-statement-model	-> src/i18n/zh-Hans/user-guide/skills/optional/finance/finance-3-statement-model.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/finance/finance-comps-analysis	-> src/i18n/zh-Hans/user-guide/skills/optional/finance/finance-comps-analysis.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/finance/finance-dcf-model	-> src/i18n/zh-Hans/user-guide/skills/optional/finance/finance-dcf-model.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/finance/finance-excel-author	-> src/i18n/zh-Hans/user-guide/skills/optional/finance/finance-excel-author.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/finance/finance-lbo-model	-> src/i18n/zh-Hans/user-guide/skills/optional/finance/finance-lbo-model.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/finance/finance-merger-model	-> src/i18n/zh-Hans/user-guide/skills/optional/finance/finance-merger-model.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/finance/finance-polymarket	-> src/i18n/zh-Hans/user-guide/skills/optional/finance/finance-polymarket.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/finance/finance-pptx-author	-> src/i18n/zh-Hans/user-guide/skills/optional/finance/finance-pptx-author.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/finance/finance-stocks	-> src/i18n/zh-Hans/user-guide/skills/optional/finance/finance-stocks.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/gaming/gaming-minecraft-modpack-server	-> src/docs/user-guide/skills/optional/gaming/gaming-minecraft-modpack-server.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/gaming/gaming-pokemon-player	-> src/docs/user-guide/skills/optional/gaming/gaming-pokemon-player.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/health/health-fitness-nutrition	-> src/i18n/zh-Hans/user-guide/skills/optional/health/health-fitness-nutrition.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/health/health-neuroskill-bci	-> src/i18n/zh-Hans/user-guide/skills/optional/health/health-neuroskill-bci.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mcp/mcp-fastmcp	-> src/i18n/zh-Hans/user-guide/skills/optional/mcp/mcp-fastmcp.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mcp/mcp-mcp-oauth-remote-gateway	-> src/docs/user-guide/skills/optional/mcp/mcp-mcp-oauth-remote-gateway.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mcp/mcp-mcporter	-> src/i18n/zh-Hans/user-guide/skills/optional/mcp/mcp-mcporter.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/migration/migration-openclaw-migration	-> src/i18n/zh-Hans/user-guide/skills/optional/migration/migration-openclaw-migration.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-accelerate	-> src/i18n/zh-Hans/user-guide/skills/optional/mlops/mlops-accelerate.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-chroma	-> src/i18n/zh-Hans/user-guide/skills/optional/mlops/mlops-chroma.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-clip	-> src/i18n/zh-Hans/user-guide/skills/optional/mlops/mlops-clip.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-evaluation-evaluating-llms-harness	-> src/docs/user-guide/skills/optional/mlops/mlops-evaluation-evaluating-llms-harness.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-evaluation-weights-and-biases	-> src/docs/user-guide/skills/optional/mlops/mlops-evaluation-weights-and-biases.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-faiss	-> src/i18n/zh-Hans/user-guide/skills/optional/mlops/mlops-faiss.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-flash-attention	-> src/i18n/zh-Hans/user-guide/skills/optional/mlops/mlops-flash-attention.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-guidance	-> src/i18n/zh-Hans/user-guide/skills/optional/mlops/mlops-guidance.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-huggingface-tokenizers	-> src/i18n/zh-Hans/user-guide/skills/optional/mlops/mlops-huggingface-tokenizers.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-inference-llama-cpp	-> src/docs/user-guide/skills/optional/mlops/mlops-inference-llama-cpp.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-inference-outlines	-> src/i18n/zh-Hans/user-guide/skills/optional/mlops/mlops-inference-outlines.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-inference-serving-llms-vllm	-> src/docs/user-guide/skills/optional/mlops/mlops-inference-serving-llms-vllm.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-instructor	-> src/i18n/zh-Hans/user-guide/skills/optional/mlops/mlops-instructor.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-lambda-labs	-> src/i18n/zh-Hans/user-guide/skills/optional/mlops/mlops-lambda-labs.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-llava	-> src/i18n/zh-Hans/user-guide/skills/optional/mlops/mlops-llava.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-modal	-> src/i18n/zh-Hans/user-guide/skills/optional/mlops/mlops-modal.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-models-huggingface-hub	-> src/docs/user-guide/skills/optional/mlops/mlops-models-huggingface-hub.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-models-segment-anything-model	-> src/i18n/zh-Hans/user-guide/skills/optional/mlops/mlops-models-segment-anything-model.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-nemo-curator	-> src/i18n/zh-Hans/user-guide/skills/optional/mlops/mlops-nemo-curator.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-obliteratus	-> src/docs/user-guide/skills/optional/mlops/mlops-obliteratus.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-peft	-> src/i18n/zh-Hans/user-guide/skills/optional/mlops/mlops-peft.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-pinecone	-> src/i18n/zh-Hans/user-guide/skills/optional/mlops/mlops-pinecone.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-pytorch-fsdp	-> src/i18n/zh-Hans/user-guide/skills/optional/mlops/mlops-pytorch-fsdp.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-pytorch-lightning	-> src/i18n/zh-Hans/user-guide/skills/optional/mlops/mlops-pytorch-lightning.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-qdrant	-> src/i18n/zh-Hans/user-guide/skills/optional/mlops/mlops-qdrant.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-research-dspy	-> src/docs/user-guide/skills/optional/mlops/mlops-research-dspy.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-saelens	-> src/i18n/zh-Hans/user-guide/skills/optional/mlops/mlops-saelens.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-simpo	-> src/i18n/zh-Hans/user-guide/skills/optional/mlops/mlops-simpo.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-slime	-> src/i18n/zh-Hans/user-guide/skills/optional/mlops/mlops-slime.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-stable-diffusion	-> src/i18n/zh-Hans/user-guide/skills/optional/mlops/mlops-stable-diffusion.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-tensorrt-llm	-> src/i18n/zh-Hans/user-guide/skills/optional/mlops/mlops-tensorrt-llm.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-torchtitan	-> src/i18n/zh-Hans/user-guide/skills/optional/mlops/mlops-torchtitan.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-training-axolotl	-> src/i18n/zh-Hans/user-guide/skills/optional/mlops/mlops-training-axolotl.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-training-trl-fine-tuning	-> src/i18n/zh-Hans/user-guide/skills/optional/mlops/mlops-training-trl-fine-tuning.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-training-unsloth	-> src/i18n/zh-Hans/user-guide/skills/optional/mlops/mlops-training-unsloth.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/mlops/mlops-whisper	-> src/i18n/zh-Hans/user-guide/skills/optional/mlops/mlops-whisper.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/payments/payments-mpp-agent	-> src/docs/user-guide/skills/optional/payments/payments-mpp-agent.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/payments/payments-stripe-link-cli	-> src/docs/user-guide/skills/optional/payments/payments-stripe-link-cli.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/payments/payments-stripe-projects	-> src/docs/user-guide/skills/optional/payments/payments-stripe-projects.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/productivity/productivity-canvas	-> src/i18n/zh-Hans/user-guide/skills/optional/productivity/productivity-canvas.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/productivity/productivity-decision-questionnaire	-> src/docs/user-guide/skills/optional/productivity/productivity-decision-questionnaire.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/productivity/productivity-here-now	-> src/i18n/zh-Hans/user-guide/skills/optional/productivity/productivity-here-now.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/productivity/productivity-live-dashboard	-> src/docs/user-guide/skills/optional/productivity/productivity-live-dashboard.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/productivity/productivity-memento-flashcards	-> src/i18n/zh-Hans/user-guide/skills/optional/productivity/productivity-memento-flashcards.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/productivity/productivity-property-listings	-> src/docs/user-guide/skills/optional/productivity/productivity-property-listings.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/productivity/productivity-shop	-> src/i18n/zh-Hans/user-guide/skills/optional/productivity/productivity-shop.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/productivity/productivity-shopify	-> src/i18n/zh-Hans/user-guide/skills/optional/productivity/productivity-shopify.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/productivity/productivity-siyuan	-> src/i18n/zh-Hans/user-guide/skills/optional/productivity/productivity-siyuan.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/productivity/productivity-telephony	-> src/i18n/zh-Hans/user-guide/skills/optional/productivity/productivity-telephony.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/research/research-bioinformatics	-> src/i18n/zh-Hans/user-guide/skills/optional/research/research-bioinformatics.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/research/research-blogwatcher	-> src/docs/user-guide/skills/optional/research/research-blogwatcher.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/research/research-darwinian-evolver	-> src/i18n/zh-Hans/user-guide/skills/optional/research/research-darwinian-evolver.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/research/research-domain-intel	-> src/i18n/zh-Hans/user-guide/skills/optional/research/research-domain-intel.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/research/research-drug-discovery	-> src/i18n/zh-Hans/user-guide/skills/optional/research/research-drug-discovery.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/research/research-duckduckgo-search	-> src/i18n/zh-Hans/user-guide/skills/optional/research/research-duckduckgo-search.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/research/research-gitnexus-explorer	-> src/i18n/zh-Hans/user-guide/skills/optional/research/research-gitnexus-explorer.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/research/research-osint-investigation	-> src/i18n/zh-Hans/user-guide/skills/optional/research/research-osint-investigation.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/research/research-parallel-cli	-> src/i18n/zh-Hans/user-guide/skills/optional/research/research-parallel-cli.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/research/research-pinecone-research	-> src/docs/user-guide/skills/optional/research/research-pinecone-research.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/research/research-qmd	-> src/i18n/zh-Hans/user-guide/skills/optional/research/research-qmd.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/research/research-research-paper-writing	-> src/docs/user-guide/skills/optional/research/research-research-paper-writing.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/research/research-rss-feeds	-> src/docs/user-guide/skills/optional/research/research-rss-feeds.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/research/research-scrapling	-> src/i18n/zh-Hans/user-guide/skills/optional/research/research-scrapling.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/research/research-searxng-search	-> src/i18n/zh-Hans/user-guide/skills/optional/research/research-searxng-search.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/security/security-1password	-> src/i18n/zh-Hans/user-guide/skills/optional/security/security-1password.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/security/security-godmode	-> src/docs/user-guide/skills/optional/security/security-godmode.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/security/security-oss-forensics	-> src/i18n/zh-Hans/user-guide/skills/optional/security/security-oss-forensics.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/security/security-sherlock	-> src/i18n/zh-Hans/user-guide/skills/optional/security/security-sherlock.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/security/security-unbroker	-> src/docs/user-guide/skills/optional/security/security-unbroker.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/security/security-web-pentest	-> src/docs/user-guide/skills/optional/security/security-web-pentest.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/smart-home/smart-home-openhue	-> src/docs/user-guide/skills/optional/smart-home/smart-home-openhue.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/social-media/social-media-reddit-reading	-> src/docs/user-guide/skills/optional/social-media/social-media-reddit-reading.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/software-development/software-development-ast-grep	-> src/docs/user-guide/skills/optional/software-development/software-development-ast-grep.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/software-development/software-development-code-wiki	-> src/docs/user-guide/skills/optional/software-development/software-development-code-wiki.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/software-development/software-development-grill-me	-> src/docs/user-guide/skills/optional/software-development/software-development-grill-me.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/software-development/software-development-pr-lens	-> src/docs/user-guide/skills/optional/software-development/software-development-pr-lens.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/software-development/software-development-rest-graphql-debug	-> src/i18n/zh-Hans/user-guide/skills/optional/software-development/software-development-rest-graphql-debug.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/software-development/software-development-subagent-driven-development	-> src/docs/user-guide/skills/optional/software-development/software-development-subagent-driven-development.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/web-development/web-development-cloudflare-temporary-deploy	-> src/docs/user-guide/skills/optional/web-development/web-development-cloudflare-temporary-deploy.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/web-development/web-development-har-derived-api-client	-> src/docs/user-guide/skills/optional/web-development/web-development-har-derived-api-client.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/web-development/web-development-page-agent	-> src/i18n/zh-Hans/user-guide/skills/optional/web-development/web-development-page-agent.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/web-development/web-development-publish-site	-> src/docs/user-guide/skills/optional/web-development/web-development-publish-site.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/web-development/web-development-scrollcraft	-> src/docs/user-guide/skills/optional/web-development/web-development-scrollcraft.md   [zh-Hans fallback: no zh translation; content = EN source]
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/yuanbao/yuanbao-yuanbao	-> src/i18n/zh-Hans/user-guide/skills/optional/yuanbao/yuanbao-yuanbao.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/tui	-> src/i18n/zh-Hans/user-guide/tui.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/windows-native	-> src/i18n/zh-Hans/user-guide/windows-native.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/windows-wsl-quickstart	-> src/i18n/zh-Hans/user-guide/windows-wsl-quickstart.md
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-stories	-> src/i18n/zh-Hans/user-stories.mdx
+
+# --- live pages with no single website/docs source file ---
+https://hermes-agent.nousresearch.com/docs/api/plugins.json	-> JSON catalog -> snapshotted as src/api-plugins.json
+https://hermes-agent.nousresearch.com/docs/api/skills.json	-> JSON catalog -> snapshotted as src/api-skills.json
+https://hermes-agent.nousresearch.com/docs/plugins	-> React page (repo: website/src/pages/plugins/index.tsx)
+https://hermes-agent.nousresearch.com/docs/skills	-> React page (repo: website/src/pages/skills/index.tsx)
+https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/autonomous-ai-agents/autonomous-ai-agents-agent-merge-conflict-arbiter	-> no source file at HEAD (deploy drift / generated from skill sources)
+https://hermes-agent.nousresearch.com/docs/zh-Hans/plugins	-> no source file at HEAD (deploy drift / generated from skill sources)
+https://hermes-agent.nousresearch.com/docs/zh-Hans/skills	-> no source file at HEAD (deploy drift / generated from skill sources)
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/optional/autonomous-ai-agents/autonomous-ai-agents-agent-merge-conflict-arbiter	-> no source file at HEAD (deploy drift / generated from skill sources)
+
+# --- reverse check: 774 local md files; 773 of their URLs are live 200 pages ---
+https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skills/bundled/apple/apple-macos-computer-use	LOCAL-ONLY (URL not live): src/i18n/zh-Hans/user-guide/skills/bundled/apple/apple-macos-computer-use.md

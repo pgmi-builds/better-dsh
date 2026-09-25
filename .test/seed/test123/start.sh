@@ -11,10 +11,10 @@
 # Shape (see README.md): DSH_HOME=.test/home/${RIG_HOME:-compat}, profile `web`.
 # Home pairing per Cordis-dsh-dev-test-guides.md §3.3: compat = long-lived
 # (format compatibility + dev iteration), clean = disposable clean-boot rig.
-# The home's profiles/node_modules is the ③-layer symlink farm into the
-# upstream checkout (regenerate: node better-dsh/scripts/link-upstream.mjs
-# --target <home>/profiles/node_modules). The profile's own node_modules holds
-# only what `plugin add` put there.
+# Resolution = 0.1.7 installation interception (installation scope = the
+# upstream checkout); the profile's own node_modules holds only what
+# `plugin add` put there. The legacy profiles/node_modules symlink farm was
+# abolished 2026-09-26 (interception supplies all harness packages).
 set -euo pipefail
 
 PORT="${PORT:-4999}"
@@ -95,3 +95,10 @@ done
 echo "unit:   $UNIT ($([ "$LAN" = 1 ] && echo "+ $RELAY"))"
 [ "$LAN" = "1" ] && echo "lan:    http://${LAN_IP}:${PORT}/?token=${TOK}"
 echo "local:  http://127.0.0.1:${PORT}/?token=${TOK}"
+echo "test.pc: https://test.pc.randomhash.app/?token=${TOK}"
+# The token is a ONE-TIME mint per browser/access-domain: the dsh-auth-* cookie
+# it sets is signed by the durable secret in $HOME_DIR/.credentials.yaml
+# (client-connection:browser-session, 30-day lifetime), so it stays valid across
+# restarts of this rig — afterwards just open the clean URL
+# https://test.pc.randomhash.app/ directly. Only a new browser/domain, a home
+# reset, or cookie expiry needs the token again.
