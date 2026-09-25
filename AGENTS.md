@@ -59,30 +59,28 @@
 - `dsh` 不是 ELF，是 `#!/usr/bin/env node` 的 JS 入口。**它只当启动器**：`bin.js` 解析 boot 哪个 profile、哪些 patch overlay，其余参数透传；`web` 是 `--profile web` 的硬别名；`plugin` 子命令转发给 pnpm 管 profile 依赖。
 - systemd unit `dsh.service`（user）: `ExecStart=/opt/node-v22.23.2/bin/node /home/u1/.local/bin/dsh web --no-open --trusted-host dsh.pc.randomhash.app pc.randomhash.app 192.168.31.130`，`Environment=DSH_HOME=/home/u1/.dsh`，端口 **3080**，Caddy 代理 `dsh.pc.randomhash.app` → `127.0.0.1:3080`（`/etc/caddy/Caddyfile`，未经明确批准勿改）。`/opt/node-v22.23.2` 官方 Node（bundled amaro）是 PTC 模式 `run_code` type-stripping 必需。
 
-### Profile level（`~/.dsh/profiles/`）— 两层，不是单一树
+### Profile level（`~/.dsh/profiles/`）— 0.1.7 起单层树
 
 | 路径 | 性质 |
 |---|---|
-| `~/.dsh/profiles/node_modules/` | 全 symlink → `/home/u1/.local/lib/node_modules/@deepseek-ai/dsh/node_modules/*`（全局 harness 依赖树） |
-| `~/.dsh/profiles/web/node_modules/` | 物理文件（pnpm hoisted 树，有 `.pnpm/`、`.modules.yaml`） |
+| `~/.dsh/profiles/web/node_modules/` | 物理文件（pnpm 树，有 `.pnpm/`、`.modules.yaml`）：**只装插件与其真实依赖**——2026-09-26 实测：`.pnpm` store 内零 `@deepseek-ai/dsh-*`，根 `@deepseek-ai/` 仅 `cosmokit`+`schemastery`（插件的 declared real deps，pnpm hoist 到根）；harness 核心包不在 profile 树内 |
+| ~~`~/.dsh/profiles/node_modules/`~~ | **0.1.7 已不存在**（旧 ③ symlink 农场已废；harness 供给改走 loader 安装域拦截，见下节。插件不应期待此层——2026-09-26 user 裁决，period） |
 
 `~/.dsh/profiles/web/` 本身是一个 pnpm workspace：
-- `package.json` 的 `dsh.profile.bundles` = `["@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app", "dshmarket", "corti-memory", "better-dsh"]`（2026-09-11 user 裁决移除 dsh-better-sidebar，prod 3080 已重启验证；测试 profile 同步移除。遗留已清：2026-09-11 mobile wave 已把右滑重指向原生 ui-sidebar-right 官方控件（见 §二 mobile wave 条目））
+- `package.json` 的 `dsh.profile.bundles` = `["@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app", "@deepseek-ai/dsh-experimental-auto-review", "corti-memory", "better-dsh", "super-dsh", "dshmarket"]`（2026-09-26 实测更新；2026-09-11 user 裁决移除 dsh-better-sidebar，prod 3080 已重启验证，mobile wave 已把右滑重指向原生 ui-sidebar-right 官方控件。`dsh.profile.bundles` 是 loader 层 bundle 引用，非 npm 依赖——npm `dependencies` 只含插件本体，见下节解析模型）
 - `cordis.yml` 为空 `[]`（树由 patch 组成），实际 overlay 在 `cordis.patch.yml`。
 - **plugin add 的供应链年龄门（2026-09-02 实证；2026-09-03 修正 exclude 形式）**：pnpm 11.7.0 自带 supply-chain 策略引擎（默认 `minimumReleaseAge`≈24h）。**版本号形式的 exclude（`pkg@x.y.z`，含 pnpm 自动补的）只作用于解析相位，不盖锁文件校验相位**——条目发布未满 24h 时，后续任何 `pnpm install`/`add` 的锁文件校验都会再拦一次（0.2.2 发布当天装 prod 即中此坑）。**持久形式 = 裸包名**：`minimumReleaseAgeExclude: ['better-dsh']` 全相位生效（scratch A5–A7 实证：校验/全新 add/复验全过）。升级仍用精确版本 add，勿信 `@latest`（回落+静默覆盖部署位的坑仍在）。**v0.2.2a 起包为零 lifecycle script**（owner 裁决 2026-09-03：postinstall 移除，kernel 供给 = spin-up 主路径 + 首用 lazy 两级；`npm run kernel:venv` 手动入口保留）——0.2.2-a 及以后**无 allowBuilds 要求**（该条仅对 0.2.2 这一个带 postinstall 的版本有意义）。~~带 postinstall 的版本还需 `allowBuilds: {'@pgmi-builds/better-dsh': true}`**（strictDepBuilds 下未列 build script = 硬错；0.2.2 起 kernel-provision postinstall 属发布面）。另：pnpm 打完 `Done` 后偶发子进程不退出（11.7.0 worker 边车，Ctrl-C 无损）；`pnpm.onlyBuiltDependencies` 已失效（继任 `allowBuilds` 在 pnpm-workspace.yaml），其 WARN 为噪音。prod profile 的两处修正于 2026-09-03 落位（备份 `.scratch/pnpm-workspace.yaml.bak-0.2.2`）。
 
-### 依赖解析 — 分层，不是一棵树
-
-Node 从 better-dsh 的 `lib/index.js` 出发向上走：
+### 依赖解析 — 0.1.7：安装域拦截 + profile 树，无农场（2026-09-26 实测重写）
 
 ```
-① ~/.dsh/profiles/web/node_modules/better-dsh/node_modules/   ← 插件嵌套依赖（另一份 @deepseek-ai/*）
-② ~/.dsh/profiles/web/node_modules/                                         ← web profile（pnpm 树）
-③ ~/.dsh/profiles/node_modules/                                             ← 全 symlink → 全局 dsh 的 node_modules
-④ ~/.local/lib/node_modules/                                             ← 全局
+① …/web/node_modules/<plugin>/node_modules      ← 插件嵌套真实依赖
+② ~/.dsh/profiles/web/node_modules/             ← profile 树：插件本体 + hoisted 真实依赖
+③ harness peer（@deepseek-ai/dsh-* bare import）← 不走 walk-up：loader 安装域拦截
+   （routeScoped → ~/.local 全局 dsh 的 vendored node_modules，进程内冻结——0.1.7 官方契约）
 ```
 
-关键：**插件的 `@deepseek-ai/*` harness 依赖不在插件自己的树里**——声明为 optional peers，运行期全部由 ②③ 层的 host 副本提供（实测 14/14 解析，见文末 ✅ 节）；插件嵌套层 ① 只保留真实 dependency `schemastery`+`cosmokit`。
+关键：**插件的 `@deepseek-ai/*` harness 依赖不在插件自己的树里也不在 profile 树里**——声明为 optional peers，运行期由安装域拦截供给（安装 scope 进程内冻结；profile 物理包即时生效；表外名字回落原生）。旧 ①→④ 四层 walk-up 模型（含 ③ 农场、④ 全局）为 0.1.6 时代布局，已废。
 
 ### User data（`~/.dsh/*`）
 
@@ -104,7 +102,7 @@ Node 从 better-dsh 的 `lib/index.js` 出发向上走：
 
 - Harness: `./upstream/deepseek-harness`，git tag **`dsh-v0.1.7-rc.1`**（2026-09-24 全新 clone 重建；本地 patch：unrun devDep / root vite devDep（rc.1 新增，apps/desktop tsdown config 运行时 import vite，unrun 缓存目录解析不到）/ storeDir+verifyDeps+zeromq+ssh2 / tsdown `resolveRepositoryRoot` / vite preact 三件套，重放流程与坑见 `docs/50_test-reports/2026-09-24-v0.1.7-rc.1对齐轮-compaction与failover设置面修复实测报告.md` §四）。**upstream 内不允许出现 better-dsh 的任何内容**（旧 `packages/better-dsh/` 内嵌副本 + devDeps 手术 + sync 脚本已于本轮废除）。
 - better-dsh **独立开发**：devDependencies 不含任何 `@deepseek-ai/*`（范围符号在 peerDependencies = 发布契约）；`node_modules/@deepseek-ai/*` 由 `scripts/link-upstream.mjs` 生成 symlink 农场指向 upstream 物理包——upstream 换 tag 后 farm 自动跟随（目录级 symlink），package.json 零改动。`.npmrc` `legacy-peer-deps=true` 防 npm 自动装 optional peers（tuple 规则会解析到三代前的 0.1.5-rc.3）。开发循环：`npm run build` → `tsc --noEmit`（0 错基线）→ `npx vitest run`（600/601）。
-- 测试 rig **`.test/seed/test123/`**（现行，README 有完整种子再生步骤）：home 在 `.test/home/`（guide §3.3 配对——`compat/` 长寿命开发迭代 + `clean/` 可弃干净启动，`RIG_HOME` 选择、默认 compat；gitignored，user data 跨重置保留）；`profiles/node_modules/@deepseek-ai/*` = ③ 层 symlink 农场（同一 `link-upstream.mjs --target`，prod 同构）；profile `web` 的 better-dsh 是 **`dsh plugin add <tarball>` 物理安装**（入场一律走 plugin add；`npm pack` 出交付物 → add → 重启；remove→add 一个来回才能刷新 file: tarball 内容）。旧 `.tests/dsh-test1/` 与 `.dsh-test/` 已删除（2026-09-24 清理，`.test/` 布局落地）。**0.1.7 settings 模型**：namespace = Loader entry id（如 `dashr-failover`），`installSection` 已删；volatile 字段 + `settings.configure({auto:false})` + configEditor 落 profile patch 用户层（upstream `agent-default-model` 范式）。
+- 测试 rig **`.test/seed/test123/`**（现行，README 有完整种子再生步骤）：home 在 `.test/home/`（guide §3.3 配对——`compat/` 长寿命开发迭代 + `clean/` 可弃干净启动，`RIG_HOME` 选择、默认 compat；gitignored，user data 跨重置保留）；`profiles/node_modules/@deepseek-ai/*` = symlink 农场（同一 `link-upstream.mjs --target`；**rig 自有装置**，checkout boot 的解析投影——prod 0.1.7 已无此层，勿再称"prod 同构"，见 §一）；profile `web` 的 better-dsh 是 **`dsh plugin add <tarball>` 物理安装**（入场一律走 plugin add；`npm pack` 出交付物 → add → 重启；remove→add 一个来回才能刷新 file: tarball 内容）。旧 `.tests/dsh-test1/` 与 `.dsh-test/` 已删除（2026-09-24 清理，`.test/` 布局落地）。**0.1.7 settings 模型**：namespace = Loader entry id（如 `dashr-failover`），`installSection` 已删；volatile 字段 + `settings.configure({auto:false})` + configEditor 落 profile patch 用户层（upstream `agent-default-model` 范式）。
 
 ### harness 本地 patch（该环境必须，缺一 build 即挂）
 
