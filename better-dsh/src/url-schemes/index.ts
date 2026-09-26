@@ -45,6 +45,7 @@ import type {} from '@deepseek-ai/dsh-tools'
 import z from '@deepseek-ai/schemastery'
 
 import { resolveDocsDir } from './docs-dir.ts'
+import { astReminderNotice } from '../devices/ast/ast-reminder.ts'
 import { disposeLspGate, lspGateNotice, lspGateSyncOnLand } from '../devices/lsp/lsp-gate.ts'
 import { wrapFsWithSchemes } from '../fs-aware/wrap.ts'
 import { createAgentHandler } from './handlers/agent.ts'
@@ -226,12 +227,36 @@ async function installAgentTools(rootCtx: Context, agent: Agent, resolver: UrlRe
     // landed content; nag rides edit/write results with the 10-cap enforced
     // inside the gate module. Pure post-execute observation — nothing here
     // intercepts or delays the mutation path.
+    //
+    // AST availability reminder (change 2026-09-26-lsp-ast-reminder): rides
+    // the same hook, independent of the gate — one line on every landed
+    // write/edit/grep over the Python/TypeScript set, no cap (user ruling).
     const sessionId = agent.id
+    const appendSuffixes = <T>(
+      decision: T,
+      result: { isError?: boolean, content?: unknown },
+      suffixes: string[],
+    ): T => {
+      if (suffixes.length === 0) return decision
+      const record = decision as { kind?: string, content?: Array<{ type: string, text?: string }> } | undefined
+      if (record?.kind !== 'accept') return decision
+      const base = record.content ?? (result.content as Array<{ type: string, text?: string }> | undefined) ?? []
+      record.content = [...base, ...suffixes.map(text => ({ type: 'text', text: `\n${text}` }))]
+      return decision
+    }
     disposers.push(agent.ctx.on('tools/post-execute', async (exec, result, next) => {
       const decision = await next()
       const name = exec.name
-      if (name !== 'read' && name !== 'edit' && name !== 'write') return decision
-      const args = exec.arguments as { path?: string, file_path?: string } | undefined
+      if (name !== 'read' && name !== 'edit' && name !== 'write' && name !== 'grep') return decision
+      const args = exec.arguments as { path?: string, file_path?: string, include?: string } | undefined
+      const suffixes: string[] = []
+      if (name === 'grep') {
+        if (!result.isError) {
+          const ast = astReminderNotice('grep', args)
+          if (ast !== undefined) suffixes.push(ast)
+        }
+        return appendSuffixes(decision, result, suffixes)
+      }
       const filePath = args?.path ?? args?.file_path
       if (typeof filePath !== 'string' || filePath === '') return decision
       if (name === 'read') {
@@ -241,12 +266,10 @@ async function installAgentTools(rootCtx: Context, agent: Agent, resolver: UrlRe
       lspGateSyncOnLand(sessionId, name as 'edit' | 'write', filePath)
       if (result.isError) return decision
       const notice = lspGateNotice(sessionId, filePath)
-      if (notice === undefined) return decision
-      const record = decision as { kind?: string, content?: Array<{ type: string, text?: string }> }
-      if (record.kind !== 'accept') return decision
-      const base = record.content ?? (result.content as Array<{ type: string, text?: string }> | undefined) ?? []
-      record.content = [...base, { type: 'text', text: `\n${notice}` }]
-      return decision
+      if (notice !== undefined) suffixes.push(notice)
+      const ast = astReminderNotice(name as 'edit' | 'write', args)
+      if (ast !== undefined) suffixes.push(ast)
+      return appendSuffixes(decision, result, suffixes)
     }))
     disposers.push(() => disposeLspGate(sessionId))
     return () => {
