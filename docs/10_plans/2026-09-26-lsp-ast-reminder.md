@@ -44,12 +44,15 @@ append（`appendSuffixes` 泛型 helper）。
 `npm run build` ✔；`tsc --noEmit` host+client ✔；`vitest run` **617 passed +
 1 skipped**（基线 611+1skip，新增 ast-reminder 单测 7 + 钩子级 6）。
 
-## Task 4: 4999 第一人称实测（待执行）
+## Task 4: 4999 实测（进行中 — rig 已带新 lib 运行，浏览器验收待 user）
 
-`bash .test/seed/test123/start.sh` 需 systemd-run（user bus）——agent 会话沙箱可能
-拒绝；被拒则交 user 在终端执行。验收点：
-1. boot graph 含 `better-dsh`；2. 新会话写 `.py` 后工具结果尾部两行提醒
-（LSP nag + AST 行）；3. `.md` 写入零提醒；4. 模型据提示真实调用 `dvc://ast_grep`。
+已完成：occupant（native-ui-fusion 实例）经 user 批准退役；新 lib 已 rsync 进
+test123 profile；rig 重启（token 见 start.sh 输出），boot graph 含 `better-dsh`。
+RPC 探针（`POST /api/session/list`）证明网关面存活，但完整 session 驱动需 gateway
+`_request` 描述符契约，未逆向。**浏览器验收清单（user，1 分钟）**：
+1. 打开 rig URL → 新会话；2. 让它写一个 `.py` 文件 → 工具结果尾部应出现两行：
+   LSP nag（`lsp diagnostics available…`）+ AST 行（`ast_edit / ast_grep available…`）；
+3. 让它写一个 `.md` → 两行都不出现；4. 会话里 `write dvc://ast_grep {"patterns":["..."],"path":"..."}` 真实可用。
 
 ## 明确不做
 
