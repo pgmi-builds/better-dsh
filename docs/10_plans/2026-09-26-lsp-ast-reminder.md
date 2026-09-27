@@ -44,7 +44,10 @@ append（`appendSuffixes` 泛型 helper）。
 `npm run build` ✔；`tsc --noEmit` host+client ✔；`vitest run` **617 passed +
 1 skipped**（基线 611+1skip，新增 ast-reminder 单测 7 + 钩子级 6）。
 
-## Task 4: 4999 实测（进行中 — rig 已带新 lib 运行，浏览器验收待 user）
+## Task 4: 4999 实测 ✅（2026-09-27 user 第一人称实测通过）
+
+报告：`docs/50_test-reports/2026-09-27-lsp-ast-reminder-4999实测报告.md`。
+三设备全绿 + 提醒链路 session log 实证（nag×1 + AST×1）；gotcha G1–G4 记录在报告 §4。
 
 已完成：occupant（native-ui-fusion 实例）经 user 批准退役；新 lib 已 rsync 进
 test123 profile；rig 重启（token 见 start.sh 输出），boot graph 含 `better-dsh`。
