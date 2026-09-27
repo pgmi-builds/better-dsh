@@ -13,6 +13,7 @@
 import { describe, expect, it } from 'vitest'
 
 import plugin from '../../src/url-schemes/index.ts'
+import { disposeAstReminders } from '../../src/devices/ast/ast-reminder.ts'
 import { disposeLspGate } from '../../src/devices/lsp/lsp-gate.ts'
 
 interface RecordedListener {
@@ -75,6 +76,7 @@ describe('post-execute reminders', () => {
 
   it('grep over a directory appends exactly the AST line', async () => {
     disposeLspGate(AGENT_ID)
+    disposeAstReminders(AGENT_ID)
     const out = await postExecute(
       { name: 'grep', arguments: { path: '/repo/src' } },
       { isError: false, content: content('3 matched lines') },
@@ -88,6 +90,7 @@ describe('post-execute reminders', () => {
 
   it('write on a python file appends the LSP nag then the AST line', async () => {
     disposeLspGate(AGENT_ID)
+    disposeAstReminders(AGENT_ID)
     const out = await postExecute(
       { name: 'write', arguments: { file_path: '/repo/a.py' } },
       { isError: false, content: content('Created file') },
@@ -119,6 +122,7 @@ describe('post-execute reminders', () => {
 
   it('non-accept decisions pass through unmutated', async () => {
     disposeLspGate(AGENT_ID)
+    disposeAstReminders(AGENT_ID)
     const blocked = { kind: 'block', feedback: content('no') }
     const out = await postExecute(
       { name: 'write', arguments: { path: '/repo/a.py' } },

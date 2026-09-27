@@ -45,7 +45,7 @@ import type {} from '@deepseek-ai/dsh-tools'
 import z from '@deepseek-ai/schemastery'
 
 import { resolveDocsDir } from './docs-dir.ts'
-import { astReminderNotice } from '../devices/ast/ast-reminder.ts'
+import { astReminderNotice, disposeAstReminders } from '../devices/ast/ast-reminder.ts'
 import { disposeLspGate, lspGateNotice, lspGateSyncOnLand } from '../devices/lsp/lsp-gate.ts'
 import { wrapFsWithSchemes } from '../fs-aware/wrap.ts'
 import { createAgentHandler } from './handlers/agent.ts'
@@ -252,7 +252,7 @@ async function installAgentTools(rootCtx: Context, agent: Agent, resolver: UrlRe
       const suffixes: string[] = []
       if (name === 'grep') {
         if (!result.isError) {
-          const ast = astReminderNotice('grep', args)
+          const ast = astReminderNotice(sessionId, 'grep', args)
           if (ast !== undefined) suffixes.push(ast)
         }
         return appendSuffixes(decision, result, suffixes)
@@ -267,10 +267,11 @@ async function installAgentTools(rootCtx: Context, agent: Agent, resolver: UrlRe
       if (result.isError) return decision
       const notice = lspGateNotice(sessionId, filePath)
       if (notice !== undefined) suffixes.push(notice)
-      const ast = astReminderNotice(name as 'edit' | 'write', args)
+      const ast = astReminderNotice(sessionId, name as 'edit' | 'write', args)
       if (ast !== undefined) suffixes.push(ast)
       return appendSuffixes(decision, result, suffixes)
     }))
+    disposers.push(() => disposeAstReminders(sessionId))
     disposers.push(() => disposeLspGate(sessionId))
     return () => {
       for (const dispose of disposers) dispose()
