@@ -15,6 +15,7 @@ export default defineConfig({
     'src/failover/index.ts',
     'src/compaction/index.ts',
     'src/web-trust.ts',
+    'src/web-password.ts',
     'src/mobile/plugin.ts',
     'src/remote/plugin.ts',
   ],

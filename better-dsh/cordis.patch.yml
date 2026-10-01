@@ -55,6 +55,17 @@
     - id: dashr-remote
       name: 'better-dsh/remote'
 
+    # Browser session gate: the native flow's door is a per-boot `?token=` URL,
+    # and exchanging it mints a durable signed cookie from a key that lives in
+    # this home's credential store. This row claims exact `/` (unclaimed
+    # upstream — dispatch is exact → longest prefix → fallback) and asks for a
+    # password instead, minting the SAME native cookie for the same 30 days.
+    # `/index.html` and every `/api` request keep being verified by the native
+    # checker, so no upstream code is touched; `?token=` simply stops being a
+    # door. The password is the row's own credential record, seeded to `admin`.
+    - id: dashr-web-password
+      name: 'better-dsh/web-password'
+
 # Native compaction at the host plane: the base bundle ships the engine, the
 # `/compact` command, and the tool-result pruner as host rows; dsh-web-app
 # disables them to move compaction behind per-session presets. DASHR is

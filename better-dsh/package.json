@@ -1,6 +1,6 @@
 {
   "name": "better-dsh",
-  "version": "0.2.4-c",
+  "version": "0.2.4-d",
   "description": "Make your dsh ready for serious coding tasks. (Tools x Schemas)^REPL. `skill://`, `ctx://`, `agent://`, `dvc://`, `dsh://`, IPython REPL, Context as Variables, cross compactions recallable, full context revive. `hash-edit`, `dvc://browser`, subagent as function, workflow as function.",
   "type": "module",
   "main": "lib/index.js",
@@ -41,6 +41,10 @@
     "./fs-aware-sandbox": {
       "types": "./lib/fs-aware/sandbox-plugin.d.ts",
       "default": "./lib/fs-aware/sandbox-plugin.js"
+    },
+    "./web-password": {
+      "types": "./lib/web-password.d.ts",
+      "default": "./lib/web-password.js"
     },
     "./cordis.patch.yml": "./cordis.patch.yml",
     "./package.json": "./package.json",
@@ -143,7 +147,10 @@
     "@deepseek-ai/dsh-client-ui-settings-plugins": ">=0.1.5-0 <0.3.0-0",
     "@deepseek-ai/dsh-client-ui-slots": ">=0.1.5-0 <0.3.0-0",
     "@deepseek-ai/dsh-commands": ">=0.1.5-0 <0.3.0-0",
+    "@deepseek-ai/dsh-credentials": ">=0.1.5-0 <0.3.0-0",
+    "@deepseek-ai/dsh-host-webserver": ">=0.1.5-0 <0.3.0-0",
     "@deepseek-ai/dsh-typert-protocol": ">=0.1.5-0 <0.3.0-0",
+    "@deepseek-ai/dsh-web-app": ">=0.1.5-0 <0.3.0-0",
     "@deepseek-ai/dsh-typert-registry": ">=0.1.5-0 <0.3.0-0",
     "react": "^18.2.0"
   },
@@ -308,6 +315,15 @@
       "optional": true
     },
     "@deepseek-ai/dsh-commands": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-credentials": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-host-webserver": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-web-app": {
       "optional": true
     },
     "@deepseek-ai/dsh-typert-protocol": {
