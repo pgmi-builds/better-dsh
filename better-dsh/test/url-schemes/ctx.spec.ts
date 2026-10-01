@@ -108,7 +108,7 @@ describe('ctx:// recallable context', () => {
     const resolver = ctxResolver(closed)
     const env: CtxEnv = { agent: fakeAgent({ session: { header: { cwd: '/w/dashr', origin: 'subagent', delegationDepth: 2 } } }) }
     const snap = JSON.parse(await resolver.resolve(env, 'ctx://session'))
-    expect(snap.syntax).toBe('/sub-path [<label|n>] [:N-M]; :raw = canonical full content; :raw:N-M ≡ :N-M')
+    expect(snap.syntax).toBe('/sub-path [<label|n>] [:N-M|:path/|?q=]; :raw = canonical full content; :raw:N-M ≡ :N-M')
     expect(snap.session.id).toBe('sess-1')
     expect(snap.session.origin).toBe('subagent')
     expect(snap.session.delegationDepth).toBe(2)
@@ -251,7 +251,7 @@ describe('ctx:// recallable context', () => {
     expect(rawOut).toContain('page with :N-M line windows or grep this URL]')
     const bare = await resolver.resolve(env, 'ctx://session/compactions[20]')
     expect(bare).not.toContain('ctx:// note')
-    expect(bare).toContain('## Primary Request and Intent')
+    expect(bare).toContain('digest is already in your live context')
     expect(await resolver.resolve(env, 'ctx://session/compactions[20]:raw:1-1')).not.toContain('ctx:// note')
     expect(await resolver.resolve(env, 'ctx://session/compactions[20]:1-1')).not.toContain('ctx:// note')
   })
@@ -313,7 +313,7 @@ describe('ctx:// recallable context', () => {
     expect(snap.segments[0].segment).toBe('compaction:20')
     expect(snap.segments[0].items).toBe(snap.compacted[0].shadowed_items)
     expect(snap.segments.at(-1)!.segment).toBe('live')
-    expect(snap.segments.at(-1)!.start).toBe(snap.compacted[1].shadowed_range.end + 1)
+    expect(snap.segments.at(-1)!.seq_start).toBe(snap.compacted[1].seq_end + 1)
   })
 
   it('line windows compose onto bracket element paths', async () => {
@@ -334,5 +334,77 @@ describe('ctx:// recallable context', () => {
     expect(message).toContain('bare ctx:// lists the full roster')
     const snap = JSON.parse(await resolver.resolve(env, 'ctx://session'))
     expect(snap.system_prompt).toEqual({ chars: 0, preview: '' })
+  })
+  it('N1: manifest and snapshot carry labeled line/seq/fidelity coordinates and asOf', async () => {
+    const resolver = ctxResolver({ value: false })
+    const env: CtxEnv = { agent: fakeAgent() }
+    const manifest = await resolver.resolve(env, 'ctx://session/compactions')
+    expect(manifest).toMatch(/seq=\d+\.\.\d+/)
+    expect(manifest).toMatch(/lines=\d+\.\.\d+/)
+    expect(manifest).toMatch(/fidelity=\d+:\d+/)
+    const snap = JSON.parse(await resolver.resolve(env, 'ctx://session'))
+    expect(snap.compacted[0].lines).toEqual(expect.objectContaining({ start: expect.any(Number), end: expect.any(Number) }))
+    expect(snap.compacted[0].fidelity).toEqual(expect.objectContaining({ userTurns: expect.any(Number), toolCalls: expect.any(Number) }))
+    expect(snap.asOf).toEqual(expect.objectContaining({ seq: expect.any(Number), line: expect.any(Number) }))
+  })
+
+  it('N1/F10: episode line window is transcript-relative and out-of-span is explicit', async () => {
+    const resolver = ctxResolver({ value: false })
+    const env: CtxEnv = { agent: fakeAgent() }
+    const snap = JSON.parse(await resolver.resolve(env, 'ctx://session'))
+    const ep0 = snap.compacted[0]
+    const viaEpisode = await resolver.resolve(env, `ctx://session/compactions[${ep0.label}]:${ep0.lines.start}-${ep0.lines.end}`)
+    const viaTranscript = await resolver.resolve(env, `ctx://session/transcript:${ep0.lines.start}-${ep0.lines.end}`)
+    expect(viaEpisode).toBe(viaTranscript)
+    const out = await resolver.resolve(env, `ctx://session/compactions[${ep0.label}]:${ep0.lines.end + 1000}`)
+    expect(out).toContain('episode span is transcript lines')
+  })
+
+  it('N2: latest episode is a navigation block, older episode returns its digest', async () => {
+    const resolver = ctxResolver({ value: false })
+    const env: CtxEnv = { agent: fakeAgent() }
+    const latest = await resolver.resolve(env, 'ctx://session/compactions[40]')
+    expect(latest).toContain('digest is already in your live context')
+    expect(latest).toMatch(/digest resident at seq=41/)
+    expect(latest).not.toContain('second round')
+    const older = await resolver.resolve(env, 'ctx://session/compactions[20]')
+    expect(older).toContain('## Primary Request and Intent')
+  })
+
+  it('N3: landmark block lists user turns, failures, touched paths, prior checkpoints', async () => {
+    const resolver = ctxResolver({ value: false })
+    const env: CtxEnv = { agent: fakeAgent() }
+    const out = await resolver.resolve(env, 'ctx://session/compactions[20]')
+    expect(out).toMatch(/user turns \(\d+\): \d+/)
+    expect(out).toContain('failures (0)')
+    expect(out).toContain('touched paths:')
+    expect(out).toContain('prior checkpoints in span:')
+  })
+
+  it('N5: :path/ narrow-reads the snapshot and ?q= filters an index face', async () => {
+    const nResolver = ctxResolver({ value: false })
+    const env: CtxEnv = { agent: fakeAgent() }
+    expect(await nResolver.resolve(env, 'ctx://session:path/totals.tool_calls')).toMatch(/^\d+$/)
+    const iResolver = ctxResolver({ value: false }, INJECTED_EVENTS)
+    const q = await iResolver.resolve(env, 'ctx://session/injections?q=agent-instructions')
+    expect(q).toContain('AGENTS.md')
+  })
+
+  it('F1: bare element collections return index faces, not an empty-bracket error', async () => {
+    const resolver = ctxResolver({ value: false })
+    const env: CtxEnv = { agent: fakeAgent() }
+    const idx = await resolver.resolve(env, 'ctx://session/user_prompts')
+    expect(idx).toContain('seq=5')
+    expect(idx).toContain('hello world')
+  })
+
+  it('F2: flat tool-result content renders (not empty)', async () => {
+    const flat: PersistenceEvent[] = [
+      { seq: 5, type: 'tool/call', time: T, data: { callId: 'c1', name: 'bash', arguments: '{"command":"echo hi"}' } },
+      { seq: 6, type: 'tool/result', time: T, sourceEventSeqs: [5], data: { message: { role: 'tool', isError: false, content: [{ type: 'text', text: 'hi' }] } } },
+    ]
+    const resolver = ctxResolver({ value: false }, flat)
+    const env: CtxEnv = { agent: fakeAgent() }
+    expect(await resolver.resolve(env, 'ctx://session/tool_calls[5]')).toContain('result: hi')
   })
 })
