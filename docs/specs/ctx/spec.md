@@ -2,12 +2,19 @@
 
 ## Purpose
 
-Let the model read a curated, read-only snapshot of its calling environment via `ctx://` URLs — small, static, agent-derived facts (who am I, what model, what cwd) addressable like any other resource. This replaces the v0.1.8c design that mapped `ctx://` onto persistent-kernel variables; see design.md D4 for why that semantics was wrong (the kernel namespace is the model's own REPL scratchpad, not its environment).
+Let the model read a curated, read-only snapshot of its calling environment via `ctx://` URLs — small, static, agent-derived facts (who am I, what model, what cwd) addressable like any other resource, plus a recallable-context navigation surface over the live session's event log. This replaces the v0.1.8c design that mapped `ctx://` onto persistent-kernel variables; see design.md D4 for why that semantics was wrong (the kernel namespace is the model's own REPL scratchpad, not its environment).
 
 ## Requirements
 
+### Requirement: Coordinate invariant
+Every number the system shows the model SHALL be either directly usable as a selector in the same URL family, or explicitly labeled metadata with its unit. The two coordinates are `seq` (event sequence, for `[<label|n>]` addressing) and `line` (transcript line, for `:N-M` windows and `grep` on `ctx://session/transcript`); both SHALL be labeled wherever shown. An unlabeled number that is not an addressable coordinate SHALL NOT appear.
+
+#### Scenario: Labeled coordinates in the manifest
+- **WHEN** the model reads `ctx://session/compactions`
+- **THEN** every episode row carries `seq=<start>..<end>` and `lines=<start>..<end>` (or `lines=<none>` for an empty span), never a bare range that could be misread as the other unit
+
 ### Requirement: Curated snapshot keys
-The system SHALL resolve `ctx://session` as the recallable-context statistics snapshot: the prepared default face SHALL carry the session header (absorbing the former identity fields `id`/`status`/`origin`/`delegationDepth`), storage facts, totals using native DSH field names, per-compaction segments plus a `live` tail segment, the inline compactions manifest (label, checkpoint_seq, compactionId, shadowedRange, shadowedItems, shadowedTokenCount, `replaces_checkpoint`, and an 8-section × ≤100-char summary preview per episode), and a `system_prompt` info card. The canonical face (see `:raw`) SHALL be the full session transcript. The first-level keys `model` and `cwd` SHALL be removed — their information SHALL appear only as info-card fields inside the snapshot. Any other first-level key SHALL return the structured `CTX_UNKNOWN_KEY` error listing the known keys and sub-paths.
+The system SHALL resolve `ctx://session` as the recallable-context statistics snapshot: the prepared default face SHALL carry the session header (absorbing the former identity fields `id`/`status`/`origin`/`delegationDepth`), storage facts, totals using native DSH field names, per-compaction segments plus a `live` tail segment (each with `seq_start`/`seq_end` and `lines`), the inline compactions manifest (label, checkpoint_seq, compactionId, `seq_start`/`seq_end`, `lines`, shadowedItems, shadowedTokenCount, `fidelity`, `replaces_checkpoint`, and an 8-section × ≤100-char summary preview per episode), an `asOf` card (max seq and transcript line at read time, with a note that totals are live values), and a `system_prompt` info card. The canonical face (see `:raw`) SHALL be the full session transcript. The first-level keys `model` and `cwd` SHALL be removed — their information SHALL appear only as info-card fields inside the snapshot. Any other first-level key SHALL return the structured `CTX_UNKNOWN_KEY` error listing the known keys and sub-paths.
 
 #### Scenario: Reading session identity
 - **WHEN** the model reads `ctx://session` from a delegated subagent session
@@ -20,6 +27,10 @@ The system SHALL resolve `ctx://session` as the recallable-context statistics sn
 #### Scenario: Reading the working directory
 - **WHEN** the model reads `ctx://session`
 - **THEN** the session's creation working directory appears as an info-card field, not as a separate key
+
+#### Scenario: Staleness is self-evident
+- **WHEN** the model reads `ctx://session` and caches the snapshot
+- **THEN** the `asOf` card tells it the seq and line the snapshot was taken at, so it cannot mistake a cached snapshot for live totals
 
 #### Scenario: Unknown key
 - **WHEN** the model reads `ctx://<other key>`
@@ -47,15 +58,19 @@ The system SHALL reject every write to `ctx://` with the structured `URL_READ_ON
 - **THEN** the system returns the structured `URL_READ_ONLY` error and changes nothing
 
 ### Requirement: Session sub-path grammar
-The system SHALL resolve `ctx://session/…` sub-paths: `transcript` (full transcript), `compactions` (manifest), `compactions[<label|ordinal>]` (the episode summary, 8 sections verbatim), `user_prompts[<n|seq>]`, `tool_calls[<n|seq>]`, `agent_responses[<n|seq>]`, `thinking[<n|seq>]` (reasoning blocks), and `system[<n|seq>]` (system messages). The former `compactions[<label|n>]/original` sub-path SHALL be removed — it was identical to `:raw` and is superseded by composing the `:raw` / `:N-M` selectors directly on the episode; a path using it SHALL be rejected with the structured `CTX_BAD_PATH` error echoing the URL. Bracket resolution SHALL match the label (the element's immutable seq coordinate) exactly first, and SHALL fall back to the 0-based ordinal on miss. The system SHALL support `:raw` and line windows (`:N`, `:N-M`, `:N+K`, `:N-`, comma-separated ranges) on every resolved resource, and the composite `:raw:<lines>` form SHALL be valid everywhere and SHALL equal `:<lines>` (the `:raw` prefix is redundant in a line-window context but MUST parse).
+The system SHALL resolve `ctx://session/…` sub-paths: `transcript` (full transcript), `compactions` (manifest), `compactions[<label|ordinal>]` (the episode summary), `user_prompts[<n|seq>]`, `tool_calls[<n|seq>]`, `agent_responses[<n|seq>]`, `thinking[<n|seq>]` (reasoning blocks), and `system[<n|seq>]` (system messages). The former `compactions[<label|n>]/original` sub-path SHALL be removed — it was identical to `:raw` and is superseded by composing the `:raw` / `:N-M` selectors directly on the episode; a path using it SHALL be rejected with the structured `CTX_BAD_PATH` error echoing the URL. Bracket resolution SHALL match the label (the element's immutable seq coordinate) exactly first, and SHALL fall back to the 0-based ordinal on miss. The system SHALL support `:raw`, line windows (`:N`, `:N-M`, `:N+K`, `:N-`, comma-separated ranges), `:path/<dot-path>`, and `?q=<query>` on every resolved resource; the composite `:raw:<lines>` form SHALL be valid everywhere and SHALL equal `:<lines>` (the `:raw` prefix is redundant in a line-window context but MUST parse). Line windows on a compaction episode SHALL interpret numbers as transcript line coordinates (identical to the same window on `transcript`), and `:path/`/`?q=` SHALL apply to the bare (prepared) face.
 
 #### Scenario: Drilling into a compaction episode by label
 - **WHEN** the model reads `ctx://session/compactions[221217]`
-- **THEN** the system returns that episode's structured summary (all 8 sections verbatim)
+- **THEN** the system returns that episode's structured summary (all 8 sections verbatim) or, for the latest episode, the navigation block (see digest residence)
 
 #### Scenario: Ordinal fallback
 - **WHEN** the model reads `ctx://session/compactions[0]` and no episode carries the label `0`
 - **THEN** the system returns the first-recorded episode (0-based)
+
+#### Scenario: Transcript-relative episode window
+- **WHEN** the model reads `ctx://session/compactions[<label>]:5300-5310`
+- **THEN** the system returns transcript lines 5300–5310 — the same bytes as `ctx://session/transcript:5300-5310`
 
 #### Scenario: Composite raw selector
 - **WHEN** the model reads `ctx://session/compactions[221217]:raw:500-560`
@@ -66,11 +81,44 @@ The system SHALL resolve `ctx://session/…` sub-paths: `transcript` (full trans
 - **THEN** the system returns the structured `CTX_BAD_PATH` error echoing the URL and naming the `:raw` / `:N-M` selectors as the replacement
 
 ### Requirement: Canonical and prepared content faces
-The system SHALL treat every resource as having one canonical content: `:raw` SHALL return the canonical full content, line windows SHALL always apply to the canonical content, and the bare URL SHALL return the prepared default face when one is prepared (session → statistics snapshot; compaction episodes → 8-section summary; `thinking` → per-block index list; `system` → per-message index list) or the canonical content when none is. `:raw:<lines>` SHALL equal `:<lines>` — the composite form is accepted on every resource.
+The system SHALL treat every resource as having one canonical content: `:raw` SHALL return the canonical full content, line windows SHALL always apply to the canonical content, and the bare URL SHALL return the prepared default face when one is prepared (session → statistics snapshot; compaction episodes → digest/navigation block; `thinking`/`system`/`injections` and the element collections → index lists) or the canonical content when none is. `:raw:<lines>` SHALL equal `:<lines>` — the composite form is accepted on every resource. A line window that reaches past a resource's canonical extent SHALL return an explicit boundary note (e.g. `[ctx:// note: … span is transcript lines <s>-<e>]`) rather than silently returning a truncated or empty view.
 
 #### Scenario: Line windows ignore the prepared face
 - **WHEN** the model reads `ctx://session/compactions[221217]:500-560`
-- **THEN** the system returns lines 500–560 of the episode's original shadowed span, not of the summary
+- **THEN** the system returns transcript lines 500–560 of the episode's original shadowed span, not of the summary
+
+#### Scenario: Out-of-span window is explicit
+- **WHEN** the model reads `ctx://session/compactions[221217]:5500` and the episode span ends before transcript line 5500
+- **THEN** the system returns the boundary note naming the episode's span instead of an empty string
+
+### Requirement: Episode digest residence
+The system SHALL render the prepared face of the **latest** compaction episode as a navigation block (NOT the digest text, which is already resident in the model's live context as the compact-checkpoint message): it SHALL name the episode's `lines`/`seq`/items/tokens, its `fidelity`, the transcript lines where the resident digest lives (`digest resident at transcript:<start>-<end> (seq=<checkpointSeq>)`), and the landmark roster. The prepared face of every **older** episode SHALL return that episode's full digest (`summaryText`) followed by the same pointer block. `:raw` on any episode SHALL always return the full shadowed span, so a digest is never lost.
+
+#### Scenario: Latest episode is a pointer, not a dump
+- **WHEN** the model reads the bare URL of the most recent compaction episode
+- **THEN** the system returns the navigation block with the digest's transcript location and landmarks, and does NOT repeat the digest text
+
+#### Scenario: Older episode returns its digest
+- **WHEN** the model reads the bare URL of a non-latest compaction episode
+- **THEN** the system returns that episode's full digest followed by its pointer block
+
+### Requirement: Landmark roster
+The system SHALL include, in each compaction episode's navigation/pointer block, a direction-marker roster computed over that episode's shadowed events, every marker expressed as transcript line coordinates directly usable with `:N-M`: user-turn lines, failure lines (tool results with `message.isError` true or a present error), touched file paths with occurrence counts (best-effort, from tool-call arguments), and the count of prior checkpoints absorbed in the span. Rosters SHALL be capped to a screen and SHALL tail with `… +N more` when capped.
+
+#### Scenario: Locating user turns and failures
+- **WHEN** the model reads a compaction episode's prepared face
+- **THEN** the landmark block lists user-turn lines and failure lines as transcript line numbers
+
+#### Scenario: Locating touched files
+- **WHEN** the model reads a compaction episode whose span contains file tool calls
+- **THEN** the landmark block lists each touched path with its occurrence count
+
+### Requirement: Fidelity signal
+The system SHALL include, per compaction episode, a `fidelity=<user_turns>:<tool_calls>` figure (in the manifest, the snapshot, and the episode pointer block) so the model can judge whether the digest is trustworthy: a tool-heavy span's digest is trustworthy and detail is regenerable, while a user-intent-heavy span must be drilled into.
+
+#### Scenario: Reading fidelity
+- **WHEN** the model reads `ctx://session/compactions` or a compaction episode's prepared face
+- **THEN** each episode carries its `fidelity` ratio
 
 ### Requirement: Thinking, system, and injections collections
 The system SHALL expose three index-faced collections under `ctx://session/`, all following the canonical/prepared face model (bare URL = prepared index; `:raw` / `:N-M` = canonical full text):
@@ -99,9 +147,21 @@ The system SHALL expose three index-faced collections under `ctx://session/`, al
 - **WHEN** the model reads `ctx://session/injections[0]` or `ctx://session/injections[<seq>]`
 - **THEN** the system returns that injected message's full text with its `INJECTED <kind>` header line
 
+### Requirement: Element collections carry index faces
+The system SHALL give `user_prompts`, `tool_calls`, and `agent_responses` the same prepared-index/canonical model: the bare URL SHALL return an index list (one line per element: event seq and a ≤100-char preview; the long `tool_calls`/`agent_responses` collections SHALL cap the bare index at a screen and tail with `… +N more — use :raw for all, ?q= to filter, [n|seq] for one`); `[<n|seq>]` SHALL return that element's full text; `:raw` SHALL return all elements' full text joined; line windows SHALL index that canonical text. The error for an unaddressed or out-of-range element SHALL name the collection and its count and SHALL NOT echo an empty-bracket URL.
+
+#### Scenario: Browsing user prompts
+- **WHEN** the model reads `ctx://session/user_prompts`
+- **THEN** the system returns an index list of the real user prompts (seq + preview)
+
+#### Scenario: Addressing a tool call
+- **WHEN** the model reads `ctx://session/tool_calls[<seq>]`
+- **THEN** the system returns that call's name, arguments, and result — where a present result's text is rendered from either the flat or the nested content-block shape, never silently empty
+
 ### Requirement: Unknown key echoes known keys
 The `CTX_UNKNOWN_KEY` error SHALL list the currently known first-level keys and the sub-path pointer, so the model can self-correct without leaving the read tool.
 
 #### Scenario: Unknown key with roster echo
 - **WHEN** the model reads `ctx://bogus`
 - **THEN** the system returns `CTX_UNKNOWN_KEY` naming `session` and the sub-path roster
+
