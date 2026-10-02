@@ -136,7 +136,7 @@
     "@deepseek-ai/dsh-tools": ">=0.1.5-0 <0.3.0-0",
     "@deepseek-ai/dsh-user-approval": ">=0.1.5-0 <0.3.0-0",
     "@deepseek-ai/dsh-workflow-worker-thread": ">=0.1.5-0 <0.3.0-0",
-    "@deepseek-ai/schemastery": "^3.18.1",
+    "@deepseek-ai/schemastery": "^3.18.3",
     "@deepseek-ai/dsh-api-gateway": ">=0.1.5-0 <0.3.0-0",
     "@deepseek-ai/dsh-api-remotes": ">=0.1.5-0 <0.3.0-0",
     "@deepseek-ai/dsh-client-connection": ">=0.1.5-0 <0.3.0-0",
@@ -337,7 +337,7 @@
     }
   },
   "dependencies": {
-    "@deepseek-ai/schemastery": "^3.18.1",
+    "@deepseek-ai/schemastery": "^3.18.3",
     "diff": "^8.0.2",
     "file-type": "^21.3.0",
     "puppeteer-core": "25.3.0",
