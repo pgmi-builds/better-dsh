@@ -299,7 +299,7 @@ describe('ctx:// recallable context', () => {
     expect(await resolver.resolve(env, 'ctx://session/injections[0]')).toBe(first)
     expect(await resolver.resolve(env, 'ctx://session/injections[6]')).toBe(first)
     expect(await resolver.resolve(env, 'ctx://session/injections:raw')).toBe(`${first}\n\n${second}`)
-    expect(await resolver.resolve(env, 'ctx://session/injections:4-5')).toBe(second)
+    expect(await resolver.resolve(env, 'ctx://session/injections:4-')).toBe(second)
     expect(await resolver.resolve(env, 'ctx://session/user_prompts[0]')).toBe('[0000005] USER\nreal prompt')
     expect(await errorCode(resolver.resolve(env, 'ctx://session/injections[99]'))).toBe('CTX_NO_SUCH_ELEMENT')
   })
@@ -406,5 +406,15 @@ describe('ctx:// recallable context', () => {
     const resolver = ctxResolver({ value: false }, flat)
     const env: CtxEnv = { agent: fakeAgent() }
     expect(await resolver.resolve(env, 'ctx://session/tool_calls[5]')).toContain('result: hi')
+  })
+  it('F11: out-of-range line windows annotate the canonical extent (not silent empty)', async () => {
+    const resolver = ctxResolver({ value: false })
+    const env: CtxEnv = { agent: fakeAgent() }
+    const inRange = await resolver.resolve(env, 'ctx://session/transcript:1-2')
+    expect(inRange).not.toContain('ctx:// note')
+    const past = await resolver.resolve(env, 'ctx://session/transcript:9000-9010')
+    expect(past).toContain('canonical content ends at line')
+    const openTail = await resolver.resolve(env, 'ctx://session/transcript:1-')
+    expect(openTail).not.toContain('ctx:// note')
   })
 })

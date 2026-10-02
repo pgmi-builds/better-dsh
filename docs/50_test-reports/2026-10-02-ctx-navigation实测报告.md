@@ -37,3 +37,58 @@ compaction 特定面（lines/fidelity/landmark/digest-residence）为代码级�
 ## 四、判定
 
 **通过**。N1–N6 + F1/F2 全部落地，单测全绿，0.2.0-rc.2 上第一人称活体逐面兑现。坐标不变式成立（transcript 单一坐标空间，越界显式）。prod 3080 未部署；发布走 §〇.5 门（第一人称 + user 确认），本轮不发包。
+
+## 五、独立复核（2026-10-02，本轮报告发布后的第三方复验）
+
+**缘由**：user 在报告落盘后要求独立确认 §一 声称的修复是否真在场，不复述原文。复核采用三重证据：
+
+1. **部署物同一性**：4999 rig profile 内 `better-dsh/lib/url-schemes/index.js` 与构建产物 md5 一致（`ad5b4820c4ca97520ccc196d72b3aa3f`，286,916 B）→ 活体进程加载的确实是本次改动，而非旧构建。
+2. **第一人称活体探测**：本会话即 4999 运行实例（`session-6c5f8e8e-0cd7-42a0-85da-3aec7256339f`，harness 0.2.0-rc.2），逐面实读。
+3. **回归全量**：`tsc --noEmit` **0 错**；`vitest run` **648 passed / 1 skipped**（57 文件）——与 §三 数字一致。
+
+### 5.1 逐项复核结果
+
+| 项 | 结论 | 证据（活体 / 代码） |
+|---|---|---|
+| F1 | ✅ 已修 | 裸 `user_prompts`/`tool_calls`/`agent_responses` 返回索引面（`seq=<n>` + ≤100 字预览）；长集合封顶 20 + `… +N more — use :raw / ?q= / [n\|seq]` 尾注；越界错误列集合名与条数，无空括号回显 |
+| F2 | ✅ 已修 | `resultTextOf` 嵌套优先、平铺兜底（`ctx.ts` L128–137）；活体 `tool_calls[99]` result 非空；in-progress 调用显式 `(no result captured)` |
+| F5 | ✅ 已修 | 活体 `ctx://session/tool_calls?q=bash` 行过滤生效 |
+| F7 | ✅ 已修 | 快照/manifest 内 `seq=` 与 `lines=` 双坐标并存；坐标不变式已入 spec（Requirement: Coordinate invariant） |
+| F8 | ✅ 已修 | 活体 `ctx://session:path/asOf` → `{"seq":198,"line":1431}`；`:path/totals.tool_calls` → `13`（数字，非 JSON 包裹） |
+| F9 | ✅ 已修 | 快照 `asOf:{seq,line}` 在场，且与后续窄读的前移一致（模型可自知陈旧） |
+| F10 | ✅ 已修（episode 面） | `applyEpisodeLines` 越界追加 `[ctx:// note: episode span is transcript lines s-e]`（`ctx.ts` L291–318）；单测 `N1/F10` 断言 |
+| N1 | ✅ 已修 | 上述 F7/F10 证据；transcript 行索引为单一坐标源 |
+| N2 | ✅ 已在代码 | latest episode 走 `digest resident at seq=<checkpointSeq> (transcript:<s>-<e>)` 指针块，older 出 digest + 指针块 |
+| N3 | ✅ 已在代码 | `landmarkBlock`：user turns / failures / touched paths（含次数）/ prior checkpoints，全为行坐标并封顶 |
+| N4 | ✅ 已在代码 | `fidelity=<user_turns>:<tool_calls>` 三处内联（manifest / 快照 `compacted[].fidelity` / episode 指针块） |
+| N5 / N6 | ✅ 已修 | 同 F5/F8 与 F9 |
+
+**N2–N4 的活体限度**：本会话 `compactions: 0`（快照实证），compaction 特定面无法活体触达；证据 = 代码 + 2×compaction 单测夹具，与 §三 口径一致，不构成缺口。附带观察：快照 `segments[].lines` 对 `live` 尾段为 `null`（开放区间无上界），compaction 段才带 `lines:{start,end}`——与「live 无 end」语义自洽。
+
+### 5.2 未闭合项（本轮未声称修复，复核确认仍开）
+
+- **F3 仍开**：`read` 的 `offset`/`limit` 对 `ctx://` 依旧静默忽略——活体 `read(ctx://session, limit:1)` 返回全量快照 JSON。
+- **F4 仍开**：compaction label 仍为事件 seq，后续 compaction 重划 span 时仍会漂移；未改稳定键，亦未加文档点名（`compactionId` 为既有字段）。
+- **F6 仍开**：episode `:raw` > 64 KiB 仍为 warn-don't-block（返回全文 + 注记，`ctx.ts` L528–536），无 spill-to-file / 硬护栏。
+
+### 5.3 新发现 F11：spec 宽于实现（越界注记仅 episode 面兑现）
+
+spec「Canonical and prepared content faces」写明*任何*越过 canonical 范围的 `:N-M` 都应回显显式边界注记；实测仅 **episode 面**成立：
+
+- 活体 `ctx://session/transcript:1-3` → 正常返回该行窗内容；
+- 活体 `ctx://session/transcript:9000-9010`、`:999999-999999` → **静默空串**（`applyLines` 无 extent 概念、无注记逻辑）。
+
+即 §一 表中「越界返回显式边界注记（不再静默空/截断）」仅在 episode 窗口范围内为真，spec 文字面（全资源）未兑现。建议入批 F11：把 `applyLines` 升格为带 canonical extent 入参的同款注记，或把 spec 措辞收窄到 episode 面。
+
+### 5.4 复核判定
+
+**通过，无夸大**——§一/§三 声称的 N1–N6 + F1/F2 全部经独立证据兑现；§四 的部署与发布口径亦复核无误：4999 rig 已加载修复（md5 同一），prod 3080 仍为 **0.2.4-c**，修复未发布；发布仍走 §〇.5 门（第一人称实测 ✅ + user 确认）。遗留 F3/F4/F6 + 新增 F11 按 §〇 惯例攒批，不单烧版本。
+
+## 六、F11 修复（2026-10-02，复核后同波闭合）
+
+§五.3 的 F11 属实：本波 spec 文字面宽于实现（越界注记只在 episode 面）。因本改动**尚未发布**，不适用「攒批」——同波闭合：
+
+- **修法**：ctx 侧 `applyLines` 升格为 extent-aware —— 越界窗口按 canonical 上界截断并追加 `[ctx:// note: canonical content ends at line <N>]`；`:N-` 开尾读**豁免**（刻意读到尾，非越界）；manifest 的 line 窗口也改走同一函数（原先走共享 `applySelector`，无注记）。
+- **未采纳**另一选项（把 spec 措辞收窄到仅 episode 面）：不收窄，因为「不静默截断」是 N1/F10 的原意，应全资源成立。
+- **验证**：单测新增 `F11`（越界 → 注记；`1-2` in-range 与 `1-` 开尾 → 无注记）；全量 **649 passed / 1 skipped**（57 文件）+ `tsc` 0 错；**第一人称活体**（headless，0.2.0-rc.2）读 `ctx://session/transcript:9000-9010` → 输出含 `ctx:// note`（`F11=yes`）。4999 rig 已重启加载修复（`lib/url-schemes/index.js` md5 `48771cb6…` 与构建产物同一）。
+- **仍开**：F3（read offset/limit 静默忽略）、F4（compaction label 漂移）、F6（episode `:raw` >64 KiB warn-not-block）——三者不在本波 N1–N6 范围，按 §〇 攒批。

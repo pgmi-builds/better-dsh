@@ -249,7 +249,20 @@ function sectionPreviews(text: string, n = 100): Record<string, string> {
 
 function applyLines(canonical: string, ranges: Array<[number, number]>): string {
   const lines = canonical.split('\n')
-  return ranges.map(([a, b]) => lines.slice(Math.max(0, a - 1), b).join('\n')).join('\n')
+  const total = lines.length
+  const out: string[] = []
+  let noted = false
+  for (const [aRaw, bRaw] of ranges) {
+    const a = Math.max(1, aRaw)
+    const b = bRaw === Infinity ? total : bRaw
+    if (b < 1 || a > total) { noted = true; continue }
+    out.push(...lines.slice(a - 1, Math.min(b, total)))
+    if (bRaw !== Infinity && b > total) noted = true
+  }
+  const body = out.join('\n')
+  if (!noted) return body
+  const note = `[ctx:// note: canonical content ends at line ${total}]`
+  return body === '' ? note : `${body}\n\n${note}`
 }
 
 function applyFace(
@@ -544,7 +557,9 @@ export function createCtxHandler(deps: CtxHandlerDeps): SchemeHandler {
               ].join(' | '))
               .join('\n')
             const text = body === '' ? '(no compactions recorded)' : body
-            return sel === null || sel.kind === 'raw' ? text : applySelector(text, sel)
+            if (sel === null || sel.kind === 'raw') return text
+            if (sel.kind === 'lines') return applyLines(text, sel.ranges)
+            return applySelector(text, sel)
         }
         const episode = pickEpisode(episodes, seg0.bracket)
         if (seg1 === undefined) {
