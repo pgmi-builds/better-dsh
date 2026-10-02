@@ -5,8 +5,8 @@
  * `native/loader-state.js` — MIT; see `../NOTICE-OMP.md`). The npm wrapper
  * `@oh-my-pi/pi-natives` is ESM+Bun-only (`import.meta.dir` breaks under
  * Node 22), so this loader does not import the wrapper: it resolves the
- * platform leaf package — declared as an optionalDependency
- * (`@oh-my-pi/pi-natives-<platform>-<arch>`) — and dlopens its `.node`
+ * platform leaf package — NOT an npm dependency: the plugin fetches it into
+ * `<packageRoot>/.vendor` on first use (`../../vendor.ts`) — and dlopens its `.node`
  * addon directly, which exposes the same `astGrep`/`astEdit` surface.
  *
  * Loading is best-effort by design: a missing package or an unsupported
@@ -20,6 +20,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import * as path from 'node:path'
+import { ensureVendored, VENDOR_ROOT } from '../../vendor.ts'
 import { fileURLToPath } from 'node:url'
 
 // ---------------------------------------------------------------------------
@@ -283,6 +284,44 @@ export interface PiNativesLoadOptions {
   fromDir?: string
 }
 
+/**
+ * Exact vendor-dir lookup. Deliberately NOT `findPackageDir`: that helper
+ * walks `node_modules` upward, which from `<packageRoot>/.vendor` would escape
+ * into the package's own (or the profile's) tree and defeat the anchor-bounded
+ * contract this loader guarantees. The vendor root is flat by construction.
+ */
+function vendoredPackageDir(packageName: string): string | undefined {
+  const candidate = path.join(VENDOR_ROOT, 'node_modules', packageName)
+  return existsSync(path.join(candidate, 'package.json')) ? candidate : undefined
+}
+
+/** Pinned addon release; bumping it is an explicit, tested change. */
+export const PI_NATIVES_VERSION = '18.0.6'
+
+/**
+ * Make the platform addon available without touching any package manager:
+ * a package already resolvable from `fromDir` (dev checkout, legacy install)
+ * wins; otherwise the pinned leaf package is fetched into the plugin's vendor
+ * directory. Never throws — failure leaves `loadPiNatives()` reporting the
+ * addon as unavailable, which the device layer turns into a structured error.
+ * @param options - platform/arch/anchor overrides, as in `loadPiNatives`.
+ */
+export async function ensurePiNatives(options: PiNativesLoadOptions = {}): Promise<void> {
+  const platform = options.platform ?? process.platform
+  const arch = options.arch ?? process.arch
+  const packageName = piNativesPackageName(platform, arch)
+  if (packageName === undefined) return
+  if (findPackageDir(packageName, options.fromDir ?? here) !== undefined) return
+  // An explicit anchor is a bounded probe (degradation tests, unsupported
+  // platforms): never provision off the back of one.
+  if (options.fromDir !== undefined) return
+  try {
+    await ensureVendored({ name: packageName, version: PI_NATIVES_VERSION }, VENDOR_ROOT)
+  } catch {
+    // Fail-open by contract: the caller degrades this component only.
+  }
+}
+
 /** Memoized default-args outcome: `undefined` = not attempted, `null` = attempted and unavailable. */
 let cachedDefaultLoad: PiNatives | null | undefined
 
@@ -306,7 +345,11 @@ export function loadPiNatives(options: PiNativesLoadOptions = {}): PiNatives | u
     if (isDefaultLoad) cachedDefaultLoad = null
     return undefined
   }
-  const packageDir = findPackageDir(`@oh-my-pi/pi-natives-${tag}`, options.fromDir ?? here)
+  const packageName = `@oh-my-pi/pi-natives-${tag}`
+  // Vendor fallback applies only to the default load: a caller-supplied anchor
+  // means "resolve from here or not at all" (the loader's bounded contract).
+  const packageDir = findPackageDir(packageName, options.fromDir ?? here)
+    ?? (options.fromDir === undefined ? vendoredPackageDir(packageName) : undefined)
   if (packageDir === undefined) {
     if (isDefaultLoad) cachedDefaultLoad = null
     return undefined

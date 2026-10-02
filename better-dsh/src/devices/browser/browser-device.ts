@@ -49,7 +49,9 @@ import type { Browser, Page } from 'puppeteer-core'
 
 import { registerDvcDevice } from '../../url-schemes/handlers/dvc.ts'
 import type { DvcDevice } from '../../url-schemes/handlers/dvc.ts'
+import { pathToFileURL } from 'node:url'
 import { UrlSchemesError } from '../../url-schemes/selector.ts'
+import { ensureVendored, VENDOR_ROOT } from '../../vendor.ts'
 
 /**
  * puppeteer-core is imported lazily: a deployment without the optional browser
@@ -60,16 +62,29 @@ import { UrlSchemesError } from '../../url-schemes/selector.ts'
 type PuppeteerModule = typeof import('puppeteer-core')
 let puppeteerModule: PuppeteerModule | undefined
 
-/** Load puppeteer-core once; missing package → structured BROWSER_NO_PUPPETEER. */
+/** Pinned release; bumping it is an explicit, tested change. */
+const PUPPETEER_CORE_VERSION = '25.3.0'
+
+/**
+ * Load puppeteer-core once. Not an npm dependency: a resolvable copy wins
+ * (dev checkout, legacy install), otherwise the package is fetched into the
+ * plugin's own vendor dir on first use. Either way a failure is structured as
+ * BROWSER_NO_PUPPETEER and only the browser device degrades.
+ */
 async function loadPuppeteer(): Promise<PuppeteerModule> {
   if (puppeteerModule === undefined) {
     try {
       puppeteerModule = await import('puppeteer-core')
-    } catch (err) {
-      throw new UrlSchemesError(
-        'BROWSER_NO_PUPPETEER',
-        `puppeteer-core is not installed — the browser device needs it as a dependency (npm install puppeteer-core@^25.3.0): ${messageOf(err)}`,
-      )
+    } catch {
+      try {
+        const vendored = await ensureVendored({ name: 'puppeteer-core', version: PUPPETEER_CORE_VERSION }, VENDOR_ROOT)
+        puppeteerModule = await import(pathToFileURL(vendored.entry).href) as PuppeteerModule
+      } catch (err) {
+        throw new UrlSchemesError(
+          'BROWSER_NO_PUPPETEER',
+          `puppeteer-core is unavailable — the browser device fetches puppeteer-core@${PUPPETEER_CORE_VERSION} into ${VENDOR_ROOT} on first use and needs network access to the npm registry: ${messageOf(err)}`,
+        )
+      }
     }
   }
   return puppeteerModule

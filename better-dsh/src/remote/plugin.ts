@@ -9,7 +9,7 @@
  * compositions without tools.
  */
 import { Context } from '@deepseek-ai/cordis'
-import z from '@deepseek-ai/schemastery'
+import z from '#schemastery'
 import { RemoteDriver } from './driver.ts'
 import { createRemoteTool } from './tool.ts'
 

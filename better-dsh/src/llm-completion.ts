@@ -67,11 +67,29 @@ function finishError(finish: { kind: string, failure?: { message?: unknown } }):
  * output: the model's text (a bare string root), or a structured `{ error }`
  * object — never a thrown exception for bad input or a degraded finish.
  */
+/** Narrow a tool result to the success variant (for the model-facing render). */
+function isTextResult(value: unknown): value is { ok: true, text: string } {
+  return typeof value === 'object' && value !== null
+    && (value as { ok?: unknown }).ok === true
+    && typeof (value as { text?: unknown }).text === 'string'
+}
+
 export function createLlmCompletionTool(deps: LlmCompletionDeps): ToolDefinition {
-  const errorVariant: ObjectValueSchemaSpec = { type: 'object', properties: { error: { type: 'string' } }, additionalProperties: false }
+  // Both outcomes are objects: the caller branches on `ok` instead of guessing
+  // whether it holds a string or an error object (the pre-2026-10 shape).
+  const textVariant: ObjectValueSchemaSpec = {
+    type: 'object',
+    properties: { ok: { type: 'boolean', required: true }, text: { type: 'string', required: true } },
+    additionalProperties: false,
+  }
+  const errorVariant: ObjectValueSchemaSpec = {
+    type: 'object',
+    properties: { ok: { type: 'boolean', required: true }, error: { type: 'string', required: true } },
+    additionalProperties: false,
+  }
   return defineTool({
     name: 'llm_completion',
-    description: 'One-shot stateless LLM call — no tools, no history, no agent. Give {prompt} (and optional {system}, {maxTokens}); get the model\'s text back. For judge steps, extraction, and handoff compression inside one cell, without spawning a subagent.',
+    description: 'One-shot stateless LLM call — no tools, no history, no agent. Give {prompt} (and optional {system}, {maxTokens}); get a discriminated result back: {ok:true,text} on success or {ok:false,error} on failure, so a programmatic caller can branch without shape guessing (a direct tool call renders just the text on success). For judge steps, extraction, and handoff compression inside one cell, without spawning a subagent.',
     parameters: {
       // No schema-level `required`: validation owns the structured-error contract in execute.
       prompt: { type: 'string', description: 'The prompt for the one-shot call.' },
@@ -79,33 +97,33 @@ export function createLlmCompletionTool(deps: LlmCompletionDeps): ToolDefinition
       maxTokens: { type: 'integer', description: `Optional output-token ceiling for this call (default ${MAX_COMPLETION_TOKENS}, which is also the cap).` },
     },
     output: {
-      schema: { oneOf: [{ type: 'string' }, errorVariant] },
-      render: (_args: unknown, value: unknown): ContentBlock[] => [{ type: 'text', text: typeof value === 'string' ? value : JSON.stringify(value, null, 2) }],
+      schema: { oneOf: [textVariant, errorVariant] },
+      render: (_args: unknown, value: unknown): ContentBlock[] => [{ type: 'text', text: isTextResult(value) ? value.text : JSON.stringify(value, null, 2) }],
     },
     execute: async (args, exec): Promise<never> => {
       const a = args as Record<string, unknown>
       const prompt = a['prompt']
       if (typeof prompt !== 'string' || prompt.length === 0) {
-        return { error: 'llm_completion() requires {"prompt": "..."} — the one-shot prompt' } as never
+        return { ok: false, error: 'llm_completion() requires {"prompt": "..."} — the one-shot prompt' } as never
       }
       const system = a['system']
       if (system !== undefined && typeof system !== 'string') {
-        return { error: 'llm_completion() system must be a string' } as never
+        return { ok: false, error: 'llm_completion() system must be a string' } as never
       }
       const maxTokens = a['maxTokens'] === undefined ? MAX_COMPLETION_TOKENS : a['maxTokens']
       if (typeof maxTokens !== 'number' || !Number.isSafeInteger(maxTokens) || maxTokens < 1 || maxTokens > MAX_COMPLETION_TOKENS) {
-        return { error: `llm_completion() maxTokens must be a positive safe integer no greater than ${MAX_COMPLETION_TOKENS}` } as never
+        return { ok: false, error: `llm_completion() maxTokens must be a positive safe integer no greater than ${MAX_COMPLETION_TOKENS}` } as never
       }
       const llm = deps.requireLlm()
       if (llm === undefined) {
-        return { error: 'llm_completion() is unavailable: no ctx.llm service is mounted in this composition' } as never
+        return { ok: false, error: 'llm_completion() is unavailable: no ctx.llm service is mounted in this composition' } as never
       }
       const agent = exec.agent
       const route = agent?.options as { provider?: string, model?: string } | undefined
       const provider = route?.provider
       const model = route?.model
       if (typeof provider !== 'string' || provider.length === 0 || typeof model !== 'string' || model.length === 0) {
-        return { error: 'llm_completion() requires a model route: the calling agent has no provider/model selected (a judge call runs on its caller\'s tier)' } as never
+        return { ok: false, error: 'llm_completion() requires a model route: the calling agent has no provider/model selected (a judge call runs on its caller\'s tier)' } as never
       }
       const messages: Message[] = [createUserMessage({
         content: [{ type: 'text', text: prompt }],
@@ -129,22 +147,22 @@ export function createLlmCompletionTool(deps: LlmCompletionDeps): ToolDefinition
           assembler.push(chunk)
         }
       } catch (error: unknown) {
-        return { error: `llm_completion() failed: ${error instanceof Error ? error.message : String(error)}` } as never
+        return { ok: false, error: `llm_completion() failed: ${error instanceof Error ? error.message : String(error)}` } as never
       }
       const failure = finishError(assembler.finish)
-      if (failure !== '') return { error: failure } as never
+      if (failure !== '') return { ok: false, error: failure } as never
       const blocks = assembler.blocks()
       if (blocks.some(block => block.type === 'tool-call')) {
-        return { error: 'llm_completion() output must contain text only' } as never
+        return { ok: false, error: 'llm_completion() output must contain text only' } as never
       }
       const text = blocks
         .filter((block): block is Extract<ContentBlock, { type: 'text' }> => block.type === 'text')
         .map(block => block.text)
         .join(' ')
       if (text.trim().length === 0) {
-        return { error: 'llm_completion() produced no text' } as never
+        return { ok: false, error: 'llm_completion() produced no text' } as never
       }
-      return text as never
+      return { ok: true, text } as never
     },
   })
 }

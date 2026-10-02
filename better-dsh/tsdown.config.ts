@@ -1,5 +1,24 @@
 import { defineConfig } from 'tsdown'
 
+/**
+ * Pure-JS runtime deps inlined into the host bundle (zero-npm-runtime-deps).
+ * The published package must resolve nothing from a consumer's node_modules:
+ * every one of these carries no native code, so inlining is lossless.
+ */
+const BUNDLED_RUNTIME = [
+  'diff',
+  'file-type',
+  'xxhash-wasm',
+  // file-type's pure-JS closure
+  '@borewit/text-codec',
+  '@tokenizer/inflate',
+  '@tokenizer/token',
+  'debug',
+  'ieee754',
+  'strtok3',
+  'token-types',
+  'uint8array-extras',
+]
 export default defineConfig({
   // One entry per Plugins-page component row (spec docs/specs/plugins-page-
   // components/spec.md): the bundle patch inserts one row per subpath export.
@@ -27,6 +46,10 @@ export default defineConfig({
   // generics appear twice and stop unifying). External imports resolve from
   // each consumer's own tree — one identity per package there.
   dts: { resolve: false },
+  // Zero-npm-runtime-deps (docs/specs/zero-npm-runtime-deps/spec.md): the
+  // pure-JS runtime deps above are inlined instead of resolving from the
+  // consumer's tree; the prefix match also covers subpath imports.
+  noExternal: (id: string) => BUNDLED_RUNTIME.some(name => id === name || id.startsWith(`${name}/`)),
   platform: 'node',
   format: 'esm',
   outputOptions: { exports: 'named' },

@@ -66,7 +66,7 @@ async function fakeLlm(
 }
 
 describe('llm_completion tool', () => {
-  it('returns the model text as a bare string root, routed on the calling agent, toolless', async () => {
+  it('returns a discriminated {ok,text} result, routed on the calling agent, toolless', async () => {
     const { ctx, agent } = await setupPresentation(fakeRuntime, {}, { provider: 'fake-provider', model: 'fake-model' })
     const calls = await fakeLlm(ctx)
     const runtime = ctx.get('replRuntime') as FakeCellRuntime
@@ -78,7 +78,7 @@ describe('llm_completion tool', () => {
     }
     const result = await runCell(ctx, 'program', { agent: agent.agent })
     expect(result.isError, JSON.stringify(result.content)).toBe(false)
-    expect((result.value as { result?: unknown }).result).toBe('FAKE-JUDGE-VERDICT')
+    expect((result.value as { result?: unknown }).result).toEqual({ ok: true, text: 'FAKE-JUDGE-VERDICT' })
     expect(calls).toHaveLength(1)
     expect(calls[0]!.provider).toBe(agent.agent.options.provider)
     expect(calls[0]!.model).toBe(agent.agent.options.model)
@@ -119,13 +119,13 @@ describe('llm_completion tool', () => {
     }
     const result = await runCell(ctx, 'program', { agent: agent.agent })
     expect(result.isError).toBe(false)
-    const errors = (result.value as { result?: unknown }).result as Record<string, { error: string }>
-    expect(errors['noPrompt']).toEqual({ error: expect.stringContaining('requires {"prompt"') })
+    const errors = (result.value as { result?: unknown }).result as Record<string, { ok: false, error: string }>
+    expect(errors['noPrompt']).toEqual({ ok: false, error: expect.stringContaining('requires {"prompt"') })
     // A type-mismatched field (system: 5) is a CALL-PROTOCOL error: the
     // registry's schema validation rejects it before execute, as a thrown
     // dispatch error — the structured-error contract covers semantic failures.
     expect(errors['badSystem']).toContain('invalid arguments')
-    expect(errors['overMax']).toEqual({ error: expect.stringContaining('maxTokens') })
+    expect(errors['overMax']).toEqual({ ok: false, error: expect.stringContaining('maxTokens') })
   })
 
   it('answers a structured error when no llm service is mounted', async () => {
@@ -139,6 +139,6 @@ describe('llm_completion tool', () => {
     }
     const result = await runCell(ctx, 'program', { agent: agent.agent })
     expect(result.isError).toBe(false)
-    expect((result.value as { result?: unknown }).result).toEqual({ error: expect.stringContaining('no ctx.llm service') })
+    expect((result.value as { result?: unknown }).result).toEqual({ ok: false, error: expect.stringContaining('no ctx.llm service') })
   })
 })

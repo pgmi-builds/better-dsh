@@ -23,7 +23,7 @@
 
 import { Context } from '@deepseek-ai/cordis'
 import type { Volatile } from '@deepseek-ai/cordis'
-import z from '@deepseek-ai/schemastery'
+import z from '#schemastery'
 import { randomUUID } from 'node:crypto'
 import type { LlmCallConfig } from '@deepseek-ai/dsh-llm'
 import { RetryId } from '@deepseek-ai/dsh-llm-retry'

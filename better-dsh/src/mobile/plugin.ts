@@ -14,7 +14,7 @@
  */
 
 import { Context } from '@deepseek-ai/cordis'
-import z from '@deepseek-ai/schemastery'
+import z from '#schemastery'
 // Type-only: pulls the `webserver/index-inject` Events merge into this program.
 import type {} from '@deepseek-ai/dsh-host-webserver'
 import { buildMobileScript, type MobileConfig } from '../web-trust.ts'

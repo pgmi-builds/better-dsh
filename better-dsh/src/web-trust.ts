@@ -38,7 +38,7 @@
  */
 
 import { Context } from '@deepseek-ai/cordis'
-import z from '@deepseek-ai/schemastery'
+import z from '#schemastery'
 // Type-only: pulls the `webserver/index-inject` Events merge and the
 // IndexInjection shape from the host webserver's Context declaration.
 import type {} from '@deepseek-ai/dsh-host-webserver'

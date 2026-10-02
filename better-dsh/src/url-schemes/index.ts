@@ -42,7 +42,7 @@ import type {} from '@deepseek-ai/dsh-settings'
 import type {} from '@deepseek-ai/dsh-skill'
 import type {} from '@deepseek-ai/dsh-subagent'
 import type {} from '@deepseek-ai/dsh-tools'
-import z from '@deepseek-ai/schemastery'
+import z from '#schemastery'
 
 import { resolveDocsDir } from './docs-dir.ts'
 import { astReminderNotice, disposeAstReminders } from '../devices/ast/ast-reminder.ts'

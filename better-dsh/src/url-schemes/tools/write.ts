@@ -112,12 +112,12 @@ async function defaultSchemeWrite(
   scheme: string,
   path: string,
   content: string,
-  meta: { session?: string } = {},
+  meta: { session?: string, cwd?: string } = {},
 ): Promise<WriteOutcome> {
   if (scheme === 'dvc') {
     // The dispatch's structured errors (DVC_NO_DEVICE / DVC_UNKNOWN_DEVICE /
     // DVC_BAD_ARGS, plus the DVC_DEVICE_ERROR wrap) bubble unchanged.
-    const result = await dispatchDvcWrite(path, content, meta.session)
+    const result = await dispatchDvcWrite(path, content, meta.session, meta.cwd)
     return {
       path: `dvc://${path}`,
       operation: 'execute',
@@ -206,7 +206,14 @@ export function createWriteTool(deps: WriteToolDeps): ToolDefinition {
     async execute(args, exec): Promise<WriteOutcome> {
       if (isSchemeUrl(args.file_path)) {
         const parsed = parseUrl(args.file_path)
-        return writeScheme(parsed.scheme, parsed.path, args.content, { session: exec.agent?.id })
+        // The session's workspace cwd rides the transport slot beside the id:
+        // devices that resolve relative paths (ast_grep/ast_edit) must use the
+        // session workspace, not the daemon's own cwd. Same source as the REPL
+        // kernel's spawn cwd (see the eval tool's runtime request).
+        return writeScheme(parsed.scheme, parsed.path, args.content, {
+          session: exec.agent?.id,
+          ...exec.agent ? { cwd: exec.agent.session.header.cwd } : {},
+        })
       }
       if (nativeWrite === undefined) {
         throw new UrlSchemesError(

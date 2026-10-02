@@ -12,12 +12,13 @@
  */
 
 import { type ChildProcess, spawn } from 'node:child_process'
-import { createHmac, randomBytes, randomUUID } from 'node:crypto'
+import { randomBytes, randomUUID } from 'node:crypto'
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
-import { Dealer, Subscriber } from 'zeromq'
+import { KernelTransport } from './kernel-transport.ts'
+import type { TransportChannel, TransportMessage } from './kernel-transport.ts'
 import { HOST_COMM_TARGET, KERNEL_BOOTSTRAP } from './bootstrap.ts'
 import { buildQueryVarCell, buildRestoreCell, buildSetVarCell, buildSnapshotCell } from './python.ts'
 import type { SnapshotSpec } from './python.ts'
@@ -113,7 +114,6 @@ export type CellOutcome =
     streamText: string
   }
 
-const DELIM = Buffer.from('<IDS|MSG>')
 const PROTOCOL_VERSION = '5.3'
 /** Loopback PUB/SUB subscription propagation guard before the first execute. */
 const IOPUB_SUBSCRIBE_DELAY_MS = 50
@@ -133,11 +133,8 @@ interface ConnectionInfo {
   kernel_name: string
 }
 
-interface JupyterMessage {
-  header: { msg_id: string, msg_type: string, [key: string]: unknown }
-  parent_header: Record<string, unknown>
-  content: Record<string, unknown>
-}
+/** The bridge relays exactly this shape; the alias keeps call sites unchanged. */
+type JupyterMessage = TransportMessage
 
 interface ActiveExecution {
   requestMsgId: string
@@ -173,33 +170,6 @@ function buildMessage(msgType: string, content: Record<string, unknown>, session
     },
     parent_header: {},
     content,
-  }
-}
-
-function encode(msg: JupyterMessage, key: string): Buffer[] {
-  const parts = [
-    Buffer.from(JSON.stringify(msg.header)),
-    Buffer.from(JSON.stringify(msg.parent_header)),
-    Buffer.from('{}'),
-    Buffer.from(JSON.stringify(msg.content)),
-  ]
-  const hmac = createHmac('sha256', key)
-  for (const part of parts) hmac.update(part)
-  return [DELIM, Buffer.from(hmac.digest('hex')), ...parts]
-}
-
-function decode(frames: Buffer[]): JupyterMessage | null {
-  let i = 0
-  while (i < frames.length && !frames[i]!.equals(DELIM)) i++
-  if (i + 5 >= frames.length) return null
-  try {
-    return {
-      header: JSON.parse(frames[i + 2]!.toString()) as JupyterMessage['header'],
-      parent_header: JSON.parse(frames[i + 3]!.toString()) as JupyterMessage['parent_header'],
-      content: JSON.parse(frames[i + 5]!.toString()) as JupyterMessage['content'],
-    }
-  } catch {
-    return null
   }
 }
 
@@ -246,9 +216,7 @@ export class IpyKernelBridge {
   private state: 'idle' | 'starting' | 'running' | 'shutdown' = 'idle'
   private startPromise?: Promise<void>
   private kernel?: ChildProcess
-  private shell?: Dealer
-  private iopub?: Subscriber
-  private control?: Dealer
+  private transport?: KernelTransport
   private connection?: ConnectionInfo
   private tempDir?: string
   private kernelStderr = ''
@@ -256,7 +224,6 @@ export class IpyKernelBridge {
   private activeExec?: ActiveExecution
   private readonly commTargets = new Map<string, string>()
   private readonly servedComms = new Set<string>()
-  private iopubPump?: Promise<void>
 
   constructor(private readonly options: KernelBridgeOptions) {}
 
@@ -335,15 +302,32 @@ export class IpyKernelBridge {
       throw error
     }
 
-    this.shell = new Dealer()
-    this.iopub = new Subscriber()
-    this.control = new Dealer()
-    this.shell.connect(`${conn.transport}://${conn.ip}:${conn.shell_port}`)
-    this.iopub.connect(`${conn.transport}://${conn.ip}:${conn.iopub_port}`)
-    this.control.connect(`${conn.transport}://${conn.ip}:${conn.control_port}`)
-    this.iopub.subscribe('')
+    const transport = new KernelTransport({
+      python: this.options.python,
+      connectionFile: path,
+      ...this.options.cwd === undefined ? {} : { cwd: this.options.cwd },
+      readyTimeoutMs: this.options.startupTimeoutMs,
+    })
+    this.transport = transport
+    transport.onMessage((channel, message) => { this.handleTransportMessage(channel, message) })
+    transport.onExit(() => {
+      if (this.state !== 'shutdown') {
+        this.forceSettleActive({
+          kind: 'worker-exit',
+          message: `kernel bridge died. stderr tail:\n${transport.stderrTail()}`,
+        })
+      }
+    })
+    try {
+      await transport.start()
+    } catch (error) {
+      this.cleanupResources()
+      this.state = 'idle'
+      throw error
+    }
+    // Loopback PUB/SUB propagation guard: the kernel publishes iopub only once
+    // the bridge's subscriber is connected.
     await sleep(IOPUB_SUBSCRIBE_DELAY_MS)
-    this.startIopubPump()
 
     try {
       await this.probeReady()
@@ -384,30 +368,24 @@ export class IpyKernelBridge {
   }
 
   private async probeReady(): Promise<void> {
-    const conn = this.connection
-    const shell = this.shell
-    if (!conn || !shell) throw new Error('kernel channels are not connected')
+    const transport = this.transport
+    if (!transport) throw new Error('kernel channels are not connected')
     const msg = buildMessage('kernel_info_request', {}, this.session, this.options.username)
     const requestMsgId = msg.header.msg_id
-    await shell.send(encode(msg, conn.key))
+    transport.send('shell', msg)
 
-    const deadline = Date.now() + this.options.startupTimeoutMs
-    while (Date.now() < deadline) {
-      if (this.state === 'shutdown') {
-        throw new Error(`kernel exited during startup. stderr:\n${this.stderrTail()}`)
-      }
-      const winner = await Promise.race([
-        shell.receive().then(frames => ({ kind: 'frames' as const, frames })),
-        sleep(Math.max(1, deadline - Date.now())).then(() => ({ kind: 'timeout' as const })),
-      ])
-      if (winner.kind === 'timeout') break
-      const incoming = decode(winner.frames)
-      if (incoming?.header.msg_type === 'kernel_info_reply'
-        && (incoming.parent_header as { msg_id?: string }).msg_id === requestMsgId) {
-        return
-      }
+    const reply = await transport.waitFor(
+      'shell',
+      incoming => incoming.header.msg_type === 'kernel_info_reply'
+        && (incoming.parent_header as { msg_id?: string }).msg_id === requestMsgId,
+      this.options.startupTimeoutMs,
+    )
+    if (reply) return
+    const bridgeTail = transport.stderrTail()
+    if (this.state === 'shutdown') {
+      throw new Error(`kernel exited during startup. kernel stderr:\n${this.stderrTail()}\nbridge stderr:\n${bridgeTail}`)
     }
-    throw new Error(`kernel did not answer kernel_info_request within ${this.options.startupTimeoutMs}ms. stderr tail:\n${this.stderrTail()}`)
+    throw new Error(`kernel did not answer kernel_info_request within ${this.options.startupTimeoutMs}ms. kernel stderr:\n${this.stderrTail()}\nbridge stderr:\n${bridgeTail}`)
   }
 
   /**
@@ -433,9 +411,8 @@ export class IpyKernelBridge {
   }
 
   private executeInner(code: string, opts: ExecuteCellOptions): Promise<CellOutcome> {
-    const conn = this.connection
-    const shell = this.shell
-    if (!conn || !shell) {
+    const transport = this.transport
+    if (!transport) {
       return Promise.resolve({ outcome: 'forced', failure: { kind: 'worker-exit', message: 'kernel channels are not connected' }, streamText: '' })
     }
 
@@ -510,39 +487,27 @@ export class IpyKernelBridge {
       execution.detachSignal = () => opts.signal?.removeEventListener('abort', onAbort)
       if (opts.signal?.aborted) onAbort()
 
-      void shell.send(encode(msg, conn.key)).catch(() => {
+      try {
+        transport.send('shell', msg)
+      } catch {
         settle({ outcome: 'forced', failure: { kind: 'worker-exit', message: 'shell channel send failed' }, streamText: execution.streamText })
-      })
+      }
     })
   }
 
-  private startIopubPump(): void {
-    if (this.iopubPump) return
-    this.iopubPump = this.runIopubPump()
-  }
-
-  private async runIopubPump(): Promise<void> {
-    const iopub = this.iopub
-    if (!iopub) return
-    try {
-      for await (const frames of iopub) {
-        const incoming = decode(frames)
-        if (!incoming) continue
-        const msgType = incoming.header.msg_type
-        if (msgType === 'comm_open' || msgType === 'comm_msg' || msgType === 'comm_close') {
-          this.handleCommMessage(incoming)
-          continue
-        }
-        this.handleExecutionMessage(incoming)
-      }
-    } catch {
-      // Socket closed during teardown; a live run settles via kernel-death path.
-      if (this.state !== 'shutdown') {
-        this.forceSettleActive({ kind: 'worker-exit', message: 'kernel iopub channel failed' })
-      }
-    } finally {
-      if (this.iopub === iopub) this.iopubPump = undefined
+  /**
+   * Route one relayed message. Only iopub drives executions and comms; shell
+   * replies serve the startup probe (via `waitFor`), and control is inbound
+   * for host replies.
+   */
+  private handleTransportMessage(channel: TransportChannel, incoming: JupyterMessage): void {
+    if (channel !== 'iopub') return
+    const msgType = incoming.header.msg_type
+    if (msgType === 'comm_open' || msgType === 'comm_msg' || msgType === 'comm_close') {
+      this.handleCommMessage(incoming)
+      return
     }
+    this.handleExecutionMessage(incoming)
   }
 
   private forceSettleActive(failure: { kind: 'timeout' | 'abort' | 'worker-exit', message: string }): void {
@@ -655,9 +620,9 @@ export class IpyKernelBridge {
   }
 
   private async replyComm(commId: string, data: Record<string, unknown>): Promise<void> {
-    const channel = this.control ?? this.shell
-    if (!channel || !this.connection) throw new Error('kernel channels are not connected')
-    await channel.send(encode(buildMessage('comm_msg', { comm_id: commId, data }, this.session, this.options.username), this.connection.key))
+    const transport = this.transport
+    if (!transport) throw new Error('kernel channels are not connected')
+    transport.send('control', buildMessage('comm_msg', { comm_id: commId, data }, this.session, this.options.username))
   }
 
   /**
@@ -675,9 +640,10 @@ export class IpyKernelBridge {
    * contract: a busy loop still breaks, one confirm window later.
    */
   private async sendInterrupt(execution: ActiveExecution): Promise<void> {
-    if (!this.control || !this.connection) return
+    const transport = this.transport
+    if (!transport) return
     try {
-      await this.control.send(encode(buildMessage('interrupt_request', {}, this.session, this.options.username), this.connection.key))
+      transport.interrupt()
     } catch {
       // Channels closed mid-interrupt (kernel death owns the settle).
     }
@@ -867,13 +833,8 @@ export class IpyKernelBridge {
   }
 
   private cleanupResources(): void {
-    this.shell?.close()
-    this.iopub?.close()
-    this.control?.close()
-    this.shell = undefined
-    this.iopub = undefined
-    this.control = undefined
-    this.iopubPump = undefined
+    void this.transport?.dispose()
+    this.transport = undefined
     this.connection = undefined
     try {
       this.kernel?.kill('SIGKILL')
@@ -899,8 +860,8 @@ export class IpyKernelBridge {
     }
     this.state = 'shutdown'
     try {
-      if (this.control && this.connection) {
-        await this.control.send(encode(buildMessage('shutdown_request', { restart: false }, this.session, this.options.username), this.connection.key))
+      if (this.transport) {
+        this.transport.send('control', buildMessage('shutdown_request', { restart: false }, this.session, this.options.username))
         await sleep(SHUTDOWN_DRAIN_MS)
       }
     } catch {

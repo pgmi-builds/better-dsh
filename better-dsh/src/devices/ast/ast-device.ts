@@ -29,7 +29,7 @@ import type {
   AstReplaceResult,
   PiNatives,
 } from './natives-loader.ts'
-import { loadPiNatives, piNativesPlatformTag } from './natives-loader.ts'
+import { ensurePiNatives, loadPiNatives, piNativesPlatformTag } from './natives-loader.ts'
 
 /**
  * Registry seam for mounting the devices. The dvc handler module satisfies
@@ -50,14 +50,15 @@ const GLOB_CHARS = /[*?[{]/
  * Load the native bindings or fail the device call with an actionable
  * message — the dvc dispatcher wraps this into `DVC_DEVICE_ERROR`.
  */
-function nativesOrThrow(): PiNatives {
+async function nativesOrThrow(): Promise<PiNatives> {
+  await ensurePiNatives()
   const natives = loadPiNatives()
   if (natives !== undefined) return natives
   const tag = piNativesPlatformTag()
   throw new Error(
     tag === undefined
       ? `pi-natives addon unavailable: platform ${process.platform}-${process.arch} has no published @oh-my-pi/pi-natives@18.0.6 binary`
-      : `pi-natives addon unavailable: install the optional dependency @oh-my-pi/pi-natives-${tag}@18.0.6 (e.g. npm install) and retry`,
+      : `pi-natives addon unavailable: the plugin could not fetch @oh-my-pi/pi-natives-${tag}@18.0.6 into its own vendor dir (registry unreachable or blocked); retry with network access`,
   )
 }
 
@@ -154,7 +155,7 @@ function rebaseNativePath(filePath: string, target: Target, cwd: string): string
 
 /** `ast_edit` — run the validated rewrite across every target, aggregating like upstream's `runAstEditTargets`. */
 async function executeAstEdit(args: unknown, ctx?: unknown): Promise<AstReplaceResult> {
-  const natives = nativesOrThrow()
+  const natives = await nativesOrThrow()
   const cwd = ctxCwd(ctx)
   const record = argsRecord(args, 'ast_edit')
 
@@ -225,7 +226,7 @@ async function executeAstEdit(args: unknown, ctx?: unknown): Promise<AstReplaceR
 
 /** `ast_grep` — pass patterns/path/offset/limit/includeMeta straight to the native, rebase match paths. */
 async function executeAstGrep(args: unknown, ctx?: unknown): Promise<AstFindResult> {
-  const natives = nativesOrThrow()
+  const natives = await nativesOrThrow()
   const cwd = ctxCwd(ctx)
   const record = argsRecord(args, 'ast_grep')
 

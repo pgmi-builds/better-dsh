@@ -33,7 +33,7 @@ import { randomBytes } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { Context } from '@deepseek-ai/cordis'
-import z from '@deepseek-ai/schemastery'
+import z from '#schemastery'
 import { snapshotJsonValue } from './snapshot-json.ts'
 import {
   DUNDER_MEMBER,

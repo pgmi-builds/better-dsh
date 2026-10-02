@@ -133,7 +133,7 @@ export function createDvcHandler(_deps: DvcHandlerDeps = {}): SchemeHandler {
  * contract — while a device-reported failure rejects the returned promise as
  * `DVC_DEVICE_ERROR` carrying the device name.
  */
-export function dispatchDvcWrite(path: string, content: string, session?: string): Promise<unknown> {
+export function dispatchDvcWrite(path: string, content: string, session?: string, cwd?: string): Promise<unknown> {
   if (devices.size === 0) {
     throw new UrlSchemesError(
       'DVC_NO_DEVICE',
@@ -167,7 +167,7 @@ export function dispatchDvcWrite(path: string, content: string, session?: string
   // `Promise.resolve().then` also converts a synchronously throwing
   // `execute` into the same structured rejection.
   return Promise.resolve()
-    .then(() => device.execute(args, { session }))
+    .then(() => device.execute(args, { session, ...cwd === undefined ? {} : { cwd } }))
     .catch((error: unknown) => {
       throw new UrlSchemesError(
         'DVC_DEVICE_ERROR',

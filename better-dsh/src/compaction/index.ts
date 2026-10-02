@@ -33,7 +33,7 @@
 
 import { Context } from '@deepseek-ai/cordis'
 import type { Volatile } from '@deepseek-ai/cordis'
-import z from '@deepseek-ai/schemastery'
+import z from '#schemastery'
 import {
   DEFAULT_RETAIN_TOKENS, DEFAULT_THRESHOLD_RATIO,
   THRESHOLD_MAX_RATIO, THRESHOLD_MIN_RATIO,

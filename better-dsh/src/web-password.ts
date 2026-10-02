@@ -48,7 +48,7 @@ import { readFile } from 'node:fs/promises'
 import { credentialKey } from '@deepseek-ai/dsh-credentials'
 import type { CredentialProvider, CredentialRecord } from '@deepseek-ai/dsh-credentials'
 import type { } from '@deepseek-ai/dsh-host-webserver'
-import z from '@deepseek-ai/schemastery'
+import z from '#schemastery'
 
 const DAY_MILLISECONDS = 24 * 60 * 60 * 1000
 

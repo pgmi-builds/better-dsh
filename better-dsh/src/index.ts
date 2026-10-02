@@ -80,7 +80,7 @@ import { Context } from '@deepseek-ai/cordis'
 import { DashrRuntime } from './runtime.ts'
 import { resolveKernelEnv } from './kernel-env.ts'
 import type { Config as RuntimeConfig } from './runtime.ts'
-import z from '@deepseek-ai/schemastery'
+import z from '#schemastery'
 import { defineTool, TOOL_RUNTIME_SCHEDULER } from '@deepseek-ai/dsh-tools'
 import type {
   ToolDefinition,

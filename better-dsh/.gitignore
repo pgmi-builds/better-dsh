@@ -1,5 +1,10 @@
 node_modules/
+# The vendored package keeps its own nested resolution dir; it is committed.
+!third_party/schemastery/node_modules/
 lib/
 .venv-kernel/
 *.log
 /docs/
+.vendor/
+__pycache__/
+*.pyc

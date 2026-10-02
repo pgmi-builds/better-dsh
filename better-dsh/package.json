@@ -1,6 +1,6 @@
 {
   "name": "better-dsh",
-  "version": "0.2.5-a",
+  "version": "0.2.5-b",
   "description": "Make your dsh ready for serious coding tasks. (Tools x Schemas)^REPL. `skill://`, `ctx://`, `agent://`, `dvc://`, `dsh://`, IPython REPL, Context as Variables, cross compactions recallable, full context revive. `hash-edit`, `dvc://browser`, subagent as function, workflow as function.",
   "type": "module",
   "main": "lib/index.js",
@@ -53,8 +53,15 @@
       "default": "./lib/client/index.js"
     }
   },
+  "imports": {
+    "#schemastery": {
+      "types": "./third_party/schemastery/lib/index.d.mts",
+      "default": "./third_party/schemastery/lib/index.mjs"
+    }
+  },
   "files": [
     "lib",
+    "THIRD_PARTY_NOTICES.md",
     "docs",
     "dsh-docs",
     "cordis.patch.yml",
@@ -64,7 +71,7 @@
   ],
   "scripts": {
     "prebuild": "node scripts/copy-docs.mjs",
-    "build": "tsdown && npm run build-client",
+    "build": "tsdown && npm run build-client && node scripts/copy-kernel-bridge.mjs",
     "typecheck": "npm run typecheck:host && npm run typecheck:client",
     "typecheck:host": "tsc --noEmit",
     "typecheck:client": "tsc -p tsconfig.client.json",
@@ -136,7 +143,6 @@
     "@deepseek-ai/dsh-tools": ">=0.1.5-0 <0.3.0-0",
     "@deepseek-ai/dsh-user-approval": ">=0.1.5-0 <0.3.0-0",
     "@deepseek-ai/dsh-workflow-worker-thread": ">=0.1.5-0 <0.3.0-0",
-    "@deepseek-ai/schemastery": "^3.18.3",
     "@deepseek-ai/dsh-api-gateway": ">=0.1.5-0 <0.3.0-0",
     "@deepseek-ai/dsh-api-remotes": ">=0.1.5-0 <0.3.0-0",
     "@deepseek-ai/dsh-client-connection": ">=0.1.5-0 <0.3.0-0",
@@ -284,9 +290,6 @@
     "@deepseek-ai/dsh-workflow-worker-thread": {
       "optional": true
     },
-    "@deepseek-ai/schemastery": {
-      "optional": true
-    },
     "@deepseek-ai/dsh-api-gateway": {
       "optional": true
     },
@@ -335,21 +338,6 @@
     "react": {
       "optional": true
     }
-  },
-  "dependencies": {
-    "diff": "^8.0.2",
-    "file-type": "^21.3.0",
-    "puppeteer-core": "25.3.0",
-    "xxhash-wasm": "^1.1.0",
-    "zeromq": "^6.6.0",
-    "use-sync-external-store": "^1.6.0"
-  },
-  "optionalDependencies": {
-    "@oh-my-pi/pi-natives-linux-x64": "18.0.6",
-    "@oh-my-pi/pi-natives-linux-arm64": "18.0.6",
-    "@oh-my-pi/pi-natives-darwin-x64": "18.0.6",
-    "@oh-my-pi/pi-natives-darwin-arm64": "18.0.6",
-    "@oh-my-pi/pi-natives-win32-x64": "18.0.6"
   },
   "devDependencies": {
     "@types/node": "^22.10.5",
