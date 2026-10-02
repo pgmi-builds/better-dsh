@@ -92,3 +92,33 @@ spec「Canonical and prepared content faces」写明*任何*越过 canonical 范
 - **未采纳**另一选项（把 spec 措辞收窄到仅 episode 面）：不收窄，因为「不静默截断」是 N1/F10 的原意，应全资源成立。
 - **验证**：单测新增 `F11`（越界 → 注记；`1-2` in-range 与 `1-` 开尾 → 无注记）；全量 **649 passed / 1 skipped**（57 文件）+ `tsc` 0 错；**第一人称活体**（headless，0.2.0-rc.2）读 `ctx://session/transcript:9000-9010` → 输出含 `ctx:// note`（`F11=yes`）。4999 rig 已重启加载修复（`lib/url-schemes/index.js` md5 `48771cb6…` 与构建产物同一）。
 - **仍开**：F3（read offset/limit 静默忽略）、F4（compaction label 漂移）、F6（episode `:raw` >64 KiB warn-not-block）——三者不在本波 N1–N6 范围，按 §〇 攒批。
+
+## 七、第二轮复核记录（2026-10-02）与越界注记语义定论
+
+第三方复核独立确认 F11 修复已在**运行进程**中生效（构建产物与 rig lib md5 同一 + 重启后取到新行为），并逐条活体复验：
+
+| 探测 | 结果 |
+|---|---|
+| `transcript:9000-9010` / `:999999-999999`（完全越界） | 仅注记（`canonical content ends at line <N>`），**不再静默空** ✅ |
+| `transcript:1940-2000`（部分越界） | 上界截断 **+ 尾注** ✅ |
+| `transcript:1-3`（范围内） | 正常内容，无注记 ✅ |
+| `transcript:1945-` / `compactions:1-`（开尾） | 无注记（豁免）✅ |
+| `compactions:2-`（起点越界） | 仅注记 ✅ |
+| `compactions:1-3` / `compactions:9000-9010`（manifest 新路径） | 文本+注记 / 仅注记，上界正确 ✅ |
+
+回归扫：F1/F2/F5/F7/F8/F9 全部仍绿；`tsc` 0 错、`vitest` 649 passed / 1 skipped（与 §六 一致）。
+
+### 7.1 语义定论：上界越界**保留**注记（不软化）
+
+复核提出一档可议行为：**上界越界也注记**，使 `:N-M`（M 贴/略过上界）从「纯值」变为「值 + 注记」；其测试后果即既有断言 `injections:4-5` 改为 `injections:4-`。
+
+**定论：保留现语义，不采纳「`a <= total < b` 时不注记」的软化方案。** 依据 = F10 原意本身：
+
+- F10 的病症是「越界与 span 内空行**不可区分**、上界落在何处**无从得知**」。若上界越界不注记，`:1940-2000`（1947 行）静默回 1940–1947，模型无法判断 1948–2000 是「空行」还是「不存在」——**正是 F10 要修的歧义**；软化 = 回退该修复。
+- 两种「读到尾」的正规形已豁免/覆盖：**开尾 `:N-`** 无注记（刻意读到尾）；**上界恰为 total**（`:4-4`）无注记。故越界注记只在「模型对内容长度有错误假设」时出现，而该注记正是纠正该假设的信息。
+- 代价可接受：一行元信息；远小于「误以为已读全」的风险。若未来真会话统计证明其为高频噪音，另立 finding 重议；本轮不改。
+- 规格已同步补 scenario「Over-read notes, open tail does not」（`docs/specs/ctx/spec.md`）。
+
+### 7.2 仍开（复核独立确认，非本波 N1–N6 范围）
+
+F3（`read` offset/limit 静默忽略）、F4（compaction label 漂移，无稳定键）、F6（episode `:raw` >64 KiB warn-not-block）——按 §〇 攒批。发布仍待 user 明确放行。
