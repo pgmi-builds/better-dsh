@@ -122,3 +122,16 @@ spec「Canonical and prepared content faces」写明*任何*越过 canonical 范
 ### 7.2 仍开（复核独立确认，非本波 N1–N6 范围）
 
 F3（`read` offset/limit 静默忽略）、F4（compaction label 漂移，无稳定键）、F6（episode `:raw` >64 KiB warn-not-block）——按 §〇 攒批。发布仍待 user 明确放行。
+
+## 八、第三轮复核：spec 措辞收窄 + 「spec > impl」模式记录
+
+第三轮复核（**无代码改动轮**，唯一 commit `6e3db37` = §七 + 一条 spec scenario）确认 §七 属实，并指出：**上轮新加的 spec scenario 措辞仍比实现宽**。
+
+- **事实**：`applyLines` 的开尾豁免带前置守卫 —— `b === Infinity ? total` 之后仍有 `if (a > total) { noted = true }`（[ctx.ts:250](/home/u1/workspaces/dashr/better-dsh/src/url-schemes/handlers/ctx.ts#L250)）。故 `compactions:1-`（起点在界内）无注记，而 `compactions:2-`（canonical 仅 1 行、**起点已越界**）返回**仅注记**。我上轮写的 THEN 是无条件句，按字面读 `:2-` 会算违例。
+- **定论：实现是对的**（起点越界时无内容可回，必须出声），错的是 spec 措辞。已改 `docs/specs/ctx/spec.md`：开尾 THEN 补限定「provided the window's start is within the extent」；新增 WHEN/THEN 覆盖「起点越界的开尾 → 仅注记」；新增 scenario「Upper bound exactly at the extent is not an over-read」（`:1-1` 恰为 total → 无注记），两个豁免均成明文。
+- **模式记录（同类再现，继 F11 之后；不计序号，避免与复核口径打架）**：spec 散文倾向把行为写得比实现的**守卫条件**宽 —— F11 属**行为缺陷**（spec 全资源 vs impl 仅 episode 面，已修码），本处属**措辞缺陷**（无条件开尾 vs 起点守卫，已改 spec）。教训：写/改 spec 的 WHEN/THEN 时逐条对照实现的 guard（`b < 1 || a > total`、`bRaw !== Infinity && b > total`、`bRaw === Infinity`），把守卫写成限定词；新增 scenario 按此自查。
+- **仍开**：F3 / F4 / F6（同 §七.2）。
+
+### 8.1 部署与发布口径（不变）
+
+本轮**无代码改动**：`git diff 44a88f5..HEAD -- better-dsh/src better-dsh/lib better-dsh/test` 为空；4999 rig 内 lib 仍 `48771cb6…`（未重建、未重启，仍是同一运行进程）。prod 3080 仍 `0.2.4-c`；修复未发布，发布待 user 明确放行。

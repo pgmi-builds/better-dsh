@@ -95,7 +95,13 @@ The system SHALL treat every resource as having one canonical content: `:raw` SH
 - **WHEN** the model reads a window whose upper bound exceeds the canonical extent (e.g. `transcript:1940-2000` on a 1947-line transcript)
 - **THEN** the system returns the available lines plus the boundary note naming the canonical end — a partial over-read is still an over-read, because otherwise the model cannot tell "empty" from "does not exist"
 - **WHEN** the model reads the open-tailed `transcript:1940-`
-- **THEN** the system returns to the end of the content with no boundary note (an open tail is a deliberate read-to-end, not an over-read)
+- **THEN** the system returns the remaining content to the end with no boundary note, provided the window's start is within the extent
+- **WHEN** the model reads an open tail whose start is already past the extent (e.g. `compactions:2-` when the canonical content is one line)
+- **THEN** the system returns the boundary note alone — there is no content to return, so the over-read must be spoken for
+
+#### Scenario: Upper bound exactly at the extent is not an over-read
+- **WHEN** the model reads `compactions:1-1` where the canonical content is exactly one line
+- **THEN** the system returns that line with no boundary note
 
 ### Requirement: Episode digest residence
 The system SHALL render the prepared face of the **latest** compaction episode as a navigation block (NOT the digest text, which is already resident in the model's live context as the compact-checkpoint message): it SHALL name the episode's `lines`/`seq`/items/tokens, its `fidelity`, the transcript lines where the resident digest lives (`digest resident at transcript:<start>-<end> (seq=<checkpointSeq>)`), and the landmark roster. The prepared face of every **older** episode SHALL return that episode's full digest (`summaryText`) followed by the same pointer block. `:raw` on any episode SHALL always return the full shadowed span, so a digest is never lost.
