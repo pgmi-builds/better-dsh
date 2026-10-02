@@ -96,13 +96,13 @@
 ## 二、Dev/Test 1：源码级 4999 实例（upstream checkout + 内嵌 dashr）— 推荐回归路径
 
 整个 harness 从源码跑，dashr 作为 workspace 成员内嵌其中，与 prod 完全隔离。**2026-09-02 已全链路验证。**
-插件开发与测试环境的现行规范见仓库根 `Cordis-dsh-dev-test-guides.md`（冲突以其为准）；本节记录本仓拓扑事实，rig 清单（含 bun distro 产物 rig `bun-test`）见 `.test/README.md`。
+插件开发与测试环境的现行规范见仓库根 `Cordis-dsh-dev-test-guides.md`（两层文档制的第二层，2026-09-27 起；冲突以其为准）；本节记录本仓拓扑事实，rig 清单（含 bun distro 产物 rig `bun-test`）见 `.test/README.md`。
 
 ### 组成（2026-09-24 重构：干净 harness + plugin-add 交付形态；旧 monorepo 内嵌流已退役）
 
 - Harness: `./upstream/deepseek-harness`，git tag **`dsh-v0.1.7-rc.1`**（2026-09-24 全新 clone 重建；本地 patch：unrun devDep / root vite devDep（rc.1 新增，apps/desktop tsdown config 运行时 import vite，unrun 缓存目录解析不到）/ storeDir+verifyDeps+zeromq+ssh2 / tsdown `resolveRepositoryRoot` / vite preact 三件套，重放流程与坑见 `docs/50_test-reports/2026-09-24-v0.1.7-rc.1对齐轮-compaction与failover设置面修复实测报告.md` §四）。**upstream 内不允许出现 better-dsh 的任何内容**（旧 `packages/better-dsh/` 内嵌副本 + devDeps 手术 + sync 脚本已于本轮废除）。
 - better-dsh **独立开发**：devDependencies 不含任何 `@deepseek-ai/*`（范围符号在 peerDependencies = 发布契约）；`node_modules/@deepseek-ai/*` 由 `scripts/link-upstream.mjs` 生成 symlink 农场指向 upstream 物理包——upstream 换 tag 后 farm 自动跟随（目录级 symlink），package.json 零改动。`.npmrc` `legacy-peer-deps=true` 防 npm 自动装 optional peers（tuple 规则会解析到三代前的 0.1.5-rc.3）。开发循环：`npm run build` → `tsc --noEmit`（0 错基线）→ `npx vitest run`（600/601）。
-- 测试 rig **`.test/seed/test123/`**（现行，README 有完整种子再生步骤）：home 在 `.test/home/`（guide §3.3 配对——`compat/` 长寿命开发迭代 + `clean/` 可弃干净启动，`RIG_HOME` 选择、默认 compat；gitignored，user data 跨重置保留）；~~`profiles/node_modules/@deepseek-ai/*` symlink 农场~~ **已于 2026-09-26 删除**（user 指令；0.1.7 安装域拦截供给全部 harness 面——无农场 boot 实证：shell 200 + boot graph 含 better-dsh + client.js 200 + zoom-guard/`__DASHR_MOBILE__` host 半注入在位、日志零解析错误；rig 与 prod 解析模型现完全同构）；profile `web` 的 better-dsh 是 **`dsh plugin add <tarball>` 物理安装**（入场一律走 plugin add；`npm pack` 出交付物 → add → 重启；remove→add 一个来回才能刷新 file: tarball 内容）。旧 `.tests/dsh-test1/` 与 `.dsh-test/` 已删除（2026-09-24 清理，`.test/` 布局落地）。**0.1.7 settings 模型**：namespace = Loader entry id（如 `dashr-failover`），`installSection` 已删；volatile 字段 + `settings.configure({auto:false})` + configEditor 落 profile patch 用户层（upstream `agent-default-model` 范式）。
+- 测试 rig **`.test/seed/test123/`**（现行，README 有完整种子再生步骤）：home 在 `.test/home/`（2026-09-27 裁决：**home 复用不换场**——`compat/` = 默认长寿命 home，user data 与 `.credentials.yaml` 是测试资产跨重置保留；`RIG_HOME=clean` 仅在专门验证首次行为时临时建一个、用完即删；gitignored）；~~`profiles/node_modules/@deepseek-ai/*` symlink 农场~~ **已于 2026-09-26 删除**（user 指令；0.1.7 安装域拦截供给全部 harness 面——无农场 boot 实证：shell 200 + boot graph 含 better-dsh + client.js 200 + zoom-guard/`__DASHR_MOBILE__` host 半注入在位、日志零解析错误；rig 与 prod 解析模型现完全同构）；profile `web` 的 better-dsh 是 **`dsh plugin add <tarball>` 物理安装**（入场一律走 plugin add；`npm pack` 出交付物 → add → 重启；remove→add 一个来回才能刷新 file: tarball 内容）。旧 `.tests/dsh-test1/` 与 `.dsh-test/` 已删除（2026-09-24 清理，`.test/` 布局落地）。**0.1.7 settings 模型**：namespace = Loader entry id（如 `dashr-failover`），`installSection` 已删；volatile 字段 + `settings.configure({auto:false})` + configEditor 落 profile patch 用户层（upstream `agent-default-model` 范式）。
 
 ### harness 本地 patch（该环境必须，缺一 build 即挂）
 
@@ -124,7 +124,8 @@ pnpm run build      # tsc lib/types + tsdown host/client + vite web + client bui
 # 2026-09-24 起：测试实例一律用 `bash .test/seed/test123/start.sh`（PORT=xxxx 可覆盖，默认 4999；
 # LAN 中继默认开——socat 只绑 LAN IP 转发 loopback；webserver 只收 127.0.0.1|0.0.0.0 字面量
 # 且 startup 硬拒 0.0.0.0，直接绑 LAN IP 不可能）。脚本自带：停旧+等端口真释放、
-# 端口外来占用拒绝、本 boot token 轮询提取（append 日志防串台）。
+# 测试口无主化接管（2026-09-27 裁决：占口者属测试 unit 即停掉接管，非测试监听才拒绝）、
+# seed 感知输出（seed 持久时明说 cookie 仍有效）、本 boot token 轮询提取（append 日志防串台）。
 # 脚本内部即下面的 canonical 命令（unit dsh-4999-test123 + test123-lan-4999-relay）：
 systemctl --user stop dsh-4999-test123 test123-lan-4999-relay 2>/dev/null
 systemd-run --user --unit=dsh-4999-test123 \
@@ -159,7 +160,7 @@ systemd-run --user --unit=dsh-4999-test123 \
 
 > **勿从 agent 沙箱化 bash 直接拉 daemon（2026-09-03 实证）**：沙箱内启动的 daemon 继承嵌套沙箱环境，其 bwrap 功能探测（`sandbox-local defaultProbeBwrap`）报 `No permissions to create a new namespace` → `SANDBOX_UNAVAILABLE`（agent bash 无沙箱后端）。systemd-run --user 在沙箱外启动（对齐 prod 形态）；沙箱内连 user bus 会被拒，需单命令 `danger-full-access` 升级。stop/日志：`systemctl --user ... dsh-4999-test` / `.scratch/dsh-4999.log`。
 
-- token 每次启动轮换，从 `.scratch/dsh-4999-test123.log`（或 start.sh 输出）取 `?token=…` URL；curl 冒烟需 cookie jar: `curl -c jar -L '<token-url>'`（303 重定向靠 cookie 保认证）。
+- token（`?token=`）是 per-boot 进程内随机 launch token，只负责首铸 cookie；**认证 seed 持久在 `$DSH_HOME/.credentials.yaml`**——home 不换则 seed 不变，**浏览器 cookie 30 天内跨重启直接可用，重启 rig 不需要换 token / 重注 cookie**（2026-09-27 裁决；机制见 guide §3.3）。从 `.scratch/dsh-4999-test123.log`（或 start.sh 输出）取 token URL；curl 冒烟需 cookie jar: `curl -c jar -L '<token-url>'`（303 重定向靠 cookie 保认证）。
 - 数据只落 `.test/home/compat/`（sessions/storages），与 prod 隔离；重置只动 `profiles/web`，user data 保留。
 
 ### 日常回归循环（recurring，2026-09-24 起：交付形态）

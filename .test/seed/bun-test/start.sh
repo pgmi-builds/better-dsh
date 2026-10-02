@@ -62,13 +62,35 @@ mkdir -p "$HOME_DIR"
 
 systemctl --user stop "$UNIT" "$RELAY" 2>/dev/null || true
 systemctl --user reset-failed "$UNIT" "$RELAY" 2>/dev/null || true
+# Map the port's listener pid to its user unit via /proc/<pid>/cgroup; a
+# test-owned occupant is stopped and the port taken over (2026-09-27 ruling:
+# test ports are unowned). Only a non-test listener refuses.
+test_unit_on_port() {
+  local pid unit
+  pid=$(ss -tlnp 2>/dev/null | grep ":${PORT} " | grep -o 'pid=[0-9]*' | head -1 | cut -d= -f2)
+  [ -n "$pid" ] || return 1
+  unit=$(sed -n 's#^.*/\([^/]*\.service\)$#\1#p' "/proc/${pid}/cgroup" 2>/dev/null | head -1)
+  [ -n "$unit" ] || return 1
+  case "$unit" in
+    dsh-*|test123-*|bun-test-*|superd-*|*-test|*-relay) printf '%s' "$unit" ;;
+    *) return 1 ;;
+  esac
+}
 for _ in $(seq 1 15); do
   ss -tln | grep -q ":${PORT} " || break
   sleep 1
 done
 if ss -tln | grep -q ":${PORT} "; then
-  echo "refusing to start: port ${PORT} already listening (foreign process):" >&2
+  if OCCUPANT=$(test_unit_on_port); then
+    echo "--- port ${PORT} held by test unit ${OCCUPANT}: stopping (ports are unowned test infra)"
+    systemctl --user stop "$OCCUPANT"
+    for _ in $(seq 1 15); do ss -tln | grep -q ":${PORT} " || break; sleep 1; done
+  fi
+fi
+if ss -tln | grep -q ":${PORT} "; then
+  echo "refusing to start: port ${PORT} held by a non-test listener:" >&2
   ss -tlnp | grep ":${PORT} " >&2 || true
+  echo "  pick another port: PORT=<free> bash .test/seed/bun-test/start.sh" >&2
   exit 1
 fi
 
@@ -113,6 +135,10 @@ done
 [ -n "$TOK" ] || { echo "could not find this boot's token in $LOG" >&2; exit 1; }
 
 echo "binary: $BIN"
+# The auth seed (.credentials.yaml) persists across restarts AND across CLEAN=1
+# wipes (it is in the keep-set) — browser cookies stay valid 30 days; the
+# token URLs below only serve first mint / new clients.
+echo "seed:   persisted in $HOME_DIR/.credentials.yaml — cookies stay valid (≤30d), no re-injection needed"
 echo "unit:   $UNIT ($([ "$LAN" = 1 ] && echo "+ $RELAY"))"
 [ "$LAN" = "1" ] && echo "lan:    http://${LAN_IP}:${PORT}/?token=${TOK}"
 echo "local:  http://127.0.0.1:${PORT}/?token=${TOK}"

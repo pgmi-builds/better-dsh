@@ -4,11 +4,13 @@ bun distro（编译单文件）的冒烟 rig。与 test123（源码级 rig）的
 build = 一个自包含可执行文件（`dashr/dist/dashr-<ver>-<os>-<arch>`），所以 rig 不需要种子再生、
 symlink 农场或 plugin 安装，**只需要一个 home 路径**（`.test/home/bun-test/`）。
 
-## 纪律：always clean profile > start new（user 2026-09-24）
+## 纪律：重启保留 home，`CLEAN=1` 才清（user 2026-09-24，同日修订）
 
-被测变量是产物本身，不是长寿命数据——**每次启动前清 home**（`start.sh` 默认 `CLEAN=1` 直接 `rm -rf`）。
-guide §3.3 的 compat/clean 配对在这里不适用：单一 home、永远干净。`CLEAN=0` 逃生口仅用于
-"session 跨重启存活"类验收实验（spec §7 第 4 条），用完即弃。
+被测变量是产物本身。**重启默认保留 home**（`CLEAN=0` 为默认——resume test：sessions 跨重启存活）；
+`CLEAN=1` 才清测试数据（sessions/profiles/storages），且保留 user-config keep-set：
+`.env`、`settings.yaml[.imported]`、**`.credentials.yaml`（认证 seed——cookie 因此跨重启乃至跨 CLEAN 都有效）**
+与 profile 用户层 `cordis.patch.yml`。原「always clean（每次启动前清 home）」初版纪律已被同日修订取代
+（以 `start.sh` 现行为准）。
 
 ## 用法
 
@@ -20,6 +22,7 @@ PORT=4986 bash …                                     # 换端口
 
 - `DSH_BUN_COMPILED=1` 由脚本注入（编译态 seam 的门控，缺它 boot 走错平面）。
 - LAN 中继默认开（socat 绑 LAN IP → loopback，同 test123 形态；webserver 硬拒 0.0.0.0）。
+  端口无主化（2026-09-27）：测试 unit 占口自动接管，非测试监听才拒绝换口。
 - 单元名 `dsh-<port>-bun-test` + `bun-test-lan-<port>-relay`；日志 `.scratch/dsh-<port>-bun-test.log`。
 - 重建产物：`bash dashr/scripts/dashr/build.sh`（distro 仓）；验收门禁见
   `dashr/docs/specs/dashr-bun-port/upstream-sync.md` §五。

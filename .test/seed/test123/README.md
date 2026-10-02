@@ -15,7 +15,9 @@ better-dsh/                   # 插件 canonical：独立开发（symlink 农场
     profiles/
       web/                    # profile：better-dsh 为物理安装（tarball 经 plugin add）
     sessions/ storages/ .env ...
-  clean/                      # 可弃：干净启动专用（guide §4.2 真实用户视角；不含开发中插件）
+  clean/                      # 可弃：仅专门验证首次行为（first boot / 干净启动）时按需建，
+                              # 用完即删——非常设配对（2026-09-27 裁决：home 复用是常态，
+                              # compat 的 user data 是测试资产）
 ```
 
 解析模型 = 0.1.7 官方契约，与 prod 同构：harness 包由 **loader 安装域拦截**供给
@@ -82,6 +84,10 @@ boot 快照（用 web-trust 注入的 zoom-guard 脚本作每请求信号验证�
 client 半边有效）。installation-scope 重定向集合进程内冻结（`replace()` 对既有条目变更
 直接 throw "requires a process restart"）。
 
-## 端口纪律（2026-09-26 user 裁决，与 superd rig 同款）
+## 端口纪律（2026-09-27 user 裁决：测试口无主化，取代 2026-09-26 版）
 
-用户主要经 LAN 访问。**4999 = 共用测试口**（Caddy `test.pc.randomhash.app` + 默认 LAN relay 双路）；**非 4999 端口必须带 LAN relay**（本 rig 的 `start.sh` 以 `LAN=1` 为默认自动拉起 socat，只绑 LAN IP；`LAN=0` 仅限本机调试）。4999 被外来进程占用时脚本拒绝并列出占用者——处置二选一：① `PORT=<空闲口>` 换口起（relay 自动跟随）；② **user 明确下令放倒占用者**才放倒，绝不静默 kill。脚本幂等重启自身同名 unit（`dsh-<port>-test123` + `test123-lan-<port>-relay`）不在此限。
+499x 一族**全是测试口，没有谁占用谁（4999 也是）**。`start.sh` 起线前 `ss` 动态探测；占用者经
+`/proc/<listener-pid>/cgroup` 判定归属——属测试基建（unit 名 `dsh-*` / `test123-*` / `bun-test-*` /
+`*-test` / `*-relay` 等）→ **停掉接管**；非测试监听（prod 3080/3081、未知进程）→ 拒绝并列出占用者，换口重试
+（`PORT=<空闲口>`，relay 自动跟随）。4999 有 Caddy `test.pc.randomhash.app`（wan 可见）——通道事实，非占用特权；
+非 Caddy 口默认自动拉 LAN relay（`LAN=1`，socat 只绑 LAN IP；`LAN=0` 仅限本机调试）。
