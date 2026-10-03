@@ -27,10 +27,8 @@ import type {
   AstFindResult,
   AstReplaceChange,
   AstReplaceResult,
-  PiNatives,
-} from './natives-loader.ts'
+} from './types.ts'
 import { ensurePiNatives, loadPiNatives, piNativesPlatformTag } from './natives-loader.ts'
-
 /**
  * Registry seam for mounting the devices. The dvc handler module satisfies
  * this structurally (`registerAstDevices()` with no argument mounts into the
@@ -50,7 +48,7 @@ const GLOB_CHARS = /[*?[{]/
  * Load the native bindings or fail the device call with an actionable
  * message — the dvc dispatcher wraps this into `DVC_DEVICE_ERROR`.
  */
-async function nativesOrThrow(): Promise<PiNatives> {
+async function nativesOrThrow(): Promise<NonNullable<Awaited<ReturnType<typeof loadPiNatives>>>> {
   await ensurePiNatives()
   const natives = loadPiNatives()
   if (natives !== undefined) return natives
