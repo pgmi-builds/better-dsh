@@ -19,32 +19,14 @@
  */
 
 import * as path from 'node:path'
+import { EXTENSION_TO_LANGUAGE } from './engine/language-map.ts'
 
 /**
- * AST-capable extension set — empirically probed against the shipped
- * pi-natives binary (2026-09-27): grouped by grammar family. TS family and
- * header files ride the same grammars as their proven siblings.
+ * AST-capable extension set —— 从引擎的语言面**派生**（spec：单一真相源）。
+ * 2026-09-27 那版是对 shipped 二进制逐扩展实测的快照；引擎内置后两者必然
+ * 一致，不再人工维护第二份。
  */
-export const AST_CODE_EXTENSIONS: ReadonlySet<string> = new Set([
-  // python
-  '.py', '.pyi',
-  // javascript / typescript (probed on ts + tsx + js + jsx)
-  '.js', '.jsx', '.mjs', '.cjs', '.ts', '.tsx', '.mts', '.cts',
-  // rust (probed)
-  '.rs',
-  // go (probed)
-  '.go',
-  // c / c++ (cpp probed; headers share the c-family grammars)
-  '.c', '.cpp', '.h', '.hpp',
-  // web (probed)
-  '.html', '.css',
-  // structured config (yaml + json probed)
-  '.json', '.yaml', '.yml',
-  // shell (probed)
-  '.sh',
-  // ruby (probed)
-  '.rb',
-])
+export const AST_CODE_EXTENSIONS: ReadonlySet<string> = new Set(Object.keys(EXTENSION_TO_LANGUAGE))
 
 /** Reminders per agent session (user ruling 2026-09-27: five is enough). */
 export const AST_REMINDER_CAP = 5
