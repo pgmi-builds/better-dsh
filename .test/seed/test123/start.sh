@@ -79,12 +79,55 @@ if ss -tln | grep -q ":${PORT} "; then
 fi
 
 LOG_LINES=$( (wc -l < "$LOG") 2>/dev/null || echo 0)
-# Auth seed awareness (2026-09-27 ruling): when the home's .credentials.yaml
-# already exists, cookies minted before this restart remain valid — the token
-# below only serves first mint / new clients.
+# ONE credential seed for every test rig on this machine (2026-10-04 user
+# ruling): the browser cookie is HMAC-signed with the secret inside the
+# credentials document and named after the AUTHORITY, and both repos' rigs are
+# reached through the same test.pc.randomhash.app — so a per-home seed makes
+# every port takeover from the other repo invalidate the cookie the user just
+# minted. superd's launcher points the upstream `credentials` row at the same
+# shared file, so the two repos (and every port either one boots) agree.
+# The file is seeded from this home's own document on first use, so adopting
+# the convention never invalidates a cookie already held. compat keeps its own
+# copy untouched — the row override is what makes it irrelevant.
+SHARED_CREDENTIALS="${DSH_TEST_CREDENTIALS:-$(dirname "$REPO")/.dsh-test-credentials.yaml}"
+SHARED_CREDENTIALS="$(cd "$(dirname "$SHARED_CREDENTIALS")" && pwd)/$(basename "$SHARED_CREDENTIALS")"
+if [ ! -f "$SHARED_CREDENTIALS" ] && [ -f "$HOME_DIR/.credentials.yaml" ]; then
+  install -m 600 "$HOME_DIR/.credentials.yaml" "$SHARED_CREDENTIALS"
+fi
 SEED_EXISTED=""
-[ -f "$HOME_DIR/.credentials.yaml" ] && SEED_EXISTED=1
+[ -f "$SHARED_CREDENTIALS" ] && SEED_EXISTED=1
 
+# Ensure the profile patch routes the credentials row at the shared file
+# (idempotent: `dsh plugin add` owns this file, so it is ensured, not written).
+PATCH="$HOME_DIR/profiles/web/cordis.patch.yml"
+if [ -f "$PATCH" ] && grep -q "^- id: credentials" "$PATCH"; then
+  if ! grep -q "path: ${SHARED_CREDENTIALS}" "$PATCH"; then
+    awk -v path="$SHARED_CREDENTIALS" '
+      /^- id: credentials/ { skip = 1; next }
+      skip && /^- id:/ { skip = 0 }
+      skip { next }
+      { print }
+      END {
+        print "";
+        print "# One credential seed for every test rig on this machine (2026-10-04 ruling):";
+        print "# a per-home seed makes each cross-repo port takeover invalidate the browser";
+        print "# cookie (same test.pc.randomhash.app authority, different signing secret).";
+        print "- id: credentials";
+        print "  config:";
+        print "    path: " path;
+      }' "$PATCH" > "$PATCH.tmp" && mv "$PATCH.tmp" "$PATCH"
+  fi
+elif [ -f "$PATCH" ]; then
+  cat >> "$PATCH" <<EOF
+
+# One credential seed for every test rig on this machine (2026-10-04 ruling):
+# a per-home seed makes each cross-repo port takeover invalidate the browser
+# cookie (same test.pc.randomhash.app authority, different signing secret).
+- id: credentials
+  config:
+    path: ${SHARED_CREDENTIALS}
+EOF
+fi
 HARNESS_LIB_BIN="$HARNESS/apps/cli/lib/bin.js"
 if [ ! -f "$HARNESS_LIB_BIN" ]; then
   echo "missing $HARNESS_LIB_BIN — run \`pnpm run build\` in the harness checkout first" >&2

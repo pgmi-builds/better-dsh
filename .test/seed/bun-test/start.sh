@@ -94,6 +94,31 @@ if ss -tln | grep -q ":${PORT} "; then
   exit 1
 fi
 
+# ONE credential seed for every test rig on this machine (2026-10-04 ruling) —
+# the same shared file the test123 rig and superd's 4999/4997 line point the
+# upstream `credentials` row at, so a cookie minted for an authority works on
+# whichever rig holds the port. Seeded from this home on first use; applied
+# after the CLEAN block so a wiped-and-restored patch gets the row too.
+SHARED_CREDENTIALS="${DSH_TEST_CREDENTIALS:-$(dirname "$REPO")/.dsh-test-credentials.yaml}"
+SHARED_CREDENTIALS="$(cd "$(dirname "$SHARED_CREDENTIALS")" && pwd)/$(basename "$SHARED_CREDENTIALS")"
+if [ ! -f "$SHARED_CREDENTIALS" ] && [ -f "$HOME_DIR/.credentials.yaml" ]; then
+  install -m 600 "$HOME_DIR/.credentials.yaml" "$SHARED_CREDENTIALS"
+fi
+SEED_EXISTED=""
+[ -f "$SHARED_CREDENTIALS" ] && SEED_EXISTED=1
+PATCH="$HOME_DIR/profiles/web/cordis.patch.yml"
+if [ -f "$PATCH" ] && ! grep -q "id: credentials" "$PATCH"; then
+  cat >> "$PATCH" <<EOF
+
+# One credential seed for every test rig on this machine (2026-10-04 ruling):
+# a per-home seed makes each cross-repo port takeover invalidate the browser
+# cookie (same test.pc.randomhash.app authority, different signing secret).
+- id: credentials
+  config:
+    path: ${SHARED_CREDENTIALS}
+EOF
+fi
+
 LOG_LINES=$( (wc -l < "$LOG") 2>/dev/null || echo 0)
 
 systemd-run --user --unit="$UNIT" \
