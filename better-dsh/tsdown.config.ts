@@ -4,6 +4,9 @@ import { defineConfig } from 'tsdown'
  * Pure-JS runtime deps inlined into the host bundle (zero-npm-runtime-deps).
  * The published package must resolve nothing from a consumer's node_modules:
  * every one of these carries no native code, so inlining is lossless.
+ *
+ * These are build inputs, not runtime deps — they are declared in
+ * `devDependencies` (see docs/specs/zero-npm-runtime-deps/spec.md).
  */
 const BUNDLED_RUNTIME = [
   'diff',

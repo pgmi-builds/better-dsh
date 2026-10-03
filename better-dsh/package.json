@@ -357,14 +357,19 @@
     "@lumis-sh/wasm-yaml": "^0.26.3",
     "@types/node": "^22.10.5",
     "@types/react": "~18.3.31",
+    "diff": "^8.0.4",
+    "file-type": "21.3.4",
     "ignore": "^7.0.12",
     "node-addon-require-builtin": "^0.1.5",
+    "puppeteer-core": "^25.3.0",
     "react": "^18.3.1",
     "tsdown": "^0.15.7",
     "tsx": "^4.22.4",
     "typescript": "^5.9.3",
+    "use-sync-external-store": "^1.7.0",
     "vitest": "^4.1.10",
-    "web-tree-sitter": "^0.26.12"
+    "web-tree-sitter": "^0.26.12",
+    "xxhash-wasm": "1.1.0"
   },
   "repository": {
     "type": "git",
