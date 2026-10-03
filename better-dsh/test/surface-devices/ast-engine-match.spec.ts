@@ -19,7 +19,7 @@ describe('engine/match', () => {
   })
 
   it('turns a multi-root pattern into zero matches, not a throw (native parity)', async () => {
-    // golden 值取自 shipped pi-natives 的 A/B 实测（spec §2.1）：native 对同样
+    // golden 值取自 shipped native addon 的 A/B 实测（spec §2.1）：native 对同样
     // 输入同样返回 0 命中 —— ast-grep 上游语义，不是 WASM 退化。
     // 注：本用例用的是 JSON 多根 pattern（`"alpha": $V`）—— wasm findAll 对它
     // 真实抛 "Multiple AST nodes are detected"，native 实测 0 命中（A/B 复核）。
@@ -30,8 +30,7 @@ describe('engine/match', () => {
     expect(matches).toEqual([])
   })
   it('reproduces the native zero-hit quirks for C and CSS (upstream ambiguity)', async () => {
-    // golden 值取自 shipped pi-natives 的 A/B 实测（spec §2.1）：native 对同样
-    // 输入同样返回 0 命中 —— ast-grep 上游语义，不是 WASM 退化。
+    // golden 值取自 shipped native addon 的 A/B 实测（spec §2.1）：native 对同样
     const c = await findInSource('int main(void){ return foo(1); }\n', 'c', 'foo($A)', {})
     expect(c.matches).toEqual([])
     const css = await findInSource('.a { color: red; margin: 0 }\n', 'css', 'color: $V', {})

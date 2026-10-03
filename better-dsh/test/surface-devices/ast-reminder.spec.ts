@@ -3,7 +3,7 @@
  *
  * Unit-level: the pure predicates + the per-session cap. Scope = the AST
  * tool's own grammar surface (empirically probed against the shipped
- * pi-natives binary; decoupled from LSP per user ruling 2026-09-27). Firing
+ * native addon binary; decoupled from LSP per user ruling 2026-09-27). Firing
  * policy = at most 5 reminders per agent session, then silent (user ruling).
  * Wire-level append mechanics are covered by
  * test/url-schemes/post-execute-reminders.spec.ts and the 4999 live-fire
@@ -23,7 +23,7 @@ import {
 
 const SID = 'ast-reminder-spec'
 
-describe('ast capable extension set (probed against pi-natives)', () => {
+describe('ast capable extension set (probed against the previous native backend)', () => {
   it('covers the probed language families, not tied to the LSP table', () => {
     for (const ext of ['.py', '.js', '.jsx', '.mjs', '.ts', '.tsx', '.mts', '.cts',
       '.rs', '.go', '.c', '.cpp', '.h', '.hpp', '.html', '.css', '.json', '.yaml', '.yml', '.sh', '.rb']) {

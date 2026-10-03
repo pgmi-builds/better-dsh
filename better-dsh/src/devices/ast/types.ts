@@ -1,6 +1,6 @@
 /**
  * `dvc://ast_edit` / `dvc://ast_grep` 的结果与选项形状 —— 模型面契约。
- * 字段与语义一字不改（spec §1.1）；唯一变化是后端从 pi-natives 换成内置
+ * 字段与语义一字不改（spec §1.1）；唯一变化是后端从先前的 native addon 换成内置
  * WASM 引擎。坐标口径：行列 1-based、偏移 UTF-8 字节（native 口径）。
  *
  * @module dashr/devices/ast/types

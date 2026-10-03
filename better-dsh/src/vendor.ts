@@ -41,7 +41,7 @@ export const VENDOR_ROOT = join(PACKAGE_ROOT, '.vendor')
 
 /** One package to make available locally. */
 export interface VendorRequest {
-  /** npm package name, e.g. `@oh-my-pi/pi-natives-linux-x64`. */
+  /** npm package name, e.g. `puppeteer-core`. */
   name: string
   /** Exact version; ranges are the caller's problem (pins live in code). */
   version: string

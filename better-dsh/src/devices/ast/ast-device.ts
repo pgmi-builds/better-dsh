@@ -7,28 +7,39 @@
  * — MIT; see `../NOTICE-OMP.md`). This is a rewrite against the dvc device
  * contract, not a vendored copy of the tool layer: args keep the omp tool
  * shapes (`ops`/`paths` for edit, `patterns`/`path`/`offset`/`limit`/
- * `includeMeta` for grep), `ops` collapse into the native `rewrites` record
+ * `includeMeta` for grep), `ops` collapse into the engine `rewrites` record
  * with `Object.fromEntries` semantics (a repeated pattern's later op wins),
  * per-`paths` results aggregate like upstream's `runAstEditTargets`, and
  * `dryRun` defaults to true so a bare write never touches disk.
+ *
+ * The backend is the in-package WASM engine: this adapter walks each target
+ * (`walker.ts`), infers the language (`engine/language-map.ts`), and runs
+ * `findInSource`/`editSource` per file, re-owning every reported path to a
+ * cwd-relative POSIX display path. A language whose grammar failed to load is
+ * skipped and recorded into `parseErrors`; an engine-level failure surfaces as
+ * the dvc layer's `DVC_DEVICE_ERROR`.
  *
  * `registerAstDevices` is the S10 wiring seam; `index.ts` is not touched.
  *
  * @module dashr/devices/ast/ast-device
  */
 
-import { statSync } from 'node:fs'
+import { readFileSync, statSync, writeFileSync } from 'node:fs'
 import * as path from 'node:path'
 
 import { registerDvcDevice } from '../../url-schemes/handlers/dvc.ts'
 import type { DvcDevice } from '../../url-schemes/handlers/dvc.ts'
+import { ensureLanguages, isLanguageAvailable } from './engine/grammars.ts'
+import { editSource } from './engine/edit.ts'
+import { findInSource } from './engine/match.ts'
+import { languageForPath } from './engine/language-map.ts'
+import { walkSources } from './walker.ts'
 import type {
   AstFindMatch,
   AstFindResult,
   AstReplaceChange,
   AstReplaceResult,
 } from './types.ts'
-import { ensurePiNatives, loadPiNatives, piNativesPlatformTag } from './natives-loader.ts'
 /**
  * Registry seam for mounting the devices. The dvc handler module satisfies
  * this structurally (`registerAstDevices()` with no argument mounts into the
@@ -38,27 +49,11 @@ export interface DvcRegistry {
   registerDvcDevice(name: string, device: DvcDevice): void
 }
 
-/** Per-run cap on distinct rewritten files (upstream `PI_MAX_AST_FILES` default). */
+/** Per-run cap on distinct scanned files (upstream `PI_MAX_AST_FILES` default). */
 const MAX_FILES = 1000
 
 /** Glob metacharacters that mark a path segment as a pattern (upstream `GLOB_PATH_CHARS`). */
 const GLOB_CHARS = /[*?[{]/
-
-/**
- * Load the native bindings or fail the device call with an actionable
- * message — the dvc dispatcher wraps this into `DVC_DEVICE_ERROR`.
- */
-async function nativesOrThrow(): Promise<NonNullable<Awaited<ReturnType<typeof loadPiNatives>>>> {
-  await ensurePiNatives()
-  const natives = loadPiNatives()
-  if (natives !== undefined) return natives
-  const tag = piNativesPlatformTag()
-  throw new Error(
-    tag === undefined
-      ? `pi-natives addon unavailable: platform ${process.platform}-${process.arch} has no published @oh-my-pi/pi-natives@18.0.6 binary`
-      : `pi-natives addon unavailable: the plugin could not fetch @oh-my-pi/pi-natives-${tag}@18.0.6 into its own vendor dir (registry unreachable or blocked); retry with network access`,
-  )
-}
 
 /** The working directory for relative paths: `ctx.cwd` when threaded through, else `process.cwd()`. */
 function ctxCwd(ctx: unknown): string {
@@ -66,6 +61,11 @@ function ctxCwd(ctx: unknown): string {
     return (ctx as { cwd: string }).cwd
   }
   return process.cwd()
+}
+
+/** The cwd-relative POSIX display path for an absolute walked file. */
+function rel(file: string, cwd: string): string {
+  return path.relative(cwd, file).split(path.sep).join('/')
 }
 
 /** A validated args object for a device call. */
@@ -105,11 +105,10 @@ function optionalCount(value: unknown, field: string, device: string): number | 
   return value
 }
 
-/** One resolved rewrite/scan target: native root, optional glob tail, and the base native paths are relative to. */
+/** One resolved rewrite/scan target: walk root and optional glob tail. */
 interface Target {
   root: string
   glob?: string
-  rebaseBase: string
 }
 
 /**
@@ -118,16 +117,13 @@ interface Target {
  * otherwise the entry splits at the first glob-ish segment into
  * `{basePath, glob}` (upstream `parseSearchPath`), so a recursive glob
  * under `src` scans `src` as the root with the double-star pattern as the
- * glob tail. For file targets the native reports paths relative to the
- * file's directory, so `rebaseBase` tracks that.
+ * glob tail.
  */
 function resolveTarget(entry: string, cwd: string): Target {
   const absolute = path.resolve(cwd, entry)
   try {
-    const stats = statSync(absolute)
-    return stats.isFile()
-      ? { root: absolute, rebaseBase: path.dirname(absolute) }
-      : { root: absolute, rebaseBase: absolute }
+    statSync(absolute)
+    return { root: absolute }
   } catch {
     // not a literal path — fall through to glob splitting
   }
@@ -135,25 +131,19 @@ function resolveTarget(entry: string, cwd: string): Target {
   const segments = normalized.split('/')
   const globIndex = segments.findIndex((segment) => GLOB_CHARS.test(segment))
   if (globIndex === -1) {
-    // A nonexistent literal path: hand it to the native, which reports zero
+    // A nonexistent literal path: hand it to the walker, which reports zero
     // files searched rather than inventing an error.
-    return { root: absolute, rebaseBase: absolute }
+    return { root: absolute }
   }
   const basePath = globIndex === 0 ? '.' : segments.slice(0, globIndex).join('/')
   const glob = globIndex === 0 ? normalized : segments.slice(globIndex).join('/')
   const root = path.resolve(cwd, basePath)
-  return { root, glob, rebaseBase: root }
-}
-
-/** Rebase a native-reported file path (relative to the target) to a cwd-relative POSIX path. */
-function rebaseNativePath(filePath: string, target: Target, cwd: string): string {
-  const relative = path.relative(cwd, path.resolve(target.rebaseBase, filePath))
-  return (relative === '' ? '.' : relative).split(path.sep).join('/')
+  return { root, glob }
 }
 
 /** `ast_edit` — run the validated rewrite across every target, aggregating like upstream's `runAstEditTargets`. */
 async function executeAstEdit(args: unknown, ctx?: unknown): Promise<AstReplaceResult> {
-  const natives = await nativesOrThrow()
+  await ensureLanguages()
   const cwd = ctxCwd(ctx)
   const record = argsRecord(args, 'ast_edit')
 
@@ -186,27 +176,34 @@ async function executeAstEdit(args: unknown, ctx?: unknown): Promise<AstReplaceR
   let totalReplacements = 0
   let filesSearched = 0
   let limitReached = false
-  let applied = !dryRun
+  const applied = !dryRun
   for (const target of targets) {
-    const result = await natives.astEdit({
-      rewrites,
-      path: target.root,
-      glob: target.glob,
-      dryRun,
-      maxFiles: MAX_FILES,
-      failOnParseError: false,
-    })
-    totalReplacements += result.totalReplacements
-    filesSearched += result.filesSearched
-    limitReached = limitReached || result.limitReached
-    applied = applied && result.applied
-    if (result.parseErrors !== undefined) parseErrors.push(...result.parseErrors)
-    for (const change of result.changes) {
-      changes.push({ ...change, path: rebaseNativePath(change.path, target, cwd) })
-    }
-    for (const fileChange of result.fileChanges) {
-      const rebased = rebaseNativePath(fileChange.path, target, cwd)
-      fileCounts.set(rebased, (fileCounts.get(rebased) ?? 0) + fileChange.count)
+    const walked = await walkSources(target.root, { glob: target.glob, maxFiles: MAX_FILES })
+    filesSearched += walked.files.length
+    limitReached = limitReached || walked.limitReached
+    for (const file of walked.files) {
+      const lang = languageForPath(file)
+      if (lang === undefined) continue
+      if (!isLanguageAvailable(lang)) {
+        parseErrors.push(`${rel(file, cwd)}: language unavailable`)
+        continue
+      }
+      let source: string
+      try {
+        source = readFileSync(file, 'utf8')
+      } catch { continue }
+      const result = await editSource(source, lang, rewrites)
+      if (result.parseErrorCount > 0) {
+        parseErrors.push(`${rel(file, cwd)}: ${result.parseErrorCount} parse error(s)`)
+      }
+      if (result.changes.length === 0) continue
+      const display = rel(file, cwd)
+      changes.push(...result.changes.map((change) => ({ ...change, path: display })))
+      fileCounts.set(display, (fileCounts.get(display) ?? 0) + result.totalReplacements)
+      totalReplacements += result.totalReplacements
+      // Single write per file: the engine's `rewritten` goes to disk in one
+      // shot (no delete-then-write, no second I/O).
+      if (!dryRun) writeFileSync(file, result.rewritten, 'utf8')
     }
   }
   const fileChanges = [...fileCounts].map(([filePath, count]) => ({ path: filePath, count }))
@@ -222,9 +219,9 @@ async function executeAstEdit(args: unknown, ctx?: unknown): Promise<AstReplaceR
   }
 }
 
-/** `ast_grep` — pass patterns/path/offset/limit/includeMeta straight to the native, rebase match paths. */
+/** `ast_grep` — walk the target, run every pattern per file (OR), merge, then page. */
 async function executeAstGrep(args: unknown, ctx?: unknown): Promise<AstFindResult> {
-  const natives = await nativesOrThrow()
+  await ensureLanguages()
   const cwd = ctxCwd(ctx)
   const record = argsRecord(args, 'ast_grep')
 
@@ -238,19 +235,45 @@ async function executeAstGrep(args: unknown, ctx?: unknown): Promise<AstFindResu
   const limit = optionalCount(record.limit, 'limit', 'ast_grep')
   const includeMeta = optionalBoolean(record.includeMeta, 'includeMeta', 'ast_grep')
 
-  const result = await natives.astGrep({
-    patterns,
-    path: target.root,
-    ...(target.glob !== undefined ? { glob: target.glob } : {}),
-    ...(offset !== undefined ? { offset } : {}),
-    ...(limit !== undefined ? { limit } : {}),
-    ...(includeMeta !== undefined ? { includeMeta } : {}),
-  })
-  const matches: AstFindMatch[] = result.matches.map((match) => ({
-    ...match,
-    path: rebaseNativePath(match.path, target, cwd),
-  }))
-  return { ...result, matches }
+  const walked = await walkSources(target.root, { glob: target.glob, maxFiles: MAX_FILES })
+  const matches: AstFindMatch[] = []
+  const parseErrors: string[] = []
+  let filesWithMatches = 0
+  for (const file of walked.files) {
+    const lang = languageForPath(file)
+    if (lang === undefined) continue
+    if (!isLanguageAvailable(lang)) {
+      parseErrors.push(`${rel(file, cwd)}: language unavailable`)
+      continue
+    }
+    let source: string
+    try {
+      source = readFileSync(file, 'utf8')
+    } catch { continue }
+    // Multi-pattern OR: each pattern runs over the same source, results merge
+    // in document order within the file (native ran one combined query).
+    const perFile: AstFindMatch[] = []
+    for (const pattern of patterns) {
+      const found = await findInSource(source, lang, pattern, { includeMeta })
+      perFile.push(...found.matches)
+    }
+    if (perFile.length === 0) continue
+    filesWithMatches += 1
+    perFile.sort((a, b) => a.byteStart - b.byteStart || a.byteEnd - b.byteEnd)
+    matches.push(...perFile.map((match) => ({ ...match, path: rel(file, cwd) })))
+  }
+  // offset/limit slice AFTER the merge; totalMatches is the pre-slice length.
+  const totalMatches = matches.length
+  const start = offset ?? 0
+  const paged = matches.slice(start, start + (limit ?? Infinity))
+  return {
+    matches: paged,
+    totalMatches,
+    filesWithMatches,
+    filesSearched: walked.files.length,
+    limitReached: totalMatches > paged.length,
+    ...(parseErrors.length > 0 ? { parseErrors } : {}),
+  }
 }
 
 /** Mount both ast devices on the registry (defaults to the real dvc registry). */

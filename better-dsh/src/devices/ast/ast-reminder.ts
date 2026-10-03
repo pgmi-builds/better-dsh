@@ -3,7 +3,7 @@
  *
  * User rulings baked in here (2026-09-26/27, change 2026-09-26-lsp-ast-reminder):
  * - Scope follows the AST tool's OWN capability surface (ast-grep/tree-sitter
- *   grammars bundled in @oh-my-pi/pi-natives), decoupled from the LSP server
+ *   grammars bundled in the previous native backend), decoupled from the LSP server
  *   table (user ruling 2026-09-27: "按照 AST 工具支持的编程语言范围去做 hook").
  *   The set below is empirically probed against the shipped natives binary
  *   (2026-09-27): every listed extension produced real ast_grep matches;

@@ -1,13 +1,13 @@
 /**
- * `ast_edit`/`ast_grep` dvc-device spec (task 5.2, design D8).
+ * `ast_edit`/`ast_grep` dvc-device spec (task 5.2, design D8; task 8: mounted
+ * on the in-package WASM engine).
  *
- * Runs the real pi-natives addon over throwaway fixture files: loader
- * behavior (real dlopen, degradation without throw, variant ordering),
- * `ast_grep` structured search, `ast_edit` dry-run default vs apply, the
- * `ops`→`rewrites` last-op-wins conversion, glob/relative path resolution,
- * and the full `registerAstDevices` → `registerDvcDevice` registry →
- * `dispatchDvcWrite` chain — including the structured `DVC_DEVICE_ERROR`
- * that names the platform package when the addon is unavailable.
+ * Runs the real engine over throwaway fixture files: `ast_grep` structured
+ * search, `ast_edit` dry-run default vs apply, the `ops`→`rewrites`
+ * last-op-wins conversion, glob/relative path resolution, and the full
+ * `registerAstDevices` → `registerDvcDevice` registry → `dispatchDvcWrite`
+ * chain — including the structured `DVC_DEVICE_ERROR` when the engine
+ * rejects an input.
  */
 
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
@@ -15,16 +15,10 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
-import {
-  loadPiNatives,
-  piNativesAddonFilenames,
-  piNativesPackageName,
-  setPiNativesForTest,
-} from '../../src/devices/ast/natives-loader.ts'
 import type {
   AstFindResult,
   AstReplaceResult,
-} from '../../src/devices/ast/natives-loader.ts'
+} from '../../src/devices/ast/types.ts'
 import {
   registerAstDevices,
   summaries,
@@ -99,43 +93,6 @@ beforeEach(() => {
 
 afterEach(() => {
   rmSync(fixtureDir, { recursive: true, force: true })
-  // A degradation test may have forced the unavailable state — restore the
-  // lazy real load so later suites are unaffected.
-  setPiNativesForTest(undefined)
-})
-
-describe('pi-natives loader', () => {
-  it('loads the real platform addon from node_modules', () => {
-    const natives = loadPiNatives()
-    expect(natives).toBeDefined()
-    expect(typeof natives?.astGrep).toBe('function')
-    expect(typeof natives?.astEdit).toBe('function')
-    expect(piNativesPackageName()).toBe(`@oh-my-pi/pi-natives-${process.platform}-${process.arch}`)
-  })
-
-  it('returns undefined (never throws) for an unsupported platform', () => {
-    expect(loadPiNatives({ platform: 'freebsd', arch: 'x64' })).toBeUndefined()
-    expect(piNativesPackageName('freebsd', 'x64')).toBeUndefined()
-  })
-
-  it('returns undefined when no platform package is resolvable from the anchor', () => {
-    const anchor = mkdtempSync(path.join(os.tmpdir(), 'dashr-ast-noload-'))
-    try {
-      expect(loadPiNatives({ fromDir: anchor })).toBeUndefined()
-    } finally {
-      rmSync(anchor, { recursive: true, force: true })
-    }
-  })
-
-  it('orders x64 addon variants modern-first and collapses other arches to one file', () => {
-    expect(piNativesAddonFilenames('linux-x64', 'x64', true)).toEqual([
-      'pi_natives.linux-x64-modern.node',
-      'pi_natives.linux-x64-baseline.node',
-      'pi_natives.linux-x64.node',
-    ])
-    expect(piNativesAddonFilenames('linux-x64', 'x64', false)[0]).toBe('pi_natives.linux-x64-baseline.node')
-    expect(piNativesAddonFilenames('darwin-arm64', 'arm64')).toEqual(['pi_natives.darwin-arm64.node'])
-  })
 })
 
 describe('ast device registration', () => {
@@ -159,7 +116,7 @@ describe('ast device registration', () => {
   })
 })
 
-describe('dvc://ast_grep (real addon)', () => {
+describe('dvc://ast_grep (wasm engine)', () => {
   it('returns structured matches for a function-declaration pattern through dispatchDvcWrite', async () => {
     registerAstDevices()
     const file = path.join(fixtureDir, 'a.ts')
@@ -206,7 +163,7 @@ describe('dvc://ast_grep (real addon)', () => {
   })
 })
 
-describe('dvc://ast_edit (real addon)', () => {
+describe('dvc://ast_edit (wasm engine)', () => {
   it('previews without writing by default (dryRun defaults true)', async () => {
     registerAstDevices()
     const file = path.join(fixtureDir, 'a.ts')
@@ -298,19 +255,18 @@ describe('dvc://ast_edit (real addon)', () => {
 })
 
 describe('ast device failure modes', () => {
-  it('rejects with DVC_DEVICE_ERROR naming the platform package when the addon is unavailable', async () => {
+  it('rejects with DVC_DEVICE_ERROR for an unsupported pattern (engine throws through)', async () => {
     registerAstDevices()
-    setPiNativesForTest(null)
-    try {
-      const error = await rejection(
-        dispatchDvcWrite('dvc://ast_grep', JSON.stringify({ patterns: ['function $N($$$A) { $$$B }'] })),
-      )
-      expect(error.code).toBe('DVC_DEVICE_ERROR')
-      expect(error.message).toContain('dvc:// device "ast_grep" execute failed')
-      expect(error.message).toContain(`@oh-my-pi/pi-natives-${process.platform}-${process.arch}`)
-    } finally {
-      setPiNativesForTest(undefined)
-    }
+    // The engine compiles a pattern when a file is reached, so a fixture must
+    // exist. Pattern note: the brief's `;;;not a pattern;;;` parses as empty
+    // statements in this engine and yields ZERO matches (probe-verified); a
+    // standalone `$$$` is the compile error that actually throws through.
+    writeFileSync(path.join(fixtureDir, 'a.ts'), fixtureSource)
+    const error = await rejection(
+      dispatchDvcWrite('dvc://ast_grep', JSON.stringify({ patterns: ['$$$'], path: fixtureDir })),
+    )
+    expect(error.code).toBe('DVC_DEVICE_ERROR')
+    expect(error.message).toContain('dvc:// device "ast_grep" execute failed')
   })
 
   it.each([

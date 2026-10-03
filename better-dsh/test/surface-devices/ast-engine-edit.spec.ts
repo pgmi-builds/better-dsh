@@ -26,4 +26,33 @@ describe('engine/edit', () => {
     const r = await editSource('{"alpha": 1}\n', 'json', { '"alpha": $V': '"alpha": 9' })
     expect(r.totalReplacements).toBe(0)
   })
+
+  it('returns a rewritten string with every matched site replaced (multi-edit golden)', async () => {
+    const r = await editSource(
+      'const a = foo(1)\nconst b = foo(2)\nconst c = foo(3)\n',
+      'typescript',
+      { 'foo($A)': 'bar($A)' },
+    )
+    expect(r.totalReplacements).toBe(3)
+    expect(r.rewritten).toBe('const a = bar(1)\nconst b = bar(2)\nconst c = bar(3)\n')
+  })
+
+  it('drops edits that overlap an accepted edit and counts them in `overlapping`', async () => {
+    // 同一调用上 'foo($A)' 命中 [10,16)、'foo' 命中 [10,13)：后一编辑与已接受
+    // 区间重叠，必须丢弃——不丢则 commitEdits 下被遮蔽的编辑静默消失，而
+    // changes[] 仍报告它（probe 实证）。先入列的 pattern 胜。
+    const r = await editSource('const a = foo(1)\n', 'typescript', { 'foo($A)': 'bar($A)', foo: 'baz' })
+    expect(r.overlapping).toBe(1)
+    expect(r.totalReplacements).toBe(1)
+    expect(r.changes).toHaveLength(1)
+    expect(r.changes[0]!.after).toBe('bar(1)')
+    expect(r.rewritten).toBe('const a = bar(1)\n')
+  })
+
+  it('keeps adjacent (non-overlapping) edits from different patterns', async () => {
+    const r = await editSource('const a = foo(1)\n', 'typescript', { 'foo($A)': 'bar($A)', a: 'x' })
+    expect(r.overlapping).toBe(0)
+    expect(r.totalReplacements).toBe(2)
+    expect(r.rewritten).toBe('const x = bar(1)\n')
+  })
 })
