@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { AST_LANGUAGES, EXTENSION_TO_LANGUAGE, languageForPath } from '../../src/devices/ast/engine/language-map.ts'
+import { AST_LANGUAGES, languageForPath } from '../../src/devices/ast/engine/language-map.ts'
 import { ensureLanguages, isLanguageAvailable } from '../../src/devices/ast/engine/grammars.ts'
 
 describe('language map (single source of truth)', () => {

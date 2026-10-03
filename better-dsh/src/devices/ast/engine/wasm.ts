@@ -14,8 +14,8 @@
 import { existsSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
-import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { join } from 'node:path'
+
 import { Parser } from 'web-tree-sitter'
 import { PACKAGE_ROOT } from '../../../kernel-env.ts'
 import { ENGINE_ASSETS, GRAMMAR_ASSETS } from './grammar-manifest.mjs'
@@ -52,24 +52,22 @@ const WebAssemblyGlobal = (globalThis as unknown as {
   }
 }).WebAssembly
 
-function assetsDir(): string {
-  const bundled = join(PACKAGE_ROOT, 'lib', 'ast-assets')
-  if (existsSync(bundled)) return bundled
-  const require = createRequire(import.meta.url)
-  return dirname(require.resolve(GRAMMAR_ASSETS.python!.subpath))
-}
-
+/**
+ * 资产解析的唯一机制，逐文件生效：构建产物 `lib/ast-assets/` 在场 → 用它（发布面）；
+ * 否则 dev 下按 manifest subpath 在 node_modules 直解析（不要求先跑过 build）。
+ * 14 个语法分属 14 个 `@lumis-sh/wasm-*` 包、tree-sitter.wasm 在 web-tree-sitter ——
+ * 不存在装下全部资产的单一 dev 目录，故不做目录级回落。
+ */
 export function assetPath(file: string): string {
-  return join(assetsDir(), file)
+  const bundled = join(PACKAGE_ROOT, 'lib', 'ast-assets')
+  if (existsSync(bundled)) return join(bundled, file)
+  return createRequire(import.meta.url).resolve(subpathOf(file))
 }
 
 async function readAsset(file: string): Promise<Buffer> {
-  const p = assetPath(file)
-  if (existsSync(p)) return readFile(p)
-  // dev：node_modules 直解析（不要求先跑过 build）
-  const require = createRequire(import.meta.url)
-  return readFile(require.resolve(subpathOf(file)))
+  return readFile(assetPath(file))
 }
+
 
 function subpathOf(file: string): string {
   return ENGINE_ASSETS.find(a => a.file === file)?.subpath
