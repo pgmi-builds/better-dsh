@@ -312,3 +312,14 @@ ast-grep 匹配是**子节点严格对齐**的：pattern 缺 body 子节点 → 
 
 4998 独立复测与 4999 首测**逐项同构**：对齐 pattern 34/8/11（含元变量捕获与 byteOffset 级一致）、dryRun 拦截（applied:false 文件不动）、真写盘（applied:true + git diff 可见 + 回滚）、`.vendor` 全程不重建、日志零 OMP/registry 行。被测面（包内 WASM 引擎 + 宿主 write dvc:// 路径）与端口无关，验收结论不受端口变更影响。
 
+
+## 五、终审补测（trimmed tarball）
+
+日期：2026-10-04 ｜ 背景：packaging-trim 后的发布物（`docs-packaging-trim`，731 文件 / 5.1 MB，此前轮为 22.2 MB）从未有 ast 调用驱动过——终审 Finding I3 补上这一半。`skill://dsh-dev-skill` 半边仍留作 publish-gate 条件（需 live LLM session，human 执行）。
+
+- **安装**：`npm pack` → `better-dsh-0.2.5-c.tgz`（shasum `5469abae…`）→ rig profile `plugin remove` → `add`（`Packages: +1`）；安装位 `lib/index.js` 与 fresh 构建字节一致、`lib/ast-assets` 16 文件 diff 为空；start 前 `.vendor` **ABSENT**。
+- **tarball 双面复核**：代码/产物面（`lib/`、`package.json`、`scripts/`）`grep -rc "pi_natives\|@oh-my-pi"` = **0 命中**；docs 面 6 个文件命中（trim 前 11），全部为 specs/plans/报告对本次迁移的历史 prose 记录——与 spec §1.2/§5.3 终审定界后的口径一致（docs 提及数量随发布内容浮动，非回归信号）。
+- **rig**：`PORT=4998` 重启（start.sh 接管旧 unit）；shell 页 boot graph 含 `"id":"better-dsh"`，`/plugins/??…better-dsh/client.js&rev=…` → **200**。
+- **驱动**：HTTP RPC 同 §4.8 两段形（web-password 铸 cookie → `session/create` → `session/prompt`，信封补 `type:"client-request"` 判别键）。会话 `session-cca50096-36f1-4d84-b3a0-9a75f06443d7`，1 turn、1 次工具调用（seq 20 `write` `dvc://ast_grep`，args 与 §4.8.3(a) 同款：`function $NAME($$$ARGS): $RET { $$$BODY }` / `includeMeta` / `limit:3`）。
+- **结果**（seq 21 原样）：**`totalMatches: 34, filesWithMatches: 8, filesSearched: 11, limitReached: true`**，分页返回 3 条 match；首条 `ctxCwd` 的 `byteStart 2610 / byteEnd 2821 / startLine 59` 与元变量四类捕获（NAME/ARGS/RET/BODY）与 §4.4(a')（4999 首测）、§4.8.3(a)（4998 复测）**逐字段一致**——trimmed tarball 的引擎面与 trim 前发布物零漂移。
+- **供给链**：调用之后 `.vendor` 仍 **ABSENT**（`ls` exit 2）；rig 日志 `omp|oh-my-pi|registry` **0 命中**。
