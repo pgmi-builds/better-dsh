@@ -4,9 +4,20 @@ import { buildInitCommand, createNonceFrameParser, genNonce, wrapPtyCommand } fr
 /** spec §五.2 逐字。 */
 export const RECONNECT_NOTICE = '[remote: session reconnected to fresh shell; cwd reset to default]'
 
+/** 池键 → 模型面名字：剥掉 agent 前缀与内部标记（`t:` → 裸 target；`p:` → `byop:<label>`）。
+ *  这是**唯一**的 key→名字映射规则，roster 与错误面共用——错误面不得回吐内部键：
+ *  2026-10-03 实测报告 F1，`E_SESSION_*` 曾把 `session-<uuid>|p:<label>` 整条吐给模型。 */
+export function displayKey(key: string): string {
+  const raw = key.includes('|') ? key.slice(key.indexOf('|') + 1) : key
+  return raw.startsWith('t:') ? raw.slice(2) : raw.startsWith('p:') ? `byop:${raw.slice(2)}` : raw
+}
+
 export interface PtySessionOptions {
   key: string
   argv: string[]
+  /** BYO-PTY 创建来源：`byop:<label>` 会话首次创建时给的 spawn 原文；transport target 会话为 undefined。
+   * 唯一用途 = 同 label 再次给 spawn 时判「同一来源 → 复用」还是「不同来源 → 冲突」（driver 判，池不判）。 */
+  origin?: string
   idleTtlSec: number
   initTimeoutSec?: number
   /** 池回调：会话彻底出池（dispose）时触发；进程意外死亡不出池（Ruling 7）。 */
@@ -44,10 +55,15 @@ export class PtySession {
   private diag = ''
   private inFlight = 0
   private lastSettleAt = 0
+  /** 是否曾成功初始化（ready 过）。决定死亡语义：ready 过 → reconnect（留池）；从未 ready → 出池（见 start()）。 */
+  private everReady = false
 
   constructor(private readonly opts: PtySessionOptions) {}
 
   get sessionState(): PtyState { return this.state }
+
+  /** 创建来源（spawn 原文）；仅 `byop:<label>` 会话有。 */
+  get origin(): string | undefined { return this.opts.origin }
 
   /** status 面快照：state + busy（有命令在跑）+ idleMs（上次 settle 至今）+ pid（进程组头，kill 兜底可观测）。 */
   get snapshot(): SessionSnapshot {
@@ -143,12 +159,16 @@ export class PtySession {
 
   private async start(): Promise<void> {
     if (this.state === 'disposed')
-      throw new Error(`[E_SESSION_DISPOSED] remote pty session '${this.opts.key}' was disposed — the pool replaces disposed sessions; this reference is stale`)
+      throw new Error(`[E_SESSION_DISPOSED] remote pty session '${displayKey(this.opts.key)}' was disposed — the pool replaces disposed sessions; this reference is stale`)
     if (this.startPromise === null) {
       this.state = 'starting'
       this.startPromise = this.doStart().catch((err: unknown) => {
         this.startPromise = null
         this.markDead()
+        // 从未成功初始化 = 这里从来没有过一个会话：不得在池里留下一个「永远起不来、又永远换不掉」
+        // 的项——它会按 origin 锁死 label，并让复用重跑冻结的 argv（实测报告 F2）。
+        // 已 ready 过的会话不走这里：那种死亡是 reconnect 语义，留在池里是对的。
+        if (!this.everReady) void this.dispose()
         throw err
       })
     }
@@ -173,13 +193,13 @@ export class PtySession {
       const timer = setTimeout(() => {
         this.killTree()
         reject(new Error(
-          `[E_SESSION_START] remote pty session '${this.opts.key}' did not initialize in ${initTimeoutSec}s` +
+          `[E_SESSION_START] remote pty session '${displayKey(this.opts.key)}' did not initialize in ${initTimeoutSec}s` +
           (this.diag.length > 0 ? `; transport stderr tail: ${this.diag}` : '')))
       }, initTimeoutSec * 1_000)
       const waiter = (): void => {
         clearTimeout(timer)
         reject(new Error(
-          `[E_SESSION_DIED] remote pty session '${this.opts.key}' died before initializing` +
+          `[E_SESSION_DIED] remote pty session '${displayKey(this.opts.key)}' died before initializing` +
           (this.diag.length > 0 ? `; transport stderr tail: ${this.diag}` : '')))
       }
       this.deathWaiters.push(waiter)
@@ -189,9 +209,10 @@ export class PtySession {
           this.deathWaiters = this.deathWaiters.filter((w) => w !== waiter)
           if (this.state === 'disposed') {
             // dispose 竞态 init：不得复活已终态会话（否则重挂 idle timer + 幽灵 ready）
-            reject(new Error(`[E_SESSION_DISPOSED] remote pty session '${this.opts.key}' disposed during init`))
+            reject(new Error(`[E_SESSION_DISPOSED] remote pty session '${displayKey(this.opts.key)}' disposed during init`))
             return
           }
+          this.everReady = true
           this.state = 'ready'
           this.resetIdleTimer()
           resolve()
@@ -253,15 +274,22 @@ export class PtyPool {
     return this.sessions.get(key)?.snapshot
   }
 
-  /** roster 面：池内全部会话（key 含 agent 前缀 `${sessionKey}|t:<target>` / `|s:<spawn>`）。 */
+  /** roster 面：池内全部会话（key = `${sessionKey}|t:<target>` 或 `${sessionKey}|p:<label>`）。 */
   list(): Array<{ key: string; snapshot: SessionSnapshot }> {
     return [...this.sessions.entries()].map(([key, s]) => ({ key, snapshot: s.snapshot }))
   }
 
-  getOrCreate(key: string, argv: string[]): PtySession {
+  /** 池内会话本体（driver 判「有/无 + origin」用；status/roster 面走 inspect/list）。
+   * disposed 视同出池 —— 与 getOrCreate 的替换条件同源，两处不得漂移。 */
+  get(key: string): PtySession | undefined {
+    const s = this.sessions.get(key)
+    return s === undefined || s.sessionState === 'disposed' ? undefined : s
+  }
+
+  getOrCreate(key: string, argv: string[], origin?: string): PtySession {
     let s = this.sessions.get(key)
     if (s === undefined || s.sessionState === 'disposed') {
-      s = new PtySession({ key, argv, ...this.defaults, onDead: () => this.sessions.delete(key) })
+      s = new PtySession({ key, argv, origin, ...this.defaults, onDead: () => this.sessions.delete(key) })
       this.sessions.set(key, s)
     }
     return s

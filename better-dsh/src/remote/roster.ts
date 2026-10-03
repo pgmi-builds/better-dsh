@@ -8,7 +8,10 @@
  * - docker containers (`docker ps -a`, name + state);
  * - incus containers (`incus list`, name + state);
  * - live pty sessions (the one thing the model cannot see with its own
- *   tools — the daemon-side pool inventory).
+ *   tools — the daemon-side pool inventory). This section is **caller-scoped**:
+ *   the driver filters the pool to the calling agent session, because a live
+ *   shell is an operating environment, not public config. The three name
+ *   sections above stay global by contrast — they are static public config.
  *
  * Everything is a cheap local scan; each section degrades independently and
  * honestly (native error one-liner, never a fabricated list).

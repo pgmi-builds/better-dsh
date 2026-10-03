@@ -73,3 +73,9 @@ export function renderSession(s: Pick<SessionSnapshot, 'state' | 'busy' | 'idleM
   if (s.busy) return 'session: busy (a command is running)'
   return `session: idle ${Math.round((s.idleMs ?? 0) / 1000)}s (connected)`
 }
+
+/** PTY 会话状态行（BYO-PTY 面）：无会话 = 这个 label 下没有活会话，且**不会自建**——
+ * 与 transport target 的 "dials on first exec" 是两回事，故不复用那句。 */
+export function renderPtySession(s: SessionSnapshot | undefined): string {
+  return s === undefined ? 'session: none — no live PTY under this label' : renderSession(s)
+}

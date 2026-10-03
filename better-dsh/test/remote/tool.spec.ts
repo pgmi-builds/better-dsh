@@ -84,4 +84,28 @@ describe('createRemoteTool', () => {
     await expect(tool.execute!({ target: 'dev4', cmd: 'x', mode: 'pty ' } as never, exec)).rejects.toThrow(/E_BAD_MODE|must be one of/)
     await expect(tool.execute!({ target: 'dev4', stdin: 's' } as never, exec)).rejects.toThrow(/E_STDIN_WITHOUT_CMD/)
   })
+  it('a byop: target reaches the driver; the label and notice reach the value and the render', async () => {
+    const tool = createRemoteTool(fakeDriver())
+    const exec = fakeExec()
+    const v = await tool.execute!({ target: 'byop:agent-1', spawn: 'bash', cmd: 'echo out' } as never, exec) as { text: string; session?: string }
+    expect(v.text).toBe('out\n')
+    expect(v.session).toBe('byop:agent-1')
+    const blocks = tool.output!.render!({} as never, {
+      kind: 'exec', text: 'hello', exit: 0, durationMs: 1500, session: 'byop:agent-1', notice: '[remote: drop spawn]',
+    } as never)
+    const text = (blocks[0] as { type: string; text: string }).text
+    expect(text).toContain('[remote: drop spawn]')
+    expect(text).toContain('[exit 0 · 1.5s · byop:agent-1]')
+  })
+  it('the roster call carries the calling agent session key (scope plumbing)', async () => {
+    const seen: Array<{ sessionKey?: string } | undefined> = []
+    const spy = {
+      roster: async (ctx?: { sessionKey?: string }) => { seen.push(ctx); return 'roster-text' },
+    } as unknown as RemoteDriver
+    const tool = createRemoteTool(spy)
+    const v = await tool.execute!({} as never, fakeExec()) as { kind: string; text: string }
+    expect(v.kind).toBe('roster')
+    expect(v.text).toBe('roster-text')
+    expect(seen[0]?.sessionKey).toBe('agent-1')
+  })
 })
