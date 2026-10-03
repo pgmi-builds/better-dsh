@@ -18,6 +18,8 @@ const BUNDLED_RUNTIME = [
   'strtok3',
   'token-types',
   'uint8array-extras',
+  'web-tree-sitter',
+  '@ast-grep/wasm',
 ]
 export default defineConfig({
   // One entry per Plugins-page component row (spec docs/specs/plugins-page-
