@@ -230,3 +230,85 @@ ast-grep 匹配是**子节点严格对齐**的：pattern 缺 body 子节点 → 
 - 版本 `0.2.5-c` 为本地过程版本；tarball 仅入 rig（file: 安装），registry 无足迹。
 - native 对拍依赖的 prod 树残留 `@oh-my-pi` 属 `super-dsh` 的依赖，不因本插件去 OMP 而消失（prod 面清理不属本计划）。
 - 第一人称会话的 token 消耗（两 turn 合计约 15k output / 150k+ cache-read）留在 rig home，随下次 home 复用自然沉淀。
+
+## 四、4998 复测（user 指令：4999 被并发 agent 占用）
+
+日期：2026-10-04 ｜ 前提：4999 端口被另一并发 agent 的 rig 占用，user 指令改在 **4998** 重跑验收 live-fire。**上文 §1–§9 的 4999 实测结论（native A/B 对拍 0/0/11 逐字段一致、两轮 live 证据）原样保留，本节为同口径独立复测**，不覆盖、不替代上文。
+
+### 4.8.1 rig 状态与启动
+
+- 前置核验：profile 安装位 `lib/ast-assets` **16 文件**（Task 11 remove→add 的产物原样在场）；`.vendor` start 前 **ABSENT**。
+- `PORT=4998 bash .test/seed/test123/start.sh`：unit `dsh-4998-test123` + `test123-lan-4998-relay` 起动，`127.0.0.1:4998` 与 LAN `192.168.31.130:4998` 双监听；日志 **`.scratch/dsh-4998-test123.log`**（append，本次 boot 前历史 5 行）。
+- 认证：与 §4.2 同一形态——better-dsh `dashr-web-password` 行独占 `/`（launch-token URL 被 password 门先行接管，GET `/?token=…` 直接 200 不铸 cookie），`curl -c jar -X POST -d "password=admin" /` → **303** + 原生 `dsh-auth-<authority-hash>` cookie（HttpOnly）。此后 `/api` 全部携带该 cookie。
+
+### 4.8.2 HTTP RPC 驱动（真实 session，同 §4.2 两段形）
+
+- `POST /api/session/create`（client-request 信封，`payload.args.request.cwd=/home/u1/workspaces/dashr`）→ `{"sessionId":"session-1aa5f442-9058-49fb-bf31-74a2780a90ab","agentPreset":"standard"}`
+- `POST /api/session/prompt`（`mode:'queue'`，rpcId `req-ast-4998-live`）→ `{"accepted":true}`
+- 会话 `session-1aa5f442…`：1 turn、7 次工具调用（bash×3 / write dvc://×3 / memory_add×1），全部 dvc 调用走宿主 write 工具的 URL 分支。日志：`.test/home/compat/sessions/--home-u1-workspaces-dashr--/session-1aa5f442…/session.v4.jsonl.zstd`（seq 28→29 / 35→36 / 49→50）。
+
+### 4.8.3 三次 live 调用（结构对齐 pattern，§4.4 同款）
+
+**（a）`write dvc://ast_grep`** content：`{"patterns":["function $NAME($$$ARGS): $RET { $$$BODY }"],"path":"/home/u1/workspaces/dashr/better-dsh/src/devices/ast","includeMeta":true,"limit":3}`（seq 28→29，返回原样 JSON 节选）：
+
+```json
+{
+  "matches": [
+    {
+      "path": "better-dsh/src/devices/ast/ast-device.ts",
+      "text": "function ctxCwd(ctx: unknown): string { … }",
+      "byteStart": 2610, "byteEnd": 2821,
+      "startLine": 59, "startColumn": 1, "endLine": 64, "endColumn": 2,
+      "metaVariables": { "NAME": "ctxCwd", "ARGS": "[ctx: unknown]", "RET": "string", "BODY": "[if (ctx !== null && …, return process.cwd()]" }
+    },
+    {
+      "path": "better-dsh/src/devices/ast/ast-device.ts",
+      "text": "function rel(file: string, cwd: string): string { … }",
+      "byteStart": 2895, "byteEnd": 3006,
+      "startLine": 67, "startColumn": 1, "endLine": 69, "endColumn": 2,
+      "metaVariables": { "NAME": "rel", "ARGS": "[file: string, ,, cwd: string]", "RET": "string", "BODY": "[return path.relative(cwd, file).split(path.sep).join('/')]" }
+    }
+  ],
+  "totalMatches": 34,
+  "filesWithMatches": 8,
+  "filesSearched": 11,
+  "limitReached": true
+}
+```
+
+**34/8/11 + `limitReached:true`（`limit:3` 分页）**——与 4999 轮 §4.4(a') 及 native 对拍 §5 的 34/8/11 **完全一致**（首条 match 的 byteOffset 2610/2821、元变量四类捕获逐字段相同）。
+
+**（b）`write dvc://ast_edit` dryRun 默认**，content：`{"ops":[{"pat":"export function disposeAstReminders(sessionId: string): void { $$$BODY }","out":"export function disposeAstReminders(sessionId: string): void { /*ast-live-proof*/ $$$BODY }"}],"paths":["…/ast-reminder.ts"]}`（seq 35→36）：
+
+```json
+{
+  "changes": [{ "path": "better-dsh/src/devices/ast/ast-reminder.ts", "before": "export function disposeAstReminders(sessionId: string): void {\n  counters.delete(sessionId)\n}", "after": "export function disposeAstReminders(sessionId: string): void { /*ast-live-proof*/ counters.delete(sessionId) }", "byteStart": 2063, "byteEnd": 2156, "deletedLength": 93, "startLine": 42, "startColumn": 1, "endLine": 44, "endColumn": 2 }],
+  "fileChanges": [{ "path": "better-dsh/src/devices/ast/ast-reminder.ts", "count": 1 }],
+  "totalReplacements": 1,
+  "filesTouched": 1,
+  "filesSearched": 1,
+  "applied": false,
+  "limitReached": false
+}
+```
+
+`applied:false` ✅；调用前后 `git status --short -- better-dsh/src/devices/ast/` 均为**空**（baseline seq 22 / 复检 seq 43，文件未动）。
+
+**（c）同 ops + `"dryRun":false`**（seq 49→50）：同上 changes，`"applied": true, "totalReplacements": 1, "filesTouched": 1`。随后（seq 57）：
+
+```text
+ better-dsh/src/devices/ast/ast-reminder.ts | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
+```
+
+`git checkout --` 立即回滚，复检 `git status --short -- better-dsh/src/devices/ast/` → **空** ✅。真写盘-可见-回滚闭环复现。
+
+### 4.8.4 供给链证据（本次 run 复检）
+
+- **`.vendor`**：全部 dvc 调用之后 `.test/home/compat/profiles/web/node_modules/better-dsh/.vendor` 仍 **ABSENT**（`ls` exit 2）；`lib/ast-assets` 仍 16 文件——无任何按需自装路径被触发。
+- **rig 日志**：`grep -icE "omp|oh-my-pi|registry" .scratch/dsh-4998-test123.log` → **0 命中**（全文件，含本次 boot 全部输出）——零 OMP/registry 供给痕迹。
+
+### 4.8.5 复测结论
+
+4998 独立复测与 4999 首测**逐项同构**：对齐 pattern 34/8/11（含元变量捕获与 byteOffset 级一致）、dryRun 拦截（applied:false 文件不动）、真写盘（applied:true + git diff 可见 + 回滚）、`.vendor` 全程不重建、日志零 OMP/registry 行。被测面（包内 WASM 引擎 + 宿主 write dvc:// 路径）与端口无关，验收结论不受端口变更影响。
+
