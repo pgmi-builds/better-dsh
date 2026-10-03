@@ -96,7 +96,7 @@ src/devices/ast/
     wasm.ts          ← 手动 wasm 装配 + Parser.init + 惰性单例；唯一的 wasm 入口
     grammars.ts      ← 语言注册表：lang → 资产路径 + expandoChar 'µ'；懒注册、按需
     language-map.ts  ← 扩展名 → 语言（**单一真相源**）
-    match.ts         ← pattern 编译 +「多根节点包裹回退」+ 命中 → AstFindMatch 映射
+    match.ts         ← pattern 编译 + 多根节点记 0 命中 + 命中 → AstFindMatch 映射（字节偏移）
     edit.ts          ← astEdit 核心：rewrites / dryRun / changes[] / 字节偏移换算
   walker.ts          ← .gitignore 感知遍历 + glob + 语言推断 + maxFiles 限额
   ast-device.ts      ← 保持公开契约，改为调 engine + walker（薄适配层）
@@ -116,7 +116,7 @@ tsdown && npm run build-client && node scripts/copy-kernel-bridge.mjs && node sc
 
 **需要主动补齐的行为（照 OMP 语义实现，不是搬运）**：
 
-- **多根节点 pattern 回退**：`function $N($$$A) { $$$B }` 在原 `findAll` 会抛 `Multiple AST nodes are detected`。OMP 在 Rust 侧有 `compile_wrapped_fallback`（`ops.rs`）。TS 侧照做：捕获该错误 → 包一层 context → 用 selector 取回目标节点。
+- **多根节点 pattern = 记 0 命中**：`function $N($$$A) { $$$B }`、`"alpha": $V` 这类片段在 wasm 的 `findAll` 会抛 `Multiple AST nodes are detected`。OMP 的 Rust 库虽有 `compile_wrapped_fallback`（`ops.rs`，仅 JSON 有模板），但实测 shipped native 在这条路径上并未用它：`astGrep` 返回 `matches=0` 且 `parseErrors=null`，`astEdit` 返回 `totalReplacements=0` 且结果里没有 `parseErrors` 键。因此 TS 侧对齐的是 **native 的实测行为**：捕获该异常 → 记 0 命中、不写 `parseErrors`、不抛错。
 - **`.gitignore` 感知遍历** + glob 过滤 + `maxFiles` / `maxReplacements`。
 - **UTF-8 字节偏移换算**：`range().index` 是**字符**偏移，OMP 的 `byteStart`/`byteEnd`/`deletedLength` 是**字节**偏移（实测含中文时 17 vs 25）。`changes[]` 生成时换算。
 - **parseError 收集**、分页（`offset`/`limit`）、`includeMeta` 的 meta 变量收集、聚合统计。
