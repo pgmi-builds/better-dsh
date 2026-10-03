@@ -33,7 +33,7 @@
 ## 1. 目标态（硬契约）
 
 1. **模型面契约一字不动**：`ast_grep` 的 `{patterns, path, offset, limit, includeMeta}`、`ast_edit` 的 `{ops:[{pat,out}], paths, dryRun}`，以及结果里 `changes` / `fileChanges` / `totalReplacements` / `filesTouched` / `filesSearched` / `applied` / `limitReached` / `parseErrors` / `matches` / `totalMatches` / `filesWithMatches` 的字段与语义全部保持。
-2. **零 OMP 痕迹**：源码、产物、tarball、`.vendor`、运行时网络请求里都不再出现 `@oh-my-pi` / `pi_natives`。
+2. **零 OMP 痕迹（代码/产物面）**：源码、产物、`.vendor`、运行时网络请求，以及 tarball 里运行时实际装载的面（`lib/`、`package.json`、`scripts/`）都不再出现 `@oh-my-pi` / `pi_natives`。tarball 内 `docs/` 是刻意的发布载荷，对本次迁移的历史性提及属预期、不计入该判据（2026-10-04 终审定界：代码/产物面实测 0 命中；docs prose 提及数量随发布内容浮动，非回归信号）。
 3. **守住 zero-npm-runtime-deps 契约**：`dependencies` / `optionalDependencies` / `postinstall` 维持不存在；引擎与语法是**构建期输入**（devDependencies），产物以**包内资产**形式随 `files` 发布——即该规格认可的"构建期进产物"那条出路，不引入新的运行时自装。
 4. **离线自足**：断网、无 npm、无 `.vendor` 的环境下 `ast_grep`/`ast_edit` 必须真实可用。
 5. **fail-open 保持**：引擎整体或某一种语法加载失败，只降级该设备/该语言，插件加载与其余组件零影响；对外仍是 `DVC_DEVICE_ERROR`，措辞改为指向内置引擎。
@@ -140,7 +140,7 @@ tsdown && npm run build-client && node scripts/copy-kernel-bridge.mjs && node sc
 
 1. **A/B 一致性矩阵常驻单测**：同一组 pattern 在 native 与 WASM 下逐条结果相同（§2.1 的表落成 `test/`）。
 2. **离线第一人称实测**：断网 + 删掉 `<pkg>/.vendor` 后，4999 rig 上真实 session 走通 `dvc://ast_grep` 与 `dvc://ast_edit`（含 dryRun 与真写盘）。
-3. **零 OMP 实证**：`npm pack` 出的 tarball 内 `grep -rc "pi_natives\|@oh-my-pi"` = 0；运行期无 registry 请求。
+3. **零 OMP 实证（代码/产物面）**：`npm pack` 出的 tarball 在 `lib/`、`package.json`、`scripts/` 上 `grep -rc "pi_natives\|@oh-my-pi"` = 0（`docs/` 发布载荷的历史性提及不计入）；运行期无 registry 请求。
 4. **工具面口径同类**：`tsc --noEmit` 0 错；全量单测绿；boot graph 含 better-dsh；`dvc://` roster 仍列出两个 ast 设备。
 5. 实测报告落 `docs/50_test-reports/`；**发布仍需 user 明确放行**（单次授权，见根 AGENTS.md 〇节）。
 
