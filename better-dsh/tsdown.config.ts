@@ -21,6 +21,7 @@ const BUNDLED_RUNTIME = [
   'strtok3',
   'token-types',
   'uint8array-extras',
+  'ignore',
   'web-tree-sitter',
   '@ast-grep/wasm',
 ]
