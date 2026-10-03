@@ -31,6 +31,8 @@ export interface SgNode {
   getMatch(name: string): SgNode | undefined
   getMultipleMatches(name: string): SgNode[]
   replace(text: string): unknown
+  /** Apply { start_pos, end_pos, inserted_text } edits (character offsets) and return the rewritten source. */
+  commitEdits(edits: unknown): string
 }
 export interface SgRoot { root(): SgNode }
 
