@@ -12,6 +12,9 @@ documented in [`third_party/README.md`](third_party/README.md).
 | `@deepseek-ai/schemastery` | 3.18.4 | MIT | <https://github.com/deepseek-ai/deepseek-harness> |
 | `@deepseek-ai/cosmokit` | 1.8.5 | MIT | <https://github.com/deepseek-ai/deepseek-harness> |
 | `@standard-schema/spec` | 1.1.0 | MIT | <https://github.com/standard-schema/standard-schema> |
+| `@ast-grep/wasm` | 0.45.3 | MIT | <https://github.com/ast-grep/ast-grep> |
+| `web-tree-sitter` | 0.26.12 | MIT | <https://github.com/tree-sitter/tree-sitter> |
+| `@lumis-sh/wasm-*` (14 grammars) | 0.26.x | MIT | <https://www.npmjs.com/org/lumis-sh> |
 
 `@standard-schema/spec` is a type-only import of `schemastery`'s declarations;
 `cosmokit` is `schemastery`'s sole runtime dependency and is resolved from

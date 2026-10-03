@@ -35,7 +35,7 @@ The system SHALL implement the device write contract: `write dvc://<device>` wit
 - **THEN** the device executes and its result returns to the caller
 
 ### Requirement: ast devices
-The system SHALL provide `ast_edit` (staged structured codemod) and `ast_grep` (structured search) devices, vendored from the omp harness (MIT), backed by the published `@oh-my-pi/pi-natives` binding.
+The system SHALL provide `ast_edit` (staged structured codemod) and `ast_grep` (structured search) devices, backed by the official ast-grep engine compiled to WebAssembly plus an in-package tree-sitter grammar set (`lib/ast-assets/`), with no OMP and no native binary.
 
 #### Scenario: ast_grep search over a workspace file
 - **WHEN** the model writes `dvc://ast_grep` with a pattern and path

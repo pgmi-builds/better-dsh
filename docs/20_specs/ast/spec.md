@@ -12,12 +12,16 @@ The ast device SHALL behave as a stateless function: every call carries its inpu
 - **WHEN** the agent invokes `ast_grep` twice with identical inputs
 - **THEN** both calls parse independently and return identical results, with no cached tree or warm process in between
 
-### Requirement: Lazy natives, zero startup cost
-Parser natives SHALL load lazily on first use (natives-loader); host start and agent session start SHALL NOT spawn anything or load grammar binaries.
+### Requirement: Lazy in-package engine, zero startup cost
+The ast device's WASM engine SHALL load lazily on first use; host start and agent session start SHALL NOT parse anything or load grammar binaries. The engine and its grammars SHALL ship inside the package (`lib/ast-assets/`) and SHALL require no network access, no npm resolution, and no `.vendor` provisioning at call time.
 
 #### Scenario: Cold session
 - **WHEN** a session ends without ever invoking the ast device
-- **THEN** no native library was loaded and no subprocess was created for it
+- **THEN** no WASM engine was instantiated and no grammar binary was loaded
+
+#### Scenario: Offline first use
+- **WHEN** the device is first invoked with no network access and no `.vendor` directory
+- **THEN** the search still completes from the in-package engine
 
 ### Requirement: dvc scheme surface only
 The ast capability SHALL expose exclusively through the `dvc://ast` write/read contract (bare `dvc://` roster lists it; `dvc://ast` read returns its doc; `dvc://ast` write dispatches). No dedicated tool name, no scheme branches in read/grep/glob, and no hook into read/write/edit flows SHALL be added.
