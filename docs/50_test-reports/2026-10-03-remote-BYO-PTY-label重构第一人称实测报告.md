@@ -199,7 +199,7 @@ npx tsc --noEmit      → exit 0（零错误）
 | 锚点 | 值 |
 |---|---|
 | 代码 | `better-dsh` @ HEAD `5aa48ea`（0.2.5-b）+ **更新后的未提交改动**（7 文件，+357/−55：`driver` / `pty-session` / `status` / `tool` + 2 spec，另 root `AGENTS.md`） |
-| 规格 | 新增 **`docs/specs/remote-pty-label/spec.md`**（118 行，8 条 Requirement + 14 个 Scenario）——本轮首次有正式 spec 可对照 |
+| 规格 | 新增 **`docs/specs/remote-pty-label/spec.md`**（**126 行，9 条 Requirement + 17 个 Scenario**）——本轮首次有正式 spec 可对照。_(计数订正：§九 当时为 118 行 / 8 条 / 16 个 Scenario，原稿「14」为笔误；§十 的「roster 活性面按 agent session 作用域」再增 1 条 Requirement + 1 个 Scenario。)_ |
 | 构建产物 | `better-dsh/lib/remote/plugin.js` 18:56:50，md5 **`ca2924024a724b508ca0d37bac9b81c6`** |
 | rig 装入物 | profile 内同路径文件 18:57:11，**md5 相同**（所测即所构） |
 | 实例 | rig 于 19:00 前后重启（`.scratch/dsh-4999-test123.log` 第三个 boot token `XDt0ul…`）；本 session 继续、池从零起 |
