@@ -1,10 +1,15 @@
 /**
  * `dvc://ast_edit` / `dvc://ast_grep` 的结果与选项形状 —— 模型面契约。
- * 字段与语义一字不改（spec §1.1）；唯一变化是后端从先前的 native addon 换成内置
- * WASM 引擎。坐标口径：行列 1-based、偏移 UTF-8 字节（native 口径）。
+ * 原有字段与语义一字不改（spec §1.1）；唯一后端变化是从先前的 native addon 换成内置
+ * WASM 引擎。0.2.6 契约扩展：新增**可选**诊断字段 `patternErrors` /
+ * `pathNotFound` / `overlapping` —— 有意背离 native 的静默行为，规格见 ast spec
+ * "Diagnostic fields (deliberate divergence from the native predecessor)"。
+ * 坐标口径：行列 1-based、偏移 UTF-8 字节（native 口径）。
  *
  * @module dashr/devices/ast/types
  */
+
+/** ast-grep pattern strictness knobs. */
 
 /** ast-grep pattern strictness knobs. */
 export type AstMatchStrictness = 'cst' | 'smart' | 'ast' | 'relaxed' | 'signature' | 'template'
@@ -73,6 +78,10 @@ export interface AstFindResult {
   limitReached: boolean
   /** Non-fatal parse or pattern errors collected during the run. */
   parseErrors?: string[]
+  /** Per-pattern compile failures (multi-root patterns land here): `pattern <index> ("<pattern>"): <message>`; other patterns still match. */
+  patternErrors?: string[]
+  /** True only when the resolved target path does not exist on disk. */
+  pathNotFound?: boolean
 }
 
 /** One textual replacement applied to a file (before/after slice and coordinates). */
@@ -153,4 +162,10 @@ export interface AstReplaceResult {
   limitReached: boolean
   /** Parse or pattern errors when not failing the whole operation. */
   parseErrors?: string[]
+  /** Per-`ops[].pat` compile failures (multi-root patterns land here): `pattern <index> ("<pattern>"): <message>`; the op contributes no edits. */
+  patternErrors?: string[]
+  /** Edits dropped by the overlap guard; present only when > 0. */
+  overlapping?: number
+  /** True only when at least one resolved target root does not exist on disk. */
+  pathNotFound?: boolean
 }

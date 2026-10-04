@@ -2,7 +2,10 @@
  * 结构改写核心。native 在替换模板里做元变量替换（实测 `bar($A)`→`bar(42)`、
  * `bar($_)`→`bar()`、`$$$A` 按源文本逗号拼接），wasm 的 `node.replace` 只收
  * 字面文本，所以替换串由我们展开后再喂给 `commitEdits`。跨 pattern 的重叠
- * 命中在 commit 前被丢弃（计入返回值 `overlapping`，见下方守卫）。
+ * 命中在 commit 前被丢弃（计入返回值 `overlapping`，见下方守卫）。多根节点
+ * pattern 0.2.6 起**有意背离** native 的静默跳过：以 `patternErrors`
+ * （pattern → 底层消息）透出，该 pattern 不产出编辑（ast spec "Diagnostic
+ * fields (deliberate divergence from the native predecessor)"）。
  */
 import type { AstReplaceChange } from '../types.ts'
 import { ensureLanguages, isLanguageAvailable } from './grammars.ts'
@@ -38,7 +41,7 @@ export async function editSource(
   source: string,
   lang: string,
   rewrites: Record<string, string>,
-): Promise<{ changes: AstReplaceChange[], rewritten: string, totalReplacements: number, parseErrorCount: number, overlapping: number }> {
+): Promise<{ changes: AstReplaceChange[], rewritten: string, totalReplacements: number, parseErrorCount: number, overlapping: number, patternErrors?: Record<string, string> }> {
   await ensureLanguages()
   if (!isLanguageAvailable(lang) || Object.keys(rewrites).length === 0) {
     return { changes: [], rewritten: source, totalReplacements: 0, parseErrorCount: 0, overlapping: 0 }
@@ -47,12 +50,18 @@ export async function editSource(
   const root = engine.parse(lang, source).root()
 
   const edits: Array<{ edit: { start_pos: number, end_pos: number, inserted_text: string }, change: AstReplaceChange }> = []
+  const patternErrors: Record<string, string> = {}
   for (const [pattern, template] of Object.entries(rewrites)) {
     let hits: import('./wasm.ts').SgNode[]
     try {
       hits = root.findAll(pattern)
     } catch (error) {
-      if (error instanceof Error && error.message.includes(MULTI_NODE)) continue
+      if (error instanceof Error && error.message.includes(MULTI_NODE)) {
+        // 多根 pattern：非硬语法错——记入 patternErrors、该 pattern 不产出编辑，
+        // 不再静默 continue（硬语法错仍 rethrow → DVC_DEVICE_ERROR）。
+        patternErrors[pattern] = error.message
+        continue
+      }
       throw error
     }
     for (const node of hits) {
@@ -99,5 +108,5 @@ export async function editSource(
   // 不从重放结果反推（多字节字符与相邻替换会互相推走偏移）。
   accepted.sort((a, b) => b.edit.start_pos - a.edit.start_pos)
   const rewritten = root.commitEdits(accepted.map(e => e.edit))
-  return { changes: accepted.map(e => e.change), rewritten, totalReplacements: accepted.length, parseErrorCount: 0, overlapping }
+  return { changes: accepted.map(e => e.change), rewritten, totalReplacements: accepted.length, parseErrorCount: 0, overlapping, ...(Object.keys(patternErrors).length > 0 ? { patternErrors } : {}) }
 }

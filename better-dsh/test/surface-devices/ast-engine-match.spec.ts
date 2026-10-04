@@ -18,16 +18,18 @@ describe('engine/match', () => {
     expect(matches[0]!.metaVariables).toEqual({ A: '[1, ,, 2, ,, 3]' })
   })
 
-  it('turns a multi-root pattern into zero matches, not a throw (native parity)', async () => {
-    // golden 值取自 shipped native addon 的 A/B 实测（spec §2.1）：native 对同样
-    // 输入同样返回 0 命中 —— ast-grep 上游语义，不是 WASM 退化。
+  it('reports a multi-root pattern as a patternError, not a silent empty (deliberate divergence)', async () => {
+    // 0.2.6 契约扩展：native 对这类 pattern 静默 0 命中；本引擎有意背离——
+    // patternError 透出底层消息，命中仍归零（ast spec "Diagnostic fields
+    // (deliberate divergence from the native predecessor)"）。
     // 注：本用例用的是 JSON 多根 pattern（`"alpha": $V`）—— wasm findAll 对它
     // 真实抛 "Multiple AST nodes are detected"，native 实测 0 命中（A/B 复核）。
     // brief 原稿的 TS 用例（`function $N($$$A) { $$$B }` on `function f(a)…`）
     // 在 wasm 与 native（18.2.11）上实测都是 1 命中，不抛错——其 0 值来自
     // spike 用了无函数的源码，不能作为 golden，故换成本等价用例。
-    const { matches } = await findInSource('{"alpha": 1}\n', 'json', '"alpha": $V', {})
+    const { matches, patternError } = await findInSource('{"alpha": 1}\n', 'json', '"alpha": $V', {})
     expect(matches).toEqual([])
+    expect(patternError).toContain('Multiple AST nodes are detected')
   })
   it('reproduces the native zero-hit quirks for C and CSS (upstream ambiguity)', async () => {
     // golden 值取自 shipped native addon 的 A/B 实测（spec §2.1）：native 对同样

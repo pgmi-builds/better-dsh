@@ -32,6 +32,7 @@
 
 ## 1. 目标态（硬契约）
 
+   > **2026-10-04 修订（task-12 诊断字段）**：本条的「一字不动」是 **parity swap 期的冻结口径**——它约束的是 native→WASM 替换本身的行为面 A/B。验收后的 0.2.6 起为可诊断性**有意背离**：`ast_grep`/`ast_edit` 结果新增**可选**诊断字段 `patternErrors` / `pathNotFound` / `overlapping`（native 对这三种失败同样静默，见 2026-10-04 实测报告 A1/A3/A6）。这是 spec'd 的契约扩展（ast/dvc spec 新增 Requirement "Diagnostic fields (deliberate divergence from the native predecessor)"），不属于本规格意义上的回归；既有字段名与语义仍一字不动。
 1. **模型面契约一字不动**：`ast_grep` 的 `{patterns, path, offset, limit, includeMeta}`、`ast_edit` 的 `{ops:[{pat,out}], paths, dryRun}`，以及结果里 `changes` / `fileChanges` / `totalReplacements` / `filesTouched` / `filesSearched` / `applied` / `limitReached` / `parseErrors` / `matches` / `totalMatches` / `filesWithMatches` 的字段与语义全部保持。
 2. **零 OMP 痕迹（代码/产物面）**：源码、产物、`.vendor`、运行时网络请求，以及 tarball 里运行时实际装载的面（`lib/`、`package.json`、`scripts/`）都不再出现 `@oh-my-pi` / `pi_natives`。tarball 内 `docs/` 是刻意的发布载荷，对本次迁移的历史性提及属预期、不计入该判据（2026-10-04 终审定界：代码/产物面实测 0 命中；docs prose 提及数量随发布内容浮动，非回归信号）。
 3. **守住 zero-npm-runtime-deps 契约**：`dependencies` / `optionalDependencies` / `postinstall` 维持不存在；引擎与语法是**构建期输入**（devDependencies），产物以**包内资产**形式随 `files` 发布——即该规格认可的"构建期进产物"那条出路，不引入新的运行时自装。

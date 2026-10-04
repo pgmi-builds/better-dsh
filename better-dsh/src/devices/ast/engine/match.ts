@@ -1,7 +1,8 @@
 /**
  * pattern 编译与命中映射。wasm 的 `findAll` 在多根节点 pattern 上会抛
- * "Multiple AST nodes are detected"；native 实测对这类 pattern 返回 0 命中
- * 且不写 parseErrors，因此这里捕获后归零（spec §3）。
+ * "Multiple AST nodes are detected"；native（含旧实现）对这类 pattern 静默归零，
+ * 0.2.6 起**有意背离**：捕获后以 `patternError` 透出底层消息、命中归零
+ * （ast spec "Diagnostic fields (deliberate divergence from the native predecessor)"）。
  * 坐标换算：wasm 给 0-based 行列 + 字符偏移；native 契约是 1-based 行列 +
  * UTF-8 字节偏移。
  */
@@ -56,7 +57,7 @@ export async function findInSource(
   lang: string,
   pattern: string,
   options: { includeMeta?: boolean },
-): Promise<{ matches: AstFindMatch[], unavailable: boolean }> {
+): Promise<{ matches: AstFindMatch[], unavailable: boolean, patternError?: string }> {
   await ensureLanguages()
   if (!isLanguageAvailable(lang)) return { matches: [], unavailable: true }
   const engine = await astEngine()
@@ -65,7 +66,10 @@ export async function findInSource(
   try {
     hits = root.findAll(pattern)
   } catch (error) {
-    if (error instanceof Error && error.message.includes(MULTI_NODE)) return { matches: [], unavailable: false }
+    if (error instanceof Error && error.message.includes(MULTI_NODE)) {
+      // 多根 pattern：非硬语法错——归零命中并把底层消息透给设备层组装 patternErrors。
+      return { matches: [], unavailable: false, patternError: error.message }
+    }
     throw error
   }
   return {

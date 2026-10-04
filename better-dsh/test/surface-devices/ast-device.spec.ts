@@ -254,6 +254,85 @@ describe('dvc://ast_edit (wasm engine)', () => {
   })
 })
 
+describe('ast device diagnostic fields (0.2.6 deliberate divergence)', () => {
+  it('ast_grep surfaces a multi-root pattern as patternErrors with zero matches', async () => {
+    registerAstDevices()
+    writeFileSync(path.join(fixtureDir, 'a.json'), '{"alpha": 1}\n')
+
+    const result = (await dispatchDvcWrite(
+      'dvc://ast_grep',
+      JSON.stringify({ patterns: ['"alpha": $V'], path: fixtureDir }),
+    )) as AstFindResult
+
+    // native swallowed this into "0 matches"; the divergence reports it.
+    expect(result.matches).toEqual([])
+    expect(result.totalMatches).toBe(0)
+    expect(result.patternErrors).toHaveLength(1)
+    expect(result.patternErrors![0]).toContain('pattern 0 (""alpha": $V"): ')
+    expect(result.patternErrors![0]).toContain('Multiple AST nodes are detected')
+  })
+
+  it('ast_edit surfaces a multi-root op in patternErrors while the healthy op still edits', async () => {
+    registerAstDevices()
+    writeFileSync(path.join(fixtureDir, 'a.json'), '{"alpha": 1}\n')
+    writeFileSync(path.join(fixtureDir, 'a.ts'), fixtureSource)
+
+    const result = (await dispatchDvcWrite(
+      'dvc://ast_edit',
+      JSON.stringify({
+        ops: [
+          { pat: '"alpha": $V', out: '"alpha": 9' },
+          { pat: 'greet', out: 'salute' },
+        ],
+        paths: [fixtureDir],
+      }),
+    )) as AstReplaceResult
+
+    // the multi-root op fails on BOTH files (json and ts) — deduped to one entry.
+    expect(result.patternErrors).toHaveLength(1)
+    expect(result.patternErrors![0]).toContain('pattern 0 (""alpha": $V"): ')
+    // the failing op contributes no edits; the healthy op's edits still return.
+    expect(result.totalReplacements).toBeGreaterThan(0)
+    expect(result.changes.every((change) => change.after === 'salute')).toBe(true)
+  })
+
+  it('ast_edit reports overlapping when the guard drops a shadowed edit (first op wins)', async () => {
+    registerAstDevices()
+    const file = path.join(fixtureDir, 'a.ts')
+    writeFileSync(file, 'const a = foo(1)\n')
+
+    const result = (await dispatchDvcWrite(
+      'dvc://ast_edit',
+      JSON.stringify({
+        ops: [
+          { pat: 'foo($A)', out: 'bar($A)' },
+          { pat: 'foo', out: 'baz' },
+        ],
+        paths: [file],
+        dryRun: false,
+      }),
+    )) as AstReplaceResult
+
+    expect(result.overlapping).toBe(1)
+    expect(result.totalReplacements).toBe(1)
+    expect(result.changes).toHaveLength(1)
+    expect(result.changes[0]?.after).toBe('bar(1)')
+    expect(readFileSync(file, 'utf8')).toBe('const a = bar(1)\n')
+  })
+
+  it('ast_grep flags a nonexistent path with pathNotFound and zero files searched', async () => {
+    registerAstDevices()
+    const result = (await dispatchDvcWrite(
+      'dvc://ast_grep',
+      JSON.stringify({ patterns: ['foo($A)'], path: path.join(fixtureDir, 'missing') }),
+    )) as AstFindResult
+
+    expect(result.pathNotFound).toBe(true)
+    expect(result.filesSearched).toBe(0)
+    expect(result.matches).toEqual([])
+  })
+})
+
 describe('ast device failure modes', () => {
   it('rejects with DVC_DEVICE_ERROR for an unsupported pattern (engine throws through)', async () => {
     registerAstDevices()

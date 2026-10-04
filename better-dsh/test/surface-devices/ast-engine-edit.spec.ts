@@ -16,15 +16,18 @@ describe('engine/edit', () => {
     expect(lit.changes[0]!.after).toBe('bar(1)')
   })
 
-  it('records a multi-root pattern as zero replacements, no throw', async () => {
-    // 用 JSON 多根 pattern（`"alpha": $V`）：wasm findAll 对它真实抛
-    // "Multiple AST nodes are detected"，native astEdit 实测 totalReplacements=0
-    // 且无 parseErrors（spike editprobe.mjs + 本轮 A/B 复核）。
+  it('records a multi-root pattern in patternErrors, no throw', async () => {
+    // 0.2.6 契约扩展：多根 pattern（`"alpha": $V`）不再静默 continue——
+    // patternErrors 记 pattern → 底层消息，该 pattern 不产出编辑（ast spec
+    // "Diagnostic fields (deliberate divergence from the native predecessor)"）。
+    // wasm findAll 对它真实抛 "Multiple AST nodes are detected"，native astEdit
+    // 实测 totalReplacements=0 且无 parseErrors（spike editprobe.mjs + A/B 复核）。
     // brief 原稿的 TS 用例（`function $N($$$A) { $$$B }` on `function f(a)…`）
     // 在 wasm 与 native（18.2.11）上实测都是 1 次替换、不抛错——其 0 值来自
     // spike 用了无函数的源码，不能作为 golden，故换成本等价用例。
     const r = await editSource('{"alpha": 1}\n', 'json', { '"alpha": $V': '"alpha": 9' })
     expect(r.totalReplacements).toBe(0)
+    expect(r.patternErrors?.['"alpha": $V']).toContain('Multiple AST nodes are detected')
   })
 
   it('returns a rewritten string with every matched site replaced (multi-edit golden)', async () => {

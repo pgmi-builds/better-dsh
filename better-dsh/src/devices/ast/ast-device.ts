@@ -17,14 +17,16 @@
  * `findInSource`/`editSource` per file, re-owning every reported path to a
  * cwd-relative POSIX display path. A language whose grammar failed to load is
  * skipped and recorded into `parseErrors`; an engine-level failure surfaces as
- * the dvc layer's `DVC_DEVICE_ERROR`.
- *
+ * the dvc layer's `DVC_DEVICE_ERROR`. Failure modes the native predecessor
+ * swallowed silently are surfaced as optional diagnostic fields (0.2.6 contract
+ * addition, deliberate divergence): `patternErrors` (multi-root patterns),
+ * `pathNotFound`, and `ast_edit`'s `overlapping` drop count.
  * `registerAstDevices` is the S10 wiring seam; `index.ts` is not touched.
  *
  * @module dashr/devices/ast/ast-device
  */
 
-import { readFileSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import * as path from 'node:path'
 
 import { registerDvcDevice } from '../../url-schemes/handlers/dvc.ts'
@@ -152,6 +154,8 @@ async function executeAstEdit(args: unknown, ctx?: unknown): Promise<AstReplaceR
     throw new Error('ast_edit: `ops` must be a non-empty array of {pat, out} objects')
   }
   const rewrites: Record<string, string> = {}
+  // 诊断字段用：pattern → ops[] 下标（重复 pattern 后 op 胜，下标随最后一次 set）。
+  const opIndexOf = new Map<string, number>()
   rawOps.forEach((rawOp, index) => {
     if (rawOp === null || typeof rawOp !== 'object' || Array.isArray(rawOp)) {
       throw new Error(`ast_edit: ops[${index}] must be a {pat, out} object`)
@@ -165,14 +169,19 @@ async function executeAstEdit(args: unknown, ctx?: unknown): Promise<AstReplaceR
     }
     // Object.fromEntries semantics: a repeated pattern's later op wins.
     rewrites[op.pat] = op.out
+    opIndexOf.set(op.pat, index)
   })
 
   const targets = stringArray(record.paths, 'paths', 'ast_edit').map((entry) => resolveTarget(entry, cwd))
   const dryRun = optionalBoolean(record.dryRun, 'dryRun', 'ast_edit') ?? true
-
+  // 诊断字段：任一解析后的 target root 不在盘上即标 true（native/旧实现静默）。
+  const pathNotFound = targets.some((target) => !existsSync(target.root))
   const changes: AstReplaceChange[] = []
   const fileCounts = new Map<string, number>()
   const parseErrors: string[] = []
+  const patternErrors: string[] = []
+  const patternErrorSeen = new Set<string>()
+  let overlapping = 0
   let totalReplacements = 0
   let filesSearched = 0
   let limitReached = false
@@ -193,6 +202,13 @@ async function executeAstEdit(args: unknown, ctx?: unknown): Promise<AstReplaceR
         source = readFileSync(file, 'utf8')
       } catch { continue }
       const result = await editSource(source, lang, rewrites)
+      for (const [pattern, message] of Object.entries(result.patternErrors ?? {})) {
+        // 同一 pattern 在每个文件上都会失败——按 pattern 去重，只收首条。
+        if (patternErrorSeen.has(pattern)) continue
+        patternErrorSeen.add(pattern)
+        patternErrors.push(`pattern ${opIndexOf.get(pattern)!} ("${pattern}"): ${message}`)
+      }
+      overlapping += result.overlapping
       if (result.parseErrorCount > 0) {
         parseErrors.push(`${rel(file, cwd)}: ${result.parseErrorCount} parse error(s)`)
       }
@@ -216,6 +232,9 @@ async function executeAstEdit(args: unknown, ctx?: unknown): Promise<AstReplaceR
     applied,
     limitReached,
     ...(parseErrors.length > 0 ? { parseErrors } : {}),
+    ...(patternErrors.length > 0 ? { patternErrors } : {}),
+    ...(overlapping > 0 ? { overlapping } : {}),
+    ...(pathNotFound ? { pathNotFound: true } : {}),
   }
 }
 
@@ -231,6 +250,8 @@ async function executeAstGrep(args: unknown, ctx?: unknown): Promise<AstFindResu
     throw new Error('ast_grep: `path` must be a string')
   }
   const target = resolveTarget(rawPath !== undefined && rawPath.length > 0 ? rawPath : '.', cwd)
+  // 诊断字段：解析后的 target root 不在盘上即标 true（与 0 命中可区分）。
+  const pathNotFound = !existsSync(target.root)
   const offset = optionalCount(record.offset, 'offset', 'ast_grep')
   const limit = optionalCount(record.limit, 'limit', 'ast_grep')
   const includeMeta = optionalBoolean(record.includeMeta, 'includeMeta', 'ast_grep')
@@ -238,6 +259,8 @@ async function executeAstGrep(args: unknown, ctx?: unknown): Promise<AstFindResu
   const walked = await walkSources(target.root, { glob: target.glob, maxFiles: MAX_FILES })
   const matches: AstFindMatch[] = []
   const parseErrors: string[] = []
+  const patternErrors: string[] = []
+  const patternErrorSeen = new Set<number>()
   let filesWithMatches = 0
   for (const file of walked.files) {
     const lang = languageForPath(file)
@@ -253,8 +276,13 @@ async function executeAstGrep(args: unknown, ctx?: unknown): Promise<AstFindResu
     // Multi-pattern OR: each pattern runs over the same source, results merge
     // in document order within the file (native ran one combined query).
     const perFile: AstFindMatch[] = []
-    for (const pattern of patterns) {
+    for (const [index, pattern] of patterns.entries()) {
       const found = await findInSource(source, lang, pattern, { includeMeta })
+      if (found.patternError !== undefined && !patternErrorSeen.has(index)) {
+        // 同一 pattern 在每个文件上都会失败——按下标去重，只收首条；其余 pattern 照常命中。
+        patternErrorSeen.add(index)
+        patternErrors.push(`pattern ${index} ("${pattern}"): ${found.patternError}`)
+      }
       perFile.push(...found.matches)
     }
     if (perFile.length === 0) continue
@@ -273,6 +301,8 @@ async function executeAstGrep(args: unknown, ctx?: unknown): Promise<AstFindResu
     filesSearched: walked.files.length,
     limitReached: totalMatches > paged.length,
     ...(parseErrors.length > 0 ? { parseErrors } : {}),
+    ...(patternErrors.length > 0 ? { patternErrors } : {}),
+    ...(pathNotFound ? { pathNotFound: true } : {}),
   }
 }
 
@@ -285,7 +315,7 @@ export function registerAstDevices(registry: DvcRegistry = { registerDvcDevice }
 /** Roster summaries for the device nameplate — one line per device. */
 export const summaries = {
   ast_edit:
-    'AST-aware structural rewrite: {ops: [{pat, out}], paths: string[], dryRun?: boolean} — ast-grep patterns; dryRun defaults true, set false to write files',
+    'AST-aware structural rewrite: {ops: [{pat, out}], paths: string[], dryRun?: boolean} — ast-grep patterns; dryRun defaults true, set false to write files; performs no workspace boundary check (boundary is the approval/policy layer) and writes whatever paths it is given',
   ast_grep:
-    'AST pattern search: {patterns: string[], path?: string, offset?: number, limit?: number, includeMeta?: boolean} — returns structured matches with optional meta variables',
+    'AST pattern search: {patterns: string[], path?: string, offset?: number, limit?: number, includeMeta?: boolean} — returns structured matches with optional meta variables; performs no workspace boundary check (boundary is the approval/policy layer)',
 }

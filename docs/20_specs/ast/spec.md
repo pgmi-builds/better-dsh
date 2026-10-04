@@ -36,3 +36,22 @@ The ast device SHALL provide structural matching/rewriting only. It makes no cla
 #### Scenario: No semantic answers
 - **WHEN** the agent asks the ast device for type information or project diagnostics
 - **THEN** no such capability exists on the device surface (the call is not offered)
+
+### Requirement: Diagnostic fields (deliberate divergence from the native predecessor)
+The ast devices SHALL surface failure modes that the native predecessor swallowed silently (0.2.6 contract addition). `ast_grep` results SHALL carry `patternErrors?: string[]` — present (non-empty) iff at least one supplied pattern failed to compile as a single-root AST node, one entry per failing pattern formatted `pattern <index> ("<pattern text>"): <underlying message>`; multi-root patterns land here and matches from the remaining patterns still return — and `pathNotFound?: boolean` — `true` only when the resolved target path does not exist on disk, absent otherwise. `ast_edit` results SHALL carry the same `patternErrors` semantics over `ops[].pat` (a failing op contributes no edits), `overlapping?: number` — the count of edits dropped by the overlap guard, present only when greater than zero — and the same `pathNotFound` semantics (true when at least one resolved target root does not exist on disk). Patterns that fail with a hard syntax compile error SHALL still throw through as `DVC_DEVICE_ERROR`. The devices perform no workspace boundary check — the boundary is the approval/policy layer — and `ast_edit` writes whatever paths it is given. All pre-existing fields keep their names and semantics.
+
+#### Scenario: Multi-root pattern is reported, not swallowed
+- **WHEN** `ast_grep` runs a multi-root pattern (e.g. `"alpha": $V`) that fails to compile as a single-root AST node
+- **THEN** the result carries `patternErrors` with one entry naming the pattern index, the pattern text, and the underlying message, and zero matches from that pattern — instead of an indistinguishable empty result
+
+#### Scenario: Missing path is distinguishable from zero matches
+- **WHEN** the resolved target path does not exist on disk
+- **THEN** the result carries `pathNotFound: true` with `filesSearched: 0`, so "nothing there" is no longer confused with "pattern matched nothing"
+
+#### Scenario: Overlap-guard drops are counted
+- **WHEN** `ast_edit` ops produce edits that overlap an already accepted edit
+- **THEN** the first-registered op wins, the shadowed edit is dropped, and the result reports the dropped-edit count in `overlapping` instead of dropping it silently
+
+#### Scenario: Hard syntax errors still throw
+- **WHEN** a pattern fails with a hard syntax compile error (e.g. `$$$`)
+- **THEN** the device throws and the caller receives the structured `DVC_DEVICE_ERROR`, exactly as before
