@@ -1,6 +1,6 @@
-# better-dsh 0.2.6 发布验收报告（2026-10-04，rig 4998）
+# better-dsh 0.2.5-d 发布验收报告（2026-10-04，rig 4998）
 
-- **被测物**: `better-dsh@0.2.6`（commit `4981254`，`feat(ast): surface silent failure modes as diagnostic fields`）
+- **被测物**: `better-dsh@0.2.5-d`（commit `4981254`，`feat(ast): surface silent failure modes as diagnostic fields`）
 - **环境**: 交付形态 tarball 安装位 rig，端口 **4998**，`DSH_HOME=.test/home/compat`，profile `web`；驱动 = 第一人称真实 session（HTTP RPC 两段形，与《2026-10-03-ast-engine-deomp-4999实测报告》§四/§五 同款 password-gate + `/api` 信封）
 - **发布状态**: **未发布**。`npm publish` 需 user 单独明确放行（AGENTS §〇 红线）；本报告 §五 给出 pre-flight checklist 与 `--dry-run` 证据，发布动作不在本任务内。
 
@@ -8,17 +8,17 @@
 
 ## 0. 一句话
 
-0.2.6 在 4998 rig 以交付形态（tarball remove→add）完成第一人称 live 验收：诊断契约三字段 `pathNotFound` / `overlapping` / `patternErrors` 全部在真实 session 里以原样 JSON 落实，`.vendor` 全程不重建、日志零 OMP/registry 行；一处处方偏差（任务给的"旧静默 pattern"实为单根 pattern，不触发 `patternErrors`）已用真 multi-root pattern 补测闭环，并给出引擎级根因。
+0.2.5-d 在 4998 rig 以交付形态（tarball remove→add）完成第一人称 live 验收：诊断契约三字段 `pathNotFound` / `overlapping` / `patternErrors` 全部在真实 session 里以原样 JSON 落实，`.vendor` 全程不重建、日志零 OMP/registry 行；一处处方偏差（任务给的"旧静默 pattern"实为单根 pattern，不触发 `patternErrors`）已用真 multi-root pattern 补测闭环，并给出引擎级根因。
 
-## 1. 0.2.6 内容物
+## 1. 0.2.5-d 内容物
 
-### 1.1 引擎替换回顾（0.2.5 系已完成，0.2.6 继承）
+### 1.1 引擎替换回顾（0.2.5 系已完成，0.2.5-d 继承）
 
 - 原生 addon（`@oh-my-pi` / pi_natives，静默供给）→ **包内 WASM ast-grep 引擎**：`lib/ast-assets/` 16 文件（ast-grep.wasm + tree-sitter.wasm + 14 语言 grammar wasm），冷启动零外部供给——`.vendor` 目录全程不出现，rig 日志 `omp|oh-my-pi|registry` **0 命中**（本轮全文件 grep，40 行）。
 - 交付物延续 docs-packaging-trim 形态：tarball 5.1 MB / **733 文件**（shasum `5b3e3e35e25aaa34ef160035e027767975912217`）。
 - 引擎行为面已被 0.2.5 系列锁定：对齐 pattern 34/8/11（4999 首测 §4.4 / 4998 复测 §4.8.3 逐字段一致）、dryRun 默认拦截、真写盘-回滚闭环、14 语言 match matrix（`a2d32a5`）。
 
-### 1.2 诊断契约增量（0.2.6 本体 = commit `4981254`）
+### 1.2 诊断契约增量（0.2.5-d 本体 = commit `4981254`）
 
 对原生前辈三类静默失败（契约报告 A1/A3/A6）的**有意分歧**，契约见 `docs/20_specs/ast/spec.md` §41：
 
@@ -32,9 +32,9 @@
 
 ## 2. 安装与站点证据
 
-- 构建：`npm run build`（tsdown + build-client + kernel-bridge + ast-assets，输出 `ast-assets: 16 files, 14.4 MB`）→ `npm pack` → `better-dsh-0.2.6.tgz`。
-- 安装（file: tarball 不刷新，**remove→add 一个来回**）：`plugin --profile web remove better-dsh` → `add …/better-dsh-0.2.6.tgz` → `Packages: +1`（pnpm 11.7.0）→ `PORT=4998 bash .test/seed/test123/start.sh`（unit `dsh-4998-test123` + `test123-lan-4998-relay`）。
-- 安装位核验：`package.json` version → **`"0.2.6"`**；`lib/ast-assets` → **16 文件**；`.vendor` → **ABSENT**（`ls` exit 2）。profile `package.json` 依赖行 `file:/home/u1/workspaces/dashr/better-dsh/better-dsh-0.2.6.tgz`。
+- 构建：`npm run build`（tsdown + build-client + kernel-bridge + ast-assets，输出 `ast-assets: 16 files, 14.4 MB`）→ `npm pack` → `better-dsh-0.2.5-d.tgz`。
+- 安装（file: tarball 不刷新，**remove→add 一个来回**）：`plugin --profile web remove better-dsh` → `add …/better-dsh-0.2.5-d.tgz` → `Packages: +1`（pnpm 11.7.0）→ `PORT=4998 bash .test/seed/test123/start.sh`（unit `dsh-4998-test123` + `test123-lan-4998-relay`）。
+- 安装位核验：`package.json` version → **`"0.2.5-d"`**；`lib/ast-assets` → **16 文件**；`.vendor` → **ABSENT**（`ls` exit 2）。profile `package.json` 依赖行 `file:/home/u1/workspaces/dashr/better-dsh/better-dsh-0.2.5-d.tgz`。
 - 站点：password gate `POST / -d password=admin` → **303** + `dsh-auth-<hash>` cookie（HttpOnly）；boot graph 含 `"id":"better-dsh"`；`/plugins/??better-dsh/client.js&rev=4b9802368848` → **200**（29,700 B，= 安装位 `lib/client/index.js` 29,633 B + 服务端追加 sourceMappingURL 行，`cmp` 前缀逐字节一致）。
 
 ## 3. 第一人称 live 实测（真实 session，六项）
@@ -59,7 +59,7 @@
 }
 ```
 
-**无 `patternErrors`，且这是 0.2.6 的正确行为**：该 pattern 在 WASM ast-grep 里编译为**单根**（`export function $NAME($$$ARGS)` 解析为一个合法但永不匹配的声明节点），不抛 `Multiple AST nodes are detected`，因此不属于 patternErrors 契约面。独立对拍：本地以 0.2.6 源码（vitest 直驱 `dispatchDvcWrite`，同 pattern 同形 fixture）返回**逐字段一致**的静默形态——rig 与源码零漂移。旧契约报告 §7 把此 pattern 的 0.2.5-c 静默归因为 MULTI_NODE 吞噬，系排除法推断，对 WASM 引擎不成立（真正的静默机制是该 pattern 单根但结构不全，永不匹配）。**规避口径不变：pattern 必须写完整节点**。
+**无 `patternErrors`，且这是 0.2.5-d 的正确行为**：该 pattern 在 WASM ast-grep 里编译为**单根**（`export function $NAME($$$ARGS)` 解析为一个合法但永不匹配的声明节点），不抛 `Multiple AST nodes are detected`，因此不属于 patternErrors 契约面。独立对拍：本地以 0.2.5-d 源码（vitest 直驱 `dispatchDvcWrite`，同 pattern 同形 fixture）返回**逐字段一致**的静默形态——rig 与源码零漂移。旧契约报告 §7 把此 pattern 的 0.2.5-c 静默归因为 MULTI_NODE 吞噬，系排除法推断，对 WASM 引擎不成立（真正的静默机制是该 pattern 单根但结构不全，永不匹配）。**规避口径不变：pattern 必须写完整节点**。
 
 ### 3.3 (a2) 补充：真 multi-root pattern → `patternErrors` live（A1 分歧验收）
 
@@ -176,15 +176,15 @@ export function overlapTarget(x: number): number { /*op1-applied*/ return x * 2 
 按 AGENTS §〇：a（本报告第一人称实测）✅ → b（报告落盘）✅ → c（**user 明确放行，待办**）→ d（publish）。当前到 b 为止。
 
 - [x] **registry 目标**: `npm config get registry` → `https://registry.npmjs.org/`；whoami → `pgmi-builds`
-- [x] **版本**: `package.json` `name: better-dsh`, `version: 0.2.6`（与安装位一致）
+- [x] **版本**: `package.json` `name: better-dsh`, `version: 0.2.5-d`（与安装位一致）
 - [x] **files 列表**: `lib`、`THIRD_PARTY_NOTICES.md`、`docs`、`dsh-docs`、`cordis.patch.yml`、`eval-description.md`、`url-schemes-instruction.md`、`scripts/kernel-provision.mjs`
 - [x] **`npm publish --dry-run`**（未发布，输出尾 8 行原样）：
 
 ```text
 npm notice === Tarball Details ===
 npm notice name:          better-dsh
-npm notice version:       0.2.6
-npm notice filename:      better-dsh-0.2.6.tgz
+npm notice version:       0.2.5-d
+npm notice filename:      better-dsh-0.2.5-d.tgz
 npm notice package size:  5.1 MB
 npm notice unpacked size:  27.0 MB
 npm notice shasum:        5b3e3e35e25aaa34ef160035e027767975912217
@@ -194,11 +194,11 @@ npm notice Publishing to https://registry.npmjs.org/ with tag latest and default
 ```
 
 - [x] 干跑确认：尾行带 `(dry-run)`，registry 无任何足迹。
-- [ ] **user 放行后**：`npm publish`（真实动作）→ tag `v0.2.6`（GitHub 侧可逆，随发布节奏）。
+- [ ] **user 放行后**：`npm publish`（真实动作）→ tag `v0.2.5-d`（GitHub 侧可逆，随发布节奏）。
 
 ## 6. 偏差与关注项
 
-1. **处方 (a) 预期未按字面达成（已闭环）**：任务处方的 `export function $NAME($$$ARGS)` 不触发 `patternErrors`——单根 pattern 永不匹配≠multi-root 编译失败；本地 0.2.6 源码对拍逐字段一致，判定为**处方对旧 §7 根因推断的继承误差**，非产品缺陷。A1 验收由 (a2) 真 multi-root pattern 补齐。建议：后续文档/指引里把"完整节点"口径与"multi-root 才报 patternErrors"口径并列写清（单根残缺 pattern 仍是静默 0 命中，属引擎语义）。
+1. **处方 (a) 预期未按字面达成（已闭环）**：任务处方的 `export function $NAME($$$ARGS)` 不触发 `patternErrors`——单根 pattern 永不匹配≠multi-root 编译失败；本地 0.2.5-d 源码对拍逐字段一致，判定为**处方对旧 §7 根因推断的继承误差**，非产品缺陷。A1 验收由 (a2) 真 multi-root pattern 补齐。建议：后续文档/指引里把"完整节点"口径与"multi-root 才报 patternErrors"口径并列写清（单根残缺 pattern 仍是静默 0 命中，属引擎语义）。
 2. **rig LLM 路由欠费**：三条既有路由 402 QUOTA；本轮以 `zai-plan`（Anthropic 端点）provider 行修复并留作 rig 默认（`agent-default-model` 现为 `zai-plan/glm-4.7`，原 `zai/glm-5.3-flash` 已欠费不可用）。rig home patch 为测试资产，该行建议保留至 paas 路由充值。
 3. **`filesSearched` 双形态口径**（旧 A4，未变）：目录遍历跳过非代码文件、显式单文件计入——§3.2（11）与 §3.6（1）的数字口径不同属设计内。
 4. 首个 QUOTA 失败 turn 的会话（`ac7f2999`/`2ca4edea`）留在 rig home sessions 内，随 home 复用自然沉淀。
@@ -209,8 +209,12 @@ npm notice Publishing to https://registry.npmjs.org/ with tag latest and default
 cd ~/workspaces/dashr/better-dsh && npm run build && npm pack
 cd ~/workspaces/dashr
 DSH_HOME=$PWD/.test/home/compat node upstream/deepseek-harness/apps/cli/lib/bin.js plugin --profile web remove better-dsh
-DSH_HOME=$PWD/.test/home/compat node upstream/deepseek-harness/apps/cli/lib/bin.js plugin --profile web add $PWD/better-dsh/better-dsh-0.2.6.tgz
+DSH_HOME=$PWD/.test/home/compat node upstream/deepseek-harness/apps/cli/lib/bin.js plugin --profile web add $PWD/better-dsh/better-dsh-0.2.5-d.tgz
 PORT=4998 bash .test/seed/test123/start.sh
 # 认证 + RPC 两段形：POST /（password gate 铸 cookie）→ /api/session/create → /api/session/selectModel（zai-plan/glm-4.7）→ /api/session/prompt（queue）
 # 会话日志：.test/home/compat/sessions/--home-u1-workspaces-dashr--/session-f4122ee1-…/session.v4.jsonl.zstd（seq 21/28/35/42/49/56/74）
 ```
+
+## 0.2.5-d 重打包说明（无重验）
+
+版本串按 user 指令从 0.2.6 改为 0.2.5-d。**未重跑 rig 验证**：改动仅为 `package.json` 的 `version` 字段，不触及任何已验证面。等价性证据：重打包后 tgz 内 `lib/` 65 个文件与 0.2.6 验证轮的构建产物 sha256 逐文件一致（清单比对），即发布的就是验证过的那个产物。
