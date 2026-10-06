@@ -54,6 +54,27 @@ better-dsh 从 bundles 摘掉、node_modules 移除）；"回到干净"用上面
 
 ## 已知坑（2026-09-24 实测）
 
+### Authentication-only 地址准入测试
+
+`0.2.5-e` 起，可在 test profile 的 `cordis.patch.yml` 开启：
+
+```yaml
+- id: dashr-web-trust
+  name: better-dsh/web-trust
+  config:
+    trustAllHosts: true
+```
+
+随后用 `TRUSTED_HOSTS='' bash .test/seed/test123/start.sh` 启动，不传 CLI
+信任名单，也不向进程传入 `DSH_TRUSTED_HOSTS`。仍监听 loopback，LAN 仍走原中继。
+未开启此模式的原生/clean rig，启动脚本默认通过 CLI 放行 loopback、LAN 和测试域名。
+前端与服务端同时使用 authentication-only 模式，cookie 认证仍由原生 connection 执行。
+要测试原生 token URL，另将 test profile 的 `dashr-web-password` 行设为 `disabled: true`；
+这只选择测试登录入口，不改变生产配置。完整行为见
+[`authentication-only-web-admission`](../../../docs/specs/authentication-only-web-admission/spec.md)。
+
+### 历史安装与页面注意事项
+
 - **file: tarball 内容更新后 pnpm 不自动刷新**（同版本同路径 → `added 0`）：
   改了包必须 remove → add 一个来回，别信"add 幂等刷新"。
 - **首启有 Internal Testing Notice 公告**，自动化探针要先关 dialog。

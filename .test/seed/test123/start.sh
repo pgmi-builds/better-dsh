@@ -7,6 +7,7 @@
 #         PORT=4988 bash .test/seed/test123/start.sh       # override
 #         LAN=0 bash .test/seed/test123/start.sh           # skip the LAN relay (default on)
 #         RIG_HOME=clean bash .test/seed/test123/start.sh  # boot the disposable clean home
+#         TRUSTED_HOSTS='' bash .test/seed/test123/start.sh # omit the CLI allowlist for authentication-only mode
 #
 # Shape (see README.md): DSH_HOME=.test/home/${RIG_HOME:-compat}, profile `web`.
 # compat = the long-lived default home (user data is a test asset — sessions,
@@ -36,6 +37,13 @@ HOME_DIR="$REPO/.test/home/$RIG_HOME"
 LOG="$REPO/.scratch/dsh-${PORT}-test123.log"
 NODE_BIN="$(which node)"
 LAN_IP=$(hostname -I | awk '{print $1}')
+# Native/clean rigs still need an allowlist. Authentication-only profiles can
+# explicitly leave it empty; listening and the LAN relay do not change.
+read -r -a TRUST_HOSTS <<< "${TRUSTED_HOSTS-127.0.0.1 $LAN_IP test.pc.randomhash.app pc.randomhash.app}"
+TRUST_ARGS=()
+if [ "${#TRUST_HOSTS[@]}" -gt 0 ]; then
+  TRUST_ARGS=(--trusted-host "${TRUST_HOSTS[@]}")
+fi
 
 mkdir -p "$REPO/.scratch"
 
@@ -136,11 +144,10 @@ fi
 systemd-run --user --unit="$UNIT" \
   -p WorkingDirectory="$HARNESS" \
   -p Environment="DSH_HOME=$HOME_DIR" \
-  -p "Environment=\"DSH_TRUSTED_HOSTS=test.pc.randomhash.app pc.randomhash.app ${LAN_IP}\"" \
-  -p 'UnsetEnvironment=DISPLAY WAYLAND_DISPLAY' \
+  -p 'UnsetEnvironment=DISPLAY WAYLAND_DISPLAY DSH_TRUSTED_HOSTS' \
   -p StandardOutput=append:"$LOG" \
   -p StandardError=append:"$LOG" \
-  "$NODE_BIN" "$HARNESS_LIB_BIN" web --no-open --port "$PORT"
+  "$NODE_BIN" "$HARNESS_LIB_BIN" web --no-open --port "$PORT" "${TRUST_ARGS[@]}"
 
 ok=""
 for _ in $(seq 1 30); do

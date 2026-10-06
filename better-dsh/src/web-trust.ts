@@ -24,6 +24,11 @@
  * `__DSH_TRANSPORT__` (a worker shell that owns a real transport) is
  * never overwritten.
  *
+ * `trustAllHosts: true` is the authentication-only deployment mode: a
+ * reversible Connection admission delegate removes Host/Origin fencing while
+ * keeping the native cookie verifier, and the page owns the Host regardless
+ * of its hostname. The default remains the declared-authorities mode.
+ *
  * `dashr-mobile` — mobile page config (`window.__DASHR_MOBILE__`): the
  * dual-half plugin's client half carries no loader config, so the resolved
  * mobile thresholds travel to the page through this global; the client
@@ -43,6 +48,7 @@ import z from '#schemastery'
 // IndexInjection shape from the host webserver's Context declaration.
 import type {} from '@deepseek-ai/dsh-host-webserver'
 import { buildZoomGuardSection } from './mobile/zoom-guard.ts'
+import { installAuthenticationOnlyAdmission } from './connection-trust.ts'
 /**
  * The schema-level default for `trustedPageAuthorities` (v0.2.2a): derive
  * from the DSH_TRUSTED_HOSTS environment — the SAME single source the
@@ -110,10 +116,14 @@ function frame(body: string[]): string {
  * inert-when-empty).
  *
  * @param trustedPageAuthorities - the operator-declared hostnames.
- * @returns the script text, or `undefined` when the list is empty (inject
- *   nothing — the feature is fully inert).
+ * @param trustAllHosts - delegate admission to native authentication without an address fence.
+ * @returns the script text, or `undefined` when declared-authorities mode
+ *   has an empty list (no page injection).
  */
-export function buildTrustScript(trustedPageAuthorities: readonly string[] | undefined): string | undefined {
+export function buildTrustScript(trustedPageAuthorities: readonly string[] | undefined, trustAllHosts = false): string | undefined {
+  if (trustAllHosts) {
+    return frame(['if(!window.__DSH_TRANSPORT__)window.__DSH_TRANSPORT__={ownsHost:true};'])
+  }
   const authorities = [...(trustedPageAuthorities ?? [])]
   if (authorities.length === 0) return undefined
   for (const entry of authorities) assertBareHostname(entry)
@@ -161,12 +171,15 @@ export function buildMobileScript(mobile: MobileConfig | undefined): string | un
  * the mobile knobs are the `dashr-mobile` row's own config.
  */
 export interface TrustConfig {
+  /** Accept every serving address after native cookie authentication, including in the browser UI. */
+  trustAllHosts?: boolean
   /** Hostnames this operator declares their own devices' pages run on. */
   trustedPageAuthorities?: readonly string[]
 }
 
 /** Row config schema (schema-level default derives from `DSH_TRUSTED_HOSTS`). */
 export const Config = z.object({
+  trustAllHosts: z.boolean().default(false),
   trustedPageAuthorities: z.array(String).default(deriveDefaultPageAuthorities(process.env.DSH_TRUSTED_HOSTS)),
 })
 
@@ -180,16 +193,21 @@ export const name = 'dashr-web-trust'
 export const inject: string[] = []
 
 /**
- * Mount the authorities-leg injection: one `webserver/index-inject` listener
- * pushing the rendered row.
+ * Mount page capabilities and, when enabled, an authentication-only admission
+ * delegate. Both registrations are owned by this plugin fiber.
  * @param ctx - host plugin context.
  * @param config - the row config.
  */
 export function apply(ctx: Context, config: TrustConfig | undefined): void {
   const authorities = config?.trustedPageAuthorities
+  if (config?.trustAllHosts) {
+    ctx.inject(['connection'], (owner) => {
+      owner.effect(() => installAuthenticationOnlyAdmission(owner.connection), 'dashr-web-trust: authentication-only admission')
+    })
+  }
   ctx.inject(['webServer'], () => {
     ctx.on('webserver/index-inject', (table) => {
-      const text = buildTrustScript(authorities)
+      const text = buildTrustScript(authorities, config?.trustAllHosts)
       if (text !== undefined) table.push({ kind: 'script', placement: 'head', text })
     })
   })

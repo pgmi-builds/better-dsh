@@ -32,6 +32,15 @@ describe('authorities leg (buildTrustScript)', () => {
     expect(other.__DSH_TRANSPORT__).toBeUndefined()
   })
 
+  it('owns arbitrary page hosts in authentication-only mode without replacing a transport', () => {
+    const text = buildTrustScript([], true)!
+    const arbitrary = runScript(text, { window: {}, location: { hostname: 'unlisted.example' } })
+    expect(arbitrary.__DSH_TRANSPORT__).toEqual({ ownsHost: true })
+    const existing = { fetch: () => Promise.resolve() }
+    const worker = runScript(text, { window: { __DSH_TRANSPORT__: existing }, location: { hostname: 'unlisted.example' } })
+    expect(worker.__DSH_TRANSPORT__).toBe(existing)
+  })
+
   it('never overwrites an existing transport (a worker shell owns one)', () => {
     const text = buildTrustScript(['a.example'])!
     const existing = { fetch: () => Promise.resolve() }
